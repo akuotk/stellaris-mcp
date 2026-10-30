@@ -12,13 +12,7 @@ import (
 )
 
 func registerEspionage(s *server.MCPServer) {
-	s.AddTool(
-		mcp.NewTool("get_espionage",
-			mcp.WithDescription("Get spy networks and raw network power, spymasters and active operation counts; infiltration conversion is not verified"),
-			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
-		),
-		handleEspionage,
-	)
+	s.AddTool(mcp.NewTool("get_espionage", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("Get saved spy network records and raw power; infiltration conversion is not verified"), mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0))), handleEspionage)
 }
 
 func handleEspionage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -26,102 +20,56 @@ func handleEspionage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 	if err != nil {
 		return toolError(err), nil
 	}
-	countryID, c, err := getCountry(gs, req)
+	id, c, err := getCountry(gs, req)
 	if err != nil {
 		return toolError(err), nil
 	}
+	return renderEspionage(gs, id, c), nil
+}
 
-	type networkEntry struct {
-		id  int
-		net gamestate.SpyNetwork
-	}
-
-	// Our networks (where we spy on others)
-	var ourNets []networkEntry
-	// Networks targeting us
-	var theirNets []networkEntry
-
-	for id, net := range gs.SpyNetworks {
-		if net.Owner == countryID {
-			ourNets = append(ourNets, networkEntry{id, net})
-		}
-		if net.Target == countryID {
-			theirNets = append(theirNets, networkEntry{id, net})
-		}
-	}
-
-	sort.Slice(ourNets, func(i, j int) bool { return ourNets[i].net.Power > ourNets[j].net.Power })
-	sort.Slice(theirNets, func(i, j int) bool { return theirNets[i].net.Power > theirNets[j].net.Power })
-
+func renderEspionage(gs *gamestate.GameState, countryID int, c *gamestate.Country) *mcp.CallToolResult {
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Espionage (%s) ===\n", name(c.Adjective))
-
-	// Our spy networks
-	fmt.Fprintf(&b, "\nOur Spy Networks (%d):\n", len(ourNets))
-	activeCount := 0
-	for _, e := range ourNets {
-		if e.net.Power > 0 || e.net.Leader != 0 {
-			activeCount++
-		}
+	ids := make([]int, 0, len(gs.SpyNetworks))
+	for id := range gs.SpyNetworks {
+		ids = append(ids, id)
 	}
-	if activeCount == 0 {
-		fmt.Fprintf(&b, "  No networks with nonzero power or leader recorded.\n")
-	}
-	for _, e := range ourNets {
-		target := countryName(gs, e.net.Target)
-		if e.net.Power == 0 && e.net.Leader == 0 {
-			continue // Skip inactive networks
-		}
-		fmt.Fprintf(&b, "\n  Target: %s (Country %d)\n", target, e.net.Target)
-		fmt.Fprintf(&b, "    Network power (raw save value; infiltration conversion unknown): %.1f\n", e.net.Power)
-
-		// Resolve spymaster
-		if e.net.Leader != 0 {
-			if ldr, ok := gs.Leaders[e.net.Leader]; ok {
-				fmt.Fprintf(&b, "    Spymaster: %s (Level %d)\n", name(ldr.Name.FullNames), ldr.Level)
-			}
-		}
-
-		if len(e.net.ActiveOperations) > 0 {
-			fmt.Fprintf(&b, "    Active Operations: %d\n", len(e.net.ActiveOperations))
-		}
-		if e.net.Formed != "" {
-			fmt.Fprintf(&b, "    Established: %s\n", e.net.Formed)
-		}
-
-	}
-
-	// Show inactive networks as a compact list
-	inactiveCount := len(ourNets) - activeCount
-	if inactiveCount > 0 {
-		fmt.Fprintf(&b, "\n  Networks without nonzero power or leader (%d): ", inactiveCount)
-		var names []string
-		for _, e := range ourNets {
-			if e.net.Power == 0 && e.net.Leader == 0 {
-				names = append(names, countryName(gs, e.net.Target))
-			}
-		}
-		fmt.Fprintf(&b, "%s\n", strings.Join(names, ", "))
-	}
-
-	// Networks targeting us
-	fmt.Fprintf(&b, "\nHostile Spy Networks Targeting Us (%d):\n", len(theirNets))
-	hostileActive := 0
-	for _, e := range theirNets {
-		if e.net.Power == 0 && e.net.Leader == 0 {
+	sort.Ints(ids)
+	count := 0
+	for _, id := range ids {
+		n := gs.SpyNetworks[id]
+		if (n.Owner == nil || *n.Owner != countryID) && (n.Target == nil || *n.Target != countryID) {
 			continue
 		}
-		hostileActive++
-		owner := countryName(gs, e.net.Owner)
-		fmt.Fprintf(&b, "  %s: network power (raw save value) %.1f", owner, e.net.Power)
-		if len(e.net.ActiveOperations) > 0 {
-			fmt.Fprintf(&b, " (%d active ops!)", len(e.net.ActiveOperations))
+		count++
+		party := func(value *int) string {
+			if value == nil {
+				return "not recorded"
+			}
+			return fmt.Sprintf("%s (ID %d)", countryName(gs, *value), *value)
 		}
-		fmt.Fprintf(&b, "\n")
+		fmt.Fprintf(&b, "\nNetwork ID %d: owner %s; target %s\n", id, party(n.Owner), party(n.Target))
+		if n.Power == nil {
+			fmt.Fprintln(&b, "  Network power: not recorded")
+		} else {
+			fmt.Fprintf(&b, "  Network power (raw save value; infiltration conversion unknown): %g\n", *n.Power)
+		}
+		if n.Leader != nil {
+			if leader, ok := gs.Leaders[*n.Leader]; ok {
+				fmt.Fprintf(&b, "  Leader: %s (ID %d)\n", name(leader.Name.FullNames), *n.Leader)
+			} else {
+				fmt.Fprintf(&b, "  Leader ID: %d (identity unavailable)\n", *n.Leader)
+			}
+		}
+		if n.Formed != "" {
+			fmt.Fprintf(&b, "  Formed: %s\n", n.Formed)
+		}
+		if len(n.ActiveOperations) > 0 {
+			fmt.Fprintf(&b, "  Recorded operation IDs: %v\n", n.ActiveOperations)
+		}
 	}
-	if hostileActive == 0 {
-		fmt.Fprintf(&b, "  No hostile networks with nonzero power or leader recorded.\n")
+	if count == 0 {
+		fmt.Fprintln(&b, "No matching network records.")
 	}
-
-	return mcp.NewToolResultText(b.String()), nil
+	return mcp.NewToolResultText(b.String())
 }

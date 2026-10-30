@@ -13,7 +13,7 @@ import (
 
 func registerLeaders(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_leaders",
+		mcp.NewTool("get_leaders", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("List leaders with class, assignment, level, traits. Pass leader_id for full detail."),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 			mcp.WithNumber("leader_id", mcp.Description("Leader ID for detailed view (omit for summary)"), mcp.DefaultNumber(-1)),

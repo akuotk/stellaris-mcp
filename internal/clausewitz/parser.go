@@ -77,6 +77,9 @@ func (p *parser) parseValue() (Value, error) {
 		p.lex.next()
 		return Value{Scalar: tok.value}, nil
 	default:
+		if tok.kind == tokenInvalid {
+			return Value{}, fmt.Errorf("line %d: %s", tok.line, tok.value)
+		}
 		return Value{}, fmt.Errorf("line %d: expected value", tok.line)
 	}
 }

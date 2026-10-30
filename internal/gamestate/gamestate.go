@@ -20,6 +20,8 @@ type GameState struct {
 	Situations     SituationStore         `clausewitz:"situations"`
 	Megastructures map[int]Megastructure  `clausewitz:"megastructures"`
 	Systems        map[int]GalacticSystem `clausewitz:"galactic_object"`
+	Community      *GalacticCommunity     `clausewitz:"galactic_community"`
+	Resolutions    map[int]Resolution     `clausewitz:"resolution"`
 	Version        string                 `clausewitz:"version"`
 	Name           string                 `clausewitz:"name"`
 	Date           string                 `clausewitz:"date"`
@@ -46,12 +48,12 @@ type Building struct {
 }
 
 type SpyNetwork struct {
-	Owner            int     `clausewitz:"owner"`
-	Target           int     `clausewitz:"target"`
-	Leader           int     `clausewitz:"leader"`
-	Power            float64 `clausewitz:"power"`
-	ActiveOperations []int   `clausewitz:"active_operations"`
-	Formed           string  `clausewitz:"formed"`
+	Owner            *int     `clausewitz:"owner"`
+	Target           *int     `clausewitz:"target"`
+	Leader           *int     `clausewitz:"leader"`
+	Power            *float64 `clausewitz:"power"`
+	ActiveOperations []int    `clausewitz:"active_operations"`
+	Formed           string   `clausewitz:"formed"`
 }
 
 type PopJob struct {
@@ -113,7 +115,7 @@ type FederationProgression struct {
 // LoadFromDir finds the most recent .sav file in dir,
 // extracts the "gamestate" file from the ZIP, and parses it.
 func LoadFromDir(dir string) (*GameState, error) {
-	savPath, err := findLatestSave(dir)
+	savPath, err := FindLatestSave(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -139,22 +141,24 @@ func Load(data []byte) (*GameState, error) {
 	return &gs, nil
 }
 
-func findLatestSave(dir string) (string, error) {
+// FindLatestSave selects by modification time, with a deterministic path tie-break.
+// It reports inaccessible directories instead of silently selecting an older save.
+func FindLatestSave(dir string) (string, error) {
 	var newest string
 	var newestTime int64
 
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil // skip unreadable dirs
+			return err
 		}
-		if d.IsDir() || !strings.HasSuffix(d.Name(), ".sav") {
+		if d.IsDir() || !strings.EqualFold(filepath.Ext(d.Name()), ".sav") {
 			return nil
 		}
 		info, err := d.Info()
 		if err != nil {
-			return nil
+			return err
 		}
-		if t := info.ModTime().UnixNano(); t > newestTime {
+		if t := info.ModTime().UnixNano(); newest == "" || t > newestTime || t == newestTime && path < newest {
 			newestTime = t
 			newest = path
 		}

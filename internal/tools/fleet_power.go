@@ -12,7 +12,7 @@ import (
 
 func registerFleetPower(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_fleet_power",
+		mcp.NewTool("get_fleet_power", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("List fleets with power (summary). Pass fleet_id for ship-level detail with weapons and HP."),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 			mcp.WithNumber("fleet_id", mcp.Description("Fleet ID for detailed view (omit for summary)"), mcp.DefaultNumber(-1)),

@@ -3,12 +3,13 @@ package clausewitz
 type tokenKind int
 
 const (
-	tokenEOF    tokenKind = iota
-	tokenEquals           // =
-	tokenLBrace           // {
-	tokenRBrace           // }
-	tokenIdent            // unquoted word, number, date, etc.
-	tokenString           // "quoted string"
+	tokenEOF     tokenKind = iota
+	tokenEquals            // =
+	tokenLBrace            // {
+	tokenRBrace            // }
+	tokenIdent             // unquoted word, number, date, etc.
+	tokenString            // "quoted string"
+	tokenInvalid           // malformed token
 )
 
 type token struct {
@@ -120,7 +121,7 @@ func (l *lexer) scanString() token {
 		buf = append(buf, ch)
 		l.pos++
 	}
-	return token{kind: tokenString, value: string(buf), line: line}
+	return token{kind: tokenInvalid, value: "unterminated quoted string", line: line}
 }
 
 func (l *lexer) scanIdent() token {

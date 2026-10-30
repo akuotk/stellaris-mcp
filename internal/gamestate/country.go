@@ -1,5 +1,12 @@
 package gamestate
 
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
+)
+
 type Country struct {
 	Name             LocalizedName    `clausewitz:"name"`
 	Adjective        LocalizedName    `clausewitz:"adjective"`
@@ -41,16 +48,48 @@ type Government struct {
 }
 
 type TechStatus struct {
-	Technology       []string         `clausewitz:"technology"`
-	PhysicsQueue     []ResearchItem   `clausewitz:"physics_queue"`
-	SocietyQueue     []ResearchItem   `clausewitz:"society_queue"`
-	EngineeringQueue []ResearchItem   `clausewitz:"engineering_queue"`
-	Alternatives     TechAlternatives `clausewitz:"alternatives"`
+	Technology       []string           `clausewitz:"technology"`
+	CompletedLevels  []*int             `clausewitz:"-"`
+	PhysicsQueue     []ResearchItem     `clausewitz:"physics_queue"`
+	SocietyQueue     []ResearchItem     `clausewitz:"society_queue"`
+	EngineeringQueue []ResearchItem     `clausewitz:"engineering_queue"`
+	Alternatives     TechAlternatives   `clausewitz:"alternatives"`
+	StoredForTech    map[string]float64 `clausewitz:"stored_techpoints_for_tech"`
+	StoredPoints     []float64          `clausewitz:"stored_techpoints"`
+	AlwaysAvailable  []string           `clausewitz:"always_available_tech"`
+	LastIncreased    string             `clausewitz:"last_increased_tech"`
+}
+
+// UnmarshalClausewitz pairs a technology only with its immediately following level.
+func (t *TechStatus) UnmarshalClausewitz(v clausewitz.Value) error {
+	type plain TechStatus
+	var p plain
+	if err := clausewitz.DecodeValue(v, &p); err != nil {
+		return err
+	}
+	if !v.IsObject() {
+		return fmt.Errorf("tech_status is not an object")
+	}
+	for i, pair := range v.Object.Pairs {
+		if pair.Key != "technology" {
+			continue
+		}
+		var level *int
+		if i+1 < len(v.Object.Pairs) && v.Object.Pairs[i+1].Key == "level" && v.Object.Pairs[i+1].Value.IsScalar() {
+			if n, err := strconv.Atoi(v.Object.Pairs[i+1].Value.Scalar); err == nil {
+				level = &n
+			}
+		}
+		p.CompletedLevels = append(p.CompletedLevels, level)
+	}
+	*t = TechStatus(p)
+	return nil
 }
 
 type ResearchItem struct {
 	Technology string  `clausewitz:"technology"`
 	Progress   float64 `clausewitz:"progress"`
+	Date       string  `clausewitz:"date"`
 }
 
 type TechAlternatives struct {

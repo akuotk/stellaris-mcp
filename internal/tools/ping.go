@@ -9,7 +9,7 @@ import (
 
 func registerPing(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("ping",
+		mcp.NewTool("ping", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Verify that the Stellaris MCP server is running"),
 		),
 		handlePing,

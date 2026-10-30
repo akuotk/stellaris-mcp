@@ -15,4 +15,9 @@ func TestResolveNameWithNestedVariables(t *testing.T) {
 	if got := l.ResolveName(planet); got != "Alpha III" {
 		t.Fatalf("got %q", got)
 	}
+	l.entries["incomplete"] = "$known$ / $missing$"
+	l.entries["known"] = "Known"
+	if got := l.ResolveName(LocalizedName{Key: "incomplete"}); got != "Known / $missing$" {
+		t.Fatalf("unresolved placeholder lost: %q", got)
+	}
 }

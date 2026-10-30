@@ -12,7 +12,7 @@ import (
 
 func registerEconomyBreakdown(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_economy_breakdown",
+		mcp.NewTool("get_economy_breakdown", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Get detailed income and expenses breakdown by category"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 		),

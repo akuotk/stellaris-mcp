@@ -12,7 +12,7 @@ import (
 )
 
 func registerEmpireAssets(s *server.MCPServer) {
-	s.AddTool(mcp.NewTool("get_empire_assets", mcp.WithDescription("List this country's saved agreements, situations and megastructures; values not interpreted are labeled raw"), mcp.WithNumber("country_id", mcp.Description("Country ID (default 0)"), mcp.DefaultNumber(0))), handleEmpireAssets)
+	s.AddTool(mcp.NewTool("get_empire_assets", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("List this country's saved agreements, situations and megastructures; values not interpreted are labeled raw"), mcp.WithNumber("country_id", mcp.Description("Country ID (default 0)"), mcp.DefaultNumber(0))), handleEmpireAssets)
 }
 
 func handleEmpireAssets(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

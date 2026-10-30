@@ -6,6 +6,10 @@ The military-class total only includes fleets whose `ship_class` is `shipclass_m
 
 The `get_empire_assets` tool lists saved agreements, situations and megastructures matching the selected country. Agreement owner/target roles and situation progress are shown as stored, without inferring their in-game meaning. The tool does not attempt to reconstruct all diplomacy, situation mechanics, or unrecorded game state.
 
+`get_galactic_community` links the community's member and resolution IDs to the saved country and resolution records. `get_research_status` shows a completed technology level only when the corresponding `level` immediately follows that technology in the saved record; other levels are labeled unavailable. Stored research values are reported as saved.
+
+For data not yet interpreted by a specific tool, `inspect_save_archive`, `read_save_tree`, `search_save_tree` and `read_save_scalar` navigate entries in the latest save using positional paths and a required archive revision. The semantic tree normalizes the input and may not represent every possible Clausewitz syntax. `read_save_bytes` returns bounded base64-encoded raw bytes from ZIP entries or the ZIP container itself, including syntax the parser does not understand. These tools read locally and do not make network requests; clients receive requested data and may have their own data-handling behavior. Do not upload saves to external services.
+
 Limitations: non-planet carriers such as Nomad Arkships are not yet resolved as colonies; complex name templates, federations, agreement terms and espionage require further work. Political faction support and approval are shown as saved, without unit conversion. A missing naval capacity is reported as unavailable. Do not assume every value is complete or that this covers all versions, DLCs, or modded saves.
 
 Run `go test ./...` for synthetic tests. To additionally test a local save without modifying it, set `STELLARIS_TEST_SAVE` to an absolute `.sav` path before running `go test -v ./internal/gamestate`. Never commit or upload save files or personal save data.

@@ -29,9 +29,44 @@ func (l *Localizer) ResolveName(n LocalizedName) string {
 			value = strings.ReplaceAll(value, "$"+v.Key+"$", v.Value.Key)
 			value = strings.ReplaceAll(value, "%"+strings.ToUpper(v.Key)+"%", v.Value.Key)
 		}
-		return stripMarkup(l.resolveRefs(value))
+		return stripMarkup(l.resolveNameRefs(value))
 	}
 	return copyName.Display()
+}
+
+// Keep unknown placeholders visible instead of silently inventing a name.
+func (l *Localizer) resolveNameRefs(s string) string {
+	for pass := 0; pass < 5; pass++ {
+		var out strings.Builder
+		changed := false
+		for pos := 0; pos < len(s); {
+			start := strings.IndexByte(s[pos:], '$')
+			if start < 0 {
+				out.WriteString(s[pos:])
+				break
+			}
+			start += pos
+			end := strings.IndexByte(s[start+1:], '$')
+			if end < 0 {
+				out.WriteString(s[pos:])
+				break
+			}
+			end += start + 1
+			out.WriteString(s[pos:start])
+			if v, ok := l.entries[s[start+1:end]]; ok {
+				out.WriteString(v)
+				changed = true
+			} else {
+				out.WriteString(s[start : end+1])
+			}
+			pos = end + 1
+		}
+		s = out.String()
+		if !changed {
+			break
+		}
+	}
+	return s
 }
 
 // Display resolves the name to a human-readable string.

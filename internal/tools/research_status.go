@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -12,7 +13,7 @@ import (
 
 func registerResearchStatus(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_research_status",
+		mcp.NewTool("get_research_status", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Get current research, available options, and completed technologies"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 		),
@@ -45,8 +46,32 @@ func handleResearchStatus(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	writeAlternatives(&b, "Engineering", ts.Alternatives.Engineering)
 
 	fmt.Fprintf(&b, "\nCompleted Technologies (%d):\n", len(ts.Technology))
-	for _, t := range ts.Technology {
-		fmt.Fprintf(&b, "  - %s\n", l(t))
+	for i, t := range ts.Technology {
+		level := "level not recorded or not paired"
+		if i < len(ts.CompletedLevels) && ts.CompletedLevels[i] != nil {
+			level = fmt.Sprintf("level %d", *ts.CompletedLevels[i])
+		}
+		fmt.Fprintf(&b, "  - %s [%s] (%s)\n", l(t), t, level)
+	}
+	if len(ts.StoredPoints) > 0 {
+		fmt.Fprintf(&b, "\nStored research points (raw saved sequence): %v\n", ts.StoredPoints)
+	}
+	if len(ts.StoredForTech) > 0 {
+		fmt.Fprintln(&b, "\nStored points for individual technologies (raw save values):")
+		keys := make([]string, 0, len(ts.StoredForTech))
+		for k := range ts.StoredForTech {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			fmt.Fprintf(&b, "  %s [%s]: %g\n", l(key), key, ts.StoredForTech[key])
+		}
+	}
+	if len(ts.AlwaysAvailable) > 0 {
+		fmt.Fprintf(&b, "\nAlways-available technology keys (as saved): %s\n", strings.Join(ts.AlwaysAvailable, ", "))
+	}
+	if ts.LastIncreased != "" {
+		fmt.Fprintf(&b, "Last increased technology: %s [%s]\n", l(ts.LastIncreased), ts.LastIncreased)
 	}
 
 	return mcp.NewToolResultText(b.String()), nil
@@ -58,7 +83,11 @@ func writeQueue(b *strings.Builder, label string, queue []gamestate.ResearchItem
 		return
 	}
 	for _, r := range queue {
-		fmt.Fprintf(b, "  %s: %s (progress: %.1f)\n", label, l(r.Technology), r.Progress)
+		fmt.Fprintf(b, "  %s: %s [%s] (progress: %.1f", label, l(r.Technology), r.Technology, r.Progress)
+		if r.Date != "" {
+			fmt.Fprintf(b, ", saved date: %s", r.Date)
+		}
+		fmt.Fprintln(b, ")")
 	}
 }
 
@@ -67,5 +96,9 @@ func writeAlternatives(b *strings.Builder, label string, alts []string) {
 		fmt.Fprintf(b, "  %s: (none)\n", label)
 		return
 	}
-	fmt.Fprintf(b, "  %s: %s\n", label, strings.Join(ll(alts), ", "))
+	options := make([]string, 0, len(alts))
+	for _, key := range alts {
+		options = append(options, fmt.Sprintf("%s [%s]", l(key), key))
+	}
+	fmt.Fprintf(b, "  %s: %s\n", label, strings.Join(options, ", "))
 }

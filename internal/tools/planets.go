@@ -13,7 +13,7 @@ import (
 
 func registerPlanets(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_planets",
+		mcp.NewTool("get_planets", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("List owned planets (summary). Use available=true to list uncolonized habitable planets surveyed by this empire. Pass planet_id for full details."),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 			mcp.WithNumber("planet_id", mcp.Description("Planet ID for detailed view (omit for summary list)"), mcp.DefaultNumber(-1)),
@@ -108,9 +108,14 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 	fmt.Fprintf(&b, "Class: %s, Size: %d\n", l(p.PlanetClass), p.PlanetSize)
 	fmt.Fprintf(&b, "Designation: %s (Ascension Tier %d)\n", l(p.FinalDesignation), p.AscensionTier)
 	if p.OwnerID != nil {
-		fmt.Fprintf(&b, "Owner: %d, Controller: %d\n", *p.OwnerID, p.Controller)
+		fmt.Fprintf(&b, "Owner: %d\n", *p.OwnerID)
 	} else {
 		fmt.Fprintf(&b, "Owner: none\n")
+	}
+	if p.ControllerID != nil {
+		fmt.Fprintf(&b, "Controller: %d\n", *p.ControllerID)
+	} else {
+		fmt.Fprintln(&b, "Controller: not recorded")
 	}
 	fmt.Fprintf(&b, "\nPopulation: %d (raw save units)\n", p.NumPops)
 	fmt.Fprintf(&b, "Stability: %.1f\n", p.Stability)

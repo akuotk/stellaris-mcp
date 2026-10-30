@@ -11,7 +11,7 @@ import (
 
 func registerTraditionsAscension(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_traditions_ascension",
+		mcp.NewTool("get_traditions_ascension", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Get adopted traditions and ascension perks"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 		),

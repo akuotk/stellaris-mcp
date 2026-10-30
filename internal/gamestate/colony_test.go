@@ -37,7 +37,7 @@ func TestLoadColonyPopulationAndZeroID(t *testing.T) {
 		t.Fatal("planet identity lost")
 	}
 	empty := gs.Planets.Planet[4]
-	if empty.ColonyID != nil || empty.OwnerID != nil || empty.SurveyedByID != nil || empty.NumPops != 0 {
+	if empty.ColonyID != nil || empty.OwnerID != nil || empty.ControllerID != nil || empty.SurveyedByID != nil || empty.NumPops != 0 {
 		t.Fatalf("missing values became zero IDs: %+v", empty)
 	}
 	if gs.Planets.Planet[5].NumPops != 9 {

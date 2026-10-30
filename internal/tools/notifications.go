@@ -13,7 +13,7 @@ import (
 
 func registerNotifications(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_notifications",
+		mcp.NewTool("get_notifications", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Get active wars, federations, and game status"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 		),

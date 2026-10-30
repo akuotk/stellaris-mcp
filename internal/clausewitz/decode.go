@@ -6,6 +6,18 @@ import (
 	"strconv"
 )
 
+// ValueUnmarshaler handles fields whose meaning depends on the order of pairs.
+type ValueUnmarshaler interface{ UnmarshalClausewitz(Value) error }
+
+// DecodeValue decodes a parsed value into a non-nil pointer.
+func DecodeValue(val Value, dst any) error {
+	rv := reflect.ValueOf(dst)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return fmt.Errorf("clausewitz: DecodeValue requires a non-nil pointer")
+	}
+	return decodeValue(val, rv.Elem())
+}
+
 // Unmarshal parses Clausewitz-formatted data and stores the result
 // in the struct pointed to by v, similar to encoding/json.Unmarshal.
 //
@@ -87,6 +99,11 @@ func decodeValue(val Value, rv reflect.Value) error {
 			rv.Set(reflect.New(rv.Type().Elem()))
 		}
 		rv = rv.Elem()
+	}
+	if rv.CanAddr() {
+		if u, ok := rv.Addr().Interface().(ValueUnmarshaler); ok {
+			return u.UnmarshalClausewitz(val)
+		}
 	}
 
 	switch rv.Kind() {

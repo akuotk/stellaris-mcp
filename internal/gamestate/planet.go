@@ -10,6 +10,7 @@ type Planet struct {
 	PlanetSize       int                `clausewitz:"planet_size"`
 	Owner            int                `clausewitz:"owner"`
 	Controller       int                `clausewitz:"controller"`
+	ControllerID     *int               `clausewitz:"controller"`
 	Stability        float64            `clausewitz:"stability"`
 	Crime            float64            `clausewitz:"crime"`
 	Amenities        float64            `clausewitz:"amenities"`

@@ -11,7 +11,7 @@ import (
 
 func registerEmpireOverview(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_empire_overview",
+		mcp.NewTool("get_empire_overview", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Get empire overview: ethics, civics, government, resources, pops, power ratings"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 		),
