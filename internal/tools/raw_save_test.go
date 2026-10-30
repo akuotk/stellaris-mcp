@@ -33,7 +33,7 @@ func TestRawParserLocalCatalogCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, failed, missing := 0, 0, 0
+	parsed, failed, missing, invalidRanges := 0, 0, 0, 0
 	for _, save := range files {
 		z, err := zip.OpenReader(save.Path)
 		if err != nil {
@@ -59,10 +59,14 @@ func TestRawParserLocalCatalogCoverage(t *testing.T) {
 				failed++
 				continue
 			}
-			if _, err := clausewitz.ParseRaw(context.Background(), data); err != nil {
+			root, err := clausewitz.ParseRaw(context.Background(), data)
+			if err != nil {
 				failed++
 			} else {
 				parsed++
+				if !rawSourceRangesValid(root, data) {
+					invalidRanges++
+				}
 			}
 		}
 		z.Close()
@@ -70,10 +74,42 @@ func TestRawParserLocalCatalogCoverage(t *testing.T) {
 			missing++
 		}
 	}
-	t.Logf("local raw parser: %d saves, %d gamestate/meta entries parsed, %d entry errors, %d saves without gamestate", len(files), parsed, failed, missing)
+	t.Logf("local raw parser: %d saves, %d gamestate/meta entries parsed, %d entry errors, %d saves without gamestate, %d invalid source-range trees", len(files), parsed, failed, missing, invalidRanges)
 	if parsed == 0 {
 		t.Fatal("no local save entries parsed")
 	}
+	if invalidRanges > 0 {
+		t.Fatal("raw tree source ranges violated their invariants")
+	}
+}
+
+func rawSourceRangesValid(root *clausewitz.RawNode, data []byte) bool {
+	if root.Start != 0 || root.End != len(data) {
+		return false
+	}
+	stack := []*clausewitz.RawNode{root}
+	for len(stack) > 0 {
+		n := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if n.EntryStart < 0 || n.Start < n.EntryStart || n.End < n.Start || n.End > len(data) {
+			return false
+		}
+		if n.Key != nil && (n.Key.Start != n.EntryStart || n.Key.End > n.Start || n.Key.Start > n.Key.End) {
+			return false
+		}
+		if n.Scalar != nil && (n.Scalar.Start != n.Start || n.Scalar.End != n.End || n.Scalar.Quoted && (n.End-n.Start < 2 || data[n.Start] != '"' || data[n.End-1] != '"')) {
+			return false
+		}
+		last := n.Start
+		for _, child := range n.Children {
+			if child.EntryStart < last || child.End > n.End {
+				return false
+			}
+			last = child.End
+			stack = append(stack, child)
+		}
+	}
+	return true
 }
 
 func writeSyntheticSave(t *testing.T, path string, entries []syntheticEntry) {
