@@ -24,15 +24,15 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	if err != nil {
 		return toolError(err), nil
 	}
-	_, c, err := getCountry(gs, req)
+	countryID, c, err := getCountry(gs, req)
 	if err != nil {
 		return toolError(err), nil
 	}
 
-	// Count owned planets using the country's owned_planets list
+	// In 4.5 owned_planets contains colony IDs; ownership is explicit on planets.
 	planetCount := 0
-	for _, pid := range c.OwnedPlanets {
-		if p, ok := gs.Planets.Planet[pid]; ok && isColonized(p) {
+	for _, p := range gs.Planets.Planet {
+		if p.OwnerID != nil && *p.OwnerID == countryID && isColonized(p) {
 			planetCount++
 		}
 	}
@@ -45,13 +45,18 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 		}
 	}
 
+	ethics := c.Ethos.Ethics
+	if len(ethics) == 0 {
+		ethics = c.Ethos.Ethic
+	}
+
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Empire Overview (%s) ===\n", gs.Date)
 	fmt.Fprintf(&b, "Game: %s (version %s)\n\n", gs.Name, gs.Version)
 	fmt.Fprintf(&b, "Name: %s\n", c.Adjective.Display())
 	fmt.Fprintf(&b, "Government: %s (%s)\n", l(c.Government.Type), l(c.Government.Authority))
 	fmt.Fprintf(&b, "Origin: %s\n", l(c.Government.Origin))
-	fmt.Fprintf(&b, "Ethics: %s\n", strings.Join(ll(c.Ethos.Ethic), ", "))
+	fmt.Fprintf(&b, "Ethics: %s\n", strings.Join(ll(ethics), ", "))
 	fmt.Fprintf(&b, "Civics: %s\n", strings.Join(ll(c.Government.Civics), ", "))
 	fmt.Fprintf(&b, "\nPower Ratings:\n")
 	fmt.Fprintf(&b, "  Military: %.1f\n", c.MilitaryPower)
@@ -59,9 +64,9 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	fmt.Fprintf(&b, "  Tech:     %.1f\n", c.TechPower)
 	fmt.Fprintf(&b, "  Victory Rank: %d\n", c.VictoryRank)
 	fmt.Fprintf(&b, "\nEmpire Stats:\n")
-	fmt.Fprintf(&b, "  Pops: %d\n", c.NumPops)
+	fmt.Fprintf(&b, "  Population (raw save units): %d\n", c.NumPops)
 	fmt.Fprintf(&b, "  Planets: %d\n", planetCount)
-	fmt.Fprintf(&b, "  Fleet Size: %.0f (Naval Cap: %.0f / %.0f)\n", c.FleetSize, c.UsedNavalCap, c.NavalCap)
+	fmt.Fprintf(&b, "  Fleet Size: %.0f (Naval Cap: %s)\n", c.FleetSize, formatNavalCapacity(c))
 	fmt.Fprintf(&b, "  Starbases: %d capacity\n", c.StarbaseCap)
 	fmt.Fprintf(&b, "  Empire Size: %d\n", c.EmpireSize)
 	fmt.Fprintf(&b, "\nMonthly Net Balance:\n  %s\n", formatResources(netBalance))

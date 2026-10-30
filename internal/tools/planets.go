@@ -48,13 +48,9 @@ func planetSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 		id int
 		p  gamestate.Planet
 	}
-	ownedSet := make(map[int]bool, len(c.OwnedPlanets))
-	for _, pid := range c.OwnedPlanets {
-		ownedSet[pid] = true
-	}
 	var owned []entry
 	for id, p := range gs.Planets.Planet {
-		if ownedSet[id] && isColonized(p) {
+		if p.OwnerID != nil && *p.OwnerID == countryID && isColonized(p) {
 			owned = append(owned, entry{id, p})
 		}
 	}
@@ -63,7 +59,7 @@ func planetSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Planets (%s) — %d planets ===\n", c.Adjective.Display(), len(owned))
 	fmt.Fprintf(&b, "Use get_planets with planet_id for details.\n\n")
-	fmt.Fprintf(&b, "%-6s %-25s %-16s %4s %5s %5s %-12s %-20s %-30s %s\n", "ID", "Name", "Class", "Size", "Pops", "Stab", "Design.", "Districts", "Buildings", "Deficit")
+	fmt.Fprintf(&b, "%-6s %-25s %-16s %4s %5s %5s %-12s %-20s %-30s %s\n", "ID", "Name", "Class", "Size", "Pop(raw)", "Stab", "Design.", "Districts", "Buildings", "Deficit")
 	fmt.Fprintf(&b, "%s\n", strings.Repeat("-", 160))
 
 	for _, e := range owned {
@@ -98,19 +94,34 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 	fmt.Fprintf(&b, "=== Planet %d: %s ===\n", planetID, p.Name.Display())
 	fmt.Fprintf(&b, "Class: %s, Size: %d\n", l(p.PlanetClass), p.PlanetSize)
 	fmt.Fprintf(&b, "Designation: %s (Ascension Tier %d)\n", l(p.FinalDesignation), p.AscensionTier)
-	fmt.Fprintf(&b, "Owner: %d, Controller: %d\n", p.Owner, p.Controller)
-	fmt.Fprintf(&b, "\nPopulation: %d pops\n", p.NumPops)
+	if p.OwnerID != nil {
+		fmt.Fprintf(&b, "Owner: %d, Controller: %d\n", *p.OwnerID, p.Controller)
+	} else {
+		fmt.Fprintf(&b, "Owner: none\n")
+	}
+	fmt.Fprintf(&b, "\nPopulation: %d (raw save units)\n", p.NumPops)
 	fmt.Fprintf(&b, "Stability: %.1f\n", p.Stability)
 	fmt.Fprintf(&b, "Crime: %.1f\n", p.Crime)
 	fmt.Fprintf(&b, "Amenities: %.0f (used: %.0f, free: %.0f)\n", p.Amenities, p.AmenitiesUsage, p.FreeAmenities)
 	fmt.Fprintf(&b, "Housing: %.0f (used: %.0f, free: %.0f)\n", p.TotalHousing, p.HousingUsage, p.FreeHousing)
 
+	if len(p.PopGroups) > 0 {
+		fmt.Fprintf(&b, "\nPOP groups (population and growth in raw save units; happiness/habitability as saved; group totals may differ from cached colony population):\n")
+		for _, id := range p.PopGroups {
+			group, ok := gs.PopGroups[id]
+			if !ok {
+				continue
+			}
+			fmt.Fprintf(&b, "  Group %d: species=%d category=%s population=%d growth=%+d happiness=%g habitability=%g\n", id, group.Key.Species, group.Key.Category, group.Size, group.LastMonthGrowth, group.Happiness, group.Habitability)
+		}
+	}
+
 	// Jobs breakdown
 	jobCounts := jobBreakdown(gs, planetID)
 	if len(jobCounts) > 0 {
-		fmt.Fprintf(&b, "\nJobs:\n")
+		fmt.Fprintf(&b, "\nJob workforce (raw save units):\n")
 		for _, jc := range jobCounts {
-			fmt.Fprintf(&b, "  %s: %d\n", l(jc.jobType), jc.workforce)
+			fmt.Fprintf(&b, "  %s: %g\n", l(jc.jobType), jc.workforce)
 		}
 	}
 
@@ -253,14 +264,19 @@ func districtSummary(gs *gamestate.GameState, p gamestate.Planet) string {
 
 type jobCount struct {
 	jobType   string
-	workforce int
+	workforce float64
 }
 
 func jobBreakdown(gs *gamestate.GameState, planetID int) []jobCount {
-	counts := make(map[string]int)
+	counts := make(map[string]float64)
+	// The job's planet field refers to the colony ID in 4.5 saves.
+	targetID := planetID
+	if p, ok := gs.Planets.Planet[planetID]; ok && p.ColonyID != nil {
+		targetID = *p.ColonyID
+	}
 	for _, job := range gs.PopJobs {
-		if job.Planet == planetID && job.Workforce > 0 {
-			counts[job.Type] += int(job.Workforce)
+		if job.Planet == targetID && job.Workforce > 0 {
+			counts[job.Type] += job.Workforce
 		}
 	}
 	result := make([]jobCount, 0, len(counts))
@@ -297,7 +313,7 @@ var habitableClasses = map[string]bool{
 }
 
 func isColonized(p gamestate.Planet) bool {
-	return p.NumPops > 0 || p.FinalDesignation != ""
+	return p.ColonyID != nil || p.NumPops > 0 || p.FinalDesignation != ""
 }
 
 func buildingSummary(gs *gamestate.GameState, p gamestate.Planet) string {
@@ -377,10 +393,10 @@ func planetAvailable(gs *gamestate.GameState, countryID int, c *gamestate.Countr
 			continue
 		}
 		// Skip planets owned by another empire
-		if p.Owner != 0 {
+		if p.OwnerID != nil {
 			continue
 		}
-		if p.SurveyedBy != countryID {
+		if p.SurveyedByID == nil || *p.SurveyedByID != countryID {
 			continue
 		}
 		planets = append(planets, entry{id, p, true})

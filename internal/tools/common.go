@@ -60,6 +60,13 @@ func formatResources(r map[string]float64) string {
 	return strings.Join(parts, ", ")
 }
 
+func formatNavalCapacity(c *gamestate.Country) string {
+	if c.NavalCap == nil {
+		return fmt.Sprintf("%.0f used; maximum unavailable", c.UsedNavalCap)
+	}
+	return fmt.Sprintf("%.0f / %.0f", c.UsedNavalCap, *c.NavalCap)
+}
+
 func toolError(err error) *mcp.CallToolResult {
 	return mcp.NewToolResultError(err.Error())
 }

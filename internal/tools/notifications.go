@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -44,12 +45,18 @@ func handleNotifications(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	// Wars (only show wars without an end_date)
 	fmt.Fprintf(&b, "\nActive Wars:\n")
 	activeWars := 0
-	for _, w := range gs.War {
+	warIDs := make([]int, 0, len(gs.War))
+	for id := range gs.War {
+		warIDs = append(warIDs, id)
+	}
+	sort.Ints(warIDs)
+	for _, id := range warIDs {
+		w := gs.War[id]
 		if w.EndDate != "" {
 			continue
 		}
 		activeWars++
-		fmt.Fprintf(&b, "  - %s (started %s)\n", w.Name.Display(), w.StartDate)
+		fmt.Fprintf(&b, "  - ID %d: %s (started %s)\n", id, w.Name.Display(), w.StartDate)
 	}
 	if activeWars == 0 {
 		fmt.Fprintf(&b, "  No active wars.\n")

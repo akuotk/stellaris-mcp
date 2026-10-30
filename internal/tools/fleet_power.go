@@ -43,7 +43,7 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Fleet Power (%s) ===\n", c.Adjective.Display())
 	fmt.Fprintf(&b, "Total Military Power: %.1f\n", c.MilitaryPower)
-	fmt.Fprintf(&b, "Fleet Size: %.0f (Naval Cap: %.0f / %.0f)\n", c.FleetSize, c.UsedNavalCap, c.NavalCap)
+	fmt.Fprintf(&b, "Fleet Size: %.0f (Naval Cap: %s)\n", c.FleetSize, formatNavalCapacity(c))
 	fmt.Fprintf(&b, "Use get_fleet_power with fleet_id for ship details.\n\n")
 
 	fmt.Fprintf(&b, "%-8s %-30s %-25s %8s %5s\n", "ID", "Name", "Class", "Power", "Ships")
@@ -64,12 +64,12 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 		}
 		fmt.Fprintf(&b, "%-8d %-30s %-25s %8.1f %5d\n",
 			of.Fleet, truncate(fleet.Name.Display(), 30), role, fleet.MilitaryPower, len(fleet.Ships))
-		if !fleet.Station && !fleet.Civilian {
+		if fleet.ShipClass == "shipclass_military" {
 			milPower += fleet.MilitaryPower
 		}
 	}
 
-	fmt.Fprintf(&b, "\nMilitary Fleet Power (excl. stations/civilian): %.1f\n", milPower)
+	fmt.Fprintf(&b, "\nMilitary-class fleet power: %.1f\n", milPower)
 
 	// Comparison
 	fmt.Fprintf(&b, "\nComparison with Known Empires:\n")
@@ -135,15 +135,17 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 		if design != nil && len(design.GrowthStages) > 0 {
 			stage := design.GrowthStages[0]
 			var weapons, utilities, aux []string
-			for _, comp := range stage.Section.Component {
-				name := l(comp.Template)
-				switch {
-				case strings.Contains(comp.Slot, "GUN") || strings.Contains(comp.Slot, "TORPEDO") || strings.Contains(comp.Slot, "HANGAR") || strings.Contains(comp.Slot, "STRIKE"):
-					weapons = append(weapons, name)
-				case strings.Contains(comp.Slot, "AUX"):
-					aux = append(aux, name)
-				default:
-					utilities = append(utilities, name)
+			for _, section := range stage.Sections {
+				for _, comp := range section.Component {
+					name := l(comp.Template)
+					switch {
+					case strings.Contains(comp.Slot, "GUN") || strings.Contains(comp.Slot, "TORPEDO") || strings.Contains(comp.Slot, "HANGAR") || strings.Contains(comp.Slot, "STRIKE"):
+						weapons = append(weapons, name)
+					case strings.Contains(comp.Slot, "AUX"):
+						aux = append(aux, name)
+					default:
+						utilities = append(utilities, name)
+					}
 				}
 			}
 			var required []string

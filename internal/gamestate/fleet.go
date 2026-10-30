@@ -43,9 +43,9 @@ type ShipDesign struct {
 }
 
 type ShipGrowthStage struct {
-	ShipSize          string             `clausewitz:"ship_size"`
-	Section           DesignSection      `clausewitz:"section"`
-	RequiredComponent []string           `clausewitz:"required_component"`
+	ShipSize          string          `clausewitz:"ship_size"`
+	Sections          []DesignSection `clausewitz:"section"`
+	RequiredComponent []string        `clausewitz:"required_component"`
 }
 
 type DesignSection struct {

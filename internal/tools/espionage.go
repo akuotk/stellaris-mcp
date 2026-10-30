@@ -14,7 +14,7 @@ import (
 func registerEspionage(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("get_espionage",
-			mcp.WithDescription("Get spy networks: infiltration level, spymaster, active operations for each target empire"),
+			mcp.WithDescription("Get spy networks and raw network power, spymasters and active operation counts; infiltration conversion is not verified"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
 		),
 		handleEspionage,
@@ -65,7 +65,7 @@ func handleEspionage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		}
 	}
 	if activeCount == 0 {
-		fmt.Fprintf(&b, "  No active spy networks. Assign envoys as spymasters to begin infiltration.\n")
+		fmt.Fprintf(&b, "  No networks with nonzero power or leader recorded.\n")
 	}
 	for _, e := range ourNets {
 		target := countryName(gs, e.net.Target)
@@ -73,7 +73,7 @@ func handleEspionage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 			continue // Skip inactive networks
 		}
 		fmt.Fprintf(&b, "\n  Target: %s (Country %d)\n", target, e.net.Target)
-		fmt.Fprintf(&b, "    Infiltration: %.1f\n", e.net.Power)
+		fmt.Fprintf(&b, "    Network power (raw save value; infiltration conversion unknown): %.1f\n", e.net.Power)
 
 		// Resolve spymaster
 		if e.net.Leader != 0 {
@@ -89,14 +89,12 @@ func handleEspionage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 			fmt.Fprintf(&b, "    Established: %s\n", e.net.Formed)
 		}
 
-		// What operations are available at this infiltration level
-		writeAvailableOps(&b, e.net.Power)
 	}
 
 	// Show inactive networks as a compact list
 	inactiveCount := len(ourNets) - activeCount
 	if inactiveCount > 0 {
-		fmt.Fprintf(&b, "\n  Inactive networks (%d): ", inactiveCount)
+		fmt.Fprintf(&b, "\n  Networks without nonzero power or leader (%d): ", inactiveCount)
 		var names []string
 		for _, e := range ourNets {
 			if e.net.Power == 0 && e.net.Leader == 0 {
@@ -115,46 +113,15 @@ func handleEspionage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		}
 		hostileActive++
 		owner := countryName(gs, e.net.Owner)
-		fmt.Fprintf(&b, "  %s: infiltration %.1f", owner, e.net.Power)
+		fmt.Fprintf(&b, "  %s: network power (raw save value) %.1f", owner, e.net.Power)
 		if len(e.net.ActiveOperations) > 0 {
 			fmt.Fprintf(&b, " (%d active ops!)", len(e.net.ActiveOperations))
 		}
 		fmt.Fprintf(&b, "\n")
 	}
 	if hostileActive == 0 {
-		fmt.Fprintf(&b, "  No known hostile spy networks.\n")
+		fmt.Fprintf(&b, "  No hostile networks with nonzero power or leader recorded.\n")
 	}
 
 	return mcp.NewToolResultText(b.String()), nil
-}
-
-func writeAvailableOps(b *strings.Builder, infiltration float64) {
-	type op struct {
-		level float64
-		name  string
-	}
-	ops := []op{
-		{10, "Gather Information"},
-		{20, "Sabotage"},
-		{30, "Prepare Sleeper Cells / Acquire Asset"},
-		{40, "Steal Technology"},
-		{45, "Sabotage Starbase"},
-		{60, "Arm Privateers"},
-		{70, "Spark Diplomatic Incident"},
-		{80, "Crisis Beacon"},
-	}
-	var available, locked []string
-	for _, o := range ops {
-		if infiltration >= o.level {
-			available = append(available, fmt.Sprintf("%s (%.0f)", o.name, o.level))
-		} else {
-			locked = append(locked, fmt.Sprintf("%s (%.0f)", o.name, o.level))
-		}
-	}
-	if len(available) > 0 {
-		fmt.Fprintf(b, "    Available Ops: %s\n", strings.Join(available, ", "))
-	}
-	if len(locked) > 0 {
-		fmt.Fprintf(b, "    Next unlock: %s\n", locked[0])
-	}
 }

@@ -15,19 +15,20 @@ type Country struct {
 	TechPower        float64          `clausewitz:"tech_power"`
 	FleetSize        float64          `clausewitz:"fleet_size"`
 	UsedNavalCap     float64          `clausewitz:"used_naval_capacity"`
-	NavalCap         float64          `clausewitz:"naval_capacity"`
+	NavalCap         *float64         `clausewitz:"naval_capacity"`
 	StarbaseCap      int              `clausewitz:"starbase_capacity"`
 	NumPops          int              `clausewitz:"num_sapient_pops"`
 	EmpireSize       int              `clausewitz:"empire_size"`
 	VictoryRank      int              `clausewitz:"victory_rank"`
-	OwnedPlanets       []int            `clausewitz:"owned_planets"`
-	OwnedLeaders       []int            `clausewitz:"owned_leaders"`
+	OwnedPlanets     []int            `clausewitz:"owned_planets"`
+	OwnedLeaders     []int            `clausewitz:"owned_leaders"`
 	Traditions       []string         `clausewitz:"traditions"`
 	AscensionPerks   []string         `clausewitz:"ascension_perks"`
 }
 
 type Ethos struct {
-	Ethic []string `clausewitz:"ethic"`
+	Ethic  []string `clausewitz:"ethic"`
+	Ethics []string `clausewitz:"ethics"`
 }
 
 type Government struct {

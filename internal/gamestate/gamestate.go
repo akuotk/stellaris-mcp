@@ -12,24 +12,26 @@ import (
 )
 
 type GameState struct {
-	Version    string              `clausewitz:"version"`
-	Name       string              `clausewitz:"name"`
-	Date       string              `clausewitz:"date"`
-	Player     []Player            `clausewitz:"player"`
-	Country    map[int]Country     `clausewitz:"country"`
-	Fleet      map[int]Fleet       `clausewitz:"fleet"`
-	Ships      map[int]Ship        `clausewitz:"ships"`
-	ShipDesign map[int]ShipDesign  `clausewitz:"ship_design"`
-	Planets    PlanetsWrapper      `clausewitz:"planets"`
-	Buildings  map[int]Building    `clausewitz:"buildings"`
-	Districts  map[int]District    `clausewitz:"districts"`
-	Zones      map[int]Zone        `clausewitz:"zones"`
-	Deposit    map[int]Deposit     `clausewitz:"deposit"`
+	Colonies    map[int]Colony     `clausewitz:"colony"`
+	PopGroups   map[int]PopGroup   `clausewitz:"pop_groups"`
+	Version     string             `clausewitz:"version"`
+	Name        string             `clausewitz:"name"`
+	Date        string             `clausewitz:"date"`
+	Player      []Player           `clausewitz:"player"`
+	Country     map[int]Country    `clausewitz:"country"`
+	Fleet       map[int]Fleet      `clausewitz:"fleet"`
+	Ships       map[int]Ship       `clausewitz:"ships"`
+	ShipDesign  map[int]ShipDesign `clausewitz:"ship_design"`
+	Planets     PlanetsWrapper     `clausewitz:"planets"`
+	Buildings   map[int]Building   `clausewitz:"buildings"`
+	Districts   map[int]District   `clausewitz:"districts"`
+	Zones       map[int]Zone       `clausewitz:"zones"`
+	Deposit     map[int]Deposit    `clausewitz:"deposit"`
 	SpyNetworks map[int]SpyNetwork `clausewitz:"spy_networks"`
-	PopJobs    map[int]PopJob     `clausewitz:"pop_jobs"`
-	Leaders    map[int]Leader      `clausewitz:"leaders"`
-	War        []War               `clausewitz:"war"`
-	Federation []Federation        `clausewitz:"federation"`
+	PopJobs     map[int]PopJob     `clausewitz:"pop_jobs"`
+	Leaders     map[int]Leader     `clausewitz:"leaders"`
+	War         map[int]War        `clausewitz:"war"`
+	Federation  []Federation       `clausewitz:"federation"`
 }
 
 type Building struct {
@@ -47,8 +49,8 @@ type SpyNetwork struct {
 }
 
 type PopJob struct {
-	Type      string `clausewitz:"type"`
-	Planet    int    `clausewitz:"planet"`
+	Type      string  `clausewitz:"type"`
+	Planet    int     `clausewitz:"planet"`
 	Workforce float64 `clausewitz:"workforce"`
 }
 
@@ -78,11 +80,11 @@ type PlanetsWrapper struct {
 }
 
 type War struct {
-	Name       LocalizedName `clausewitz:"name"`
-	Attackers  []WarParty    `clausewitz:"attackers"`
-	Defenders  []WarParty    `clausewitz:"defenders"`
-	StartDate  string        `clausewitz:"start_date"`
-	EndDate    string        `clausewitz:"end_date"`
+	Name      LocalizedName `clausewitz:"name"`
+	Attackers []WarParty    `clausewitz:"attackers"`
+	Defenders []WarParty    `clausewitz:"defenders"`
+	StartDate string        `clausewitz:"start_date"`
+	EndDate   string        `clausewitz:"end_date"`
 }
 
 type WarParty struct {
@@ -127,6 +129,7 @@ func Load(data []byte) (*GameState, error) {
 	if err := clausewitz.Unmarshal(data, &gs); err != nil {
 		return nil, fmt.Errorf("parse gamestate: %w", err)
 	}
+	gs.resolveColonies()
 	return &gs, nil
 }
 

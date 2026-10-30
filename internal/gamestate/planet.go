@@ -1,6 +1,10 @@
 package gamestate
 
 type Planet struct {
+	ColonyID         *int               `clausewitz:"colony"`
+	OwnerID          *int               `clausewitz:"owner"`
+	SurveyedByID     *int               `clausewitz:"surveyed_by"`
+	PopGroups        []int              `clausewitz:"pop_groups"`
 	Name             LocalizedName      `clausewitz:"name"`
 	PlanetClass      string             `clausewitz:"planet_class"`
 	PlanetSize       int                `clausewitz:"planet_size"`
