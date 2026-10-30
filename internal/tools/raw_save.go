@@ -62,11 +62,11 @@ func openRawSave(dir string, selection ...string) (*rawSaveArchive, error) {
 	if len(selection) > 0 {
 		id = selection[0]
 	}
-	latest, err := gamestate.FindSaveByID(dir, id)
+	selected, err := gamestate.ResolveSaveByID(dir, id)
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(latest)
+	data, err := os.ReadFile(selected.Path)
 	if err != nil {
 		return nil, fmt.Errorf("read selected save: %w", err)
 	}
@@ -75,7 +75,7 @@ func openRawSave(dir string, selection ...string) (*rawSaveArchive, error) {
 		return nil, fmt.Errorf("read selected save ZIP: %w", err)
 	}
 	sum := sha256.Sum256(data)
-	return &rawSaveArchive{path: latest, saveID: id, revision: hex.EncodeToString(sum[:]), zip: archive, data: data}, nil
+	return &rawSaveArchive{path: selected.Path, saveID: selected.ID, revision: hex.EncodeToString(sum[:]), zip: archive, data: data}, nil
 }
 
 func rawJSON(v any) (*mcp.CallToolResult, error) {

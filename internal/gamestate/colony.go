@@ -29,11 +29,13 @@ type PopGroup struct {
 	Ethos    PopEthos               `clausewitz:"ethos"`
 	Factions PopFactionDistribution `clausewitz:"factions"`
 	Key      struct {
-		Species  int    `clausewitz:"species"`
-		Category string `clausewitz:"category"`
+		Species   int    `clausewitz:"species"`
+		SpeciesID *int   `clausewitz:"species"`
+		Category  string `clausewitz:"category"`
 	} `clausewitz:"key"`
 	Planet          int     `clausewitz:"planet"`
 	Size            int     `clausewitz:"size"`
+	SizeRaw         *int    `clausewitz:"size"`
 	LastMonthGrowth int     `clausewitz:"last_month_growth"`
 	Habitability    float64 `clausewitz:"habitability"`
 	Happiness       float64 `clausewitz:"happiness"`

@@ -55,22 +55,31 @@ func ListSaveFiles(dir string) ([]SaveFile, error) {
 	return files, nil
 }
 
-// FindSaveByID accepts only IDs from ListSaveFiles; an empty ID selects latest.
-func FindSaveByID(dir, id string) (string, error) {
+// ResolveSaveByID accepts only catalog IDs; an empty ID selects latest.
+func ResolveSaveByID(dir, id string) (SaveFile, error) {
 	files, err := ListSaveFiles(dir)
 	if err != nil {
-		return "", err
+		return SaveFile{}, err
 	}
 	if len(files) == 0 {
-		return "", fmt.Errorf("no .sav files found in %q", dir)
+		return SaveFile{}, fmt.Errorf("no .sav files found in %q", dir)
 	}
 	if id == "" {
-		return files[0].Path, nil
+		return files[0], nil
 	}
 	for _, f := range files {
 		if f.ID == id {
-			return f.Path, nil
+			return f, nil
 		}
 	}
-	return "", fmt.Errorf("save_id not found; call list_save_games again")
+	return SaveFile{}, fmt.Errorf("save_id not found; call list_save_games again")
+}
+
+// FindSaveByID resolves a catalog ID to its path; empty selects latest.
+func FindSaveByID(dir, id string) (string, error) {
+	file, err := ResolveSaveByID(dir, id)
+	if err != nil {
+		return "", err
+	}
+	return file.Path, nil
 }

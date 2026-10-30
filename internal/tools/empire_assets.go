@@ -44,6 +44,26 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 		}
 		count++
 		fmt.Fprintf(&b, "  ID %d: owner %s (%d), target %s (%d); status=%s, preset=%s, added=%s\n", k, countryName(gs, *a.Owner), *a.Owner, countryName(gs, *a.Target), *a.Target, a.Status, a.Terms.Preset, a.DateAdded)
+		if a.DateChanged != "" {
+			fmt.Fprintf(&b, "    date_changed=%s\n", a.DateChanged)
+		}
+		for _, field := range []struct {
+			key   string
+			value *string
+		}{
+			{"can_subject_be_integrated", a.Terms.CanIntegrate}, {"can_subject_do_diplomacy", a.Terms.CanDiplomacy}, {"can_subject_vote", a.Terms.CanVote}, {"has_access", a.Terms.HasAccess}, {"has_sensors", a.Terms.HasSensors}, {"joins_overlord_wars", a.Terms.JoinsOverlordWars}, {"calls_overlord_to_war", a.Terms.CallsOverlordToWar}, {"subject_expansion_type", a.Terms.Expansion},
+			{"specialization_level", a.Specialization.Level}, {"specialization_experience", a.Specialization.Experience}, {"conversion_progress", a.Specialization.Conversion.Progress}, {"conversion_in_progress", a.Specialization.Conversion.InProgress}, {"conversion_done", a.Specialization.Conversion.Done},
+		} {
+			if field.value != nil {
+				fmt.Fprintf(&b, "    %s=%s\n", field.key, *field.value)
+			}
+		}
+		for _, term := range a.Terms.Discrete {
+			fmt.Fprintf(&b, "    discrete_term %s=%s\n", term.Key, term.Value)
+		}
+		for _, term := range a.Terms.Resources {
+			fmt.Fprintf(&b, "    resource_term %s=%s (raw save value)\n", term.Key, term.Value)
+		}
 	}
 	if count == 0 {
 		fmt.Fprintln(&b, "  No matching records.")

@@ -172,6 +172,34 @@ func rawRevision(t *testing.T) string {
 	return rawCall(t, handleInspectSaveArchive, nil)["revision"].(string)
 }
 
+func TestRawInspectionReturnsStableLatestID(t *testing.T) {
+	dir := syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte("key=first")}})
+	old := filepath.Join(dir, "synthetic.sav")
+	timestamp := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(old, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	first := rawCall(t, handleInspectSaveArchive, nil)
+	id, ok := first["save_id"].(string)
+	if !ok || id == "" {
+		t.Fatal("latest inspection omitted its stable save ID")
+	}
+	newer := filepath.Join(dir, "newer.sav")
+	writeSyntheticSave(t, newer, []syntheticEntry{{"gamestate", []byte("key=second")}})
+	if err := os.Chtimes(newer, timestamp.Add(time.Hour), timestamp.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	page := rawCall(t, handleReadSaveScalar, map[string]any{"save_id": id, "revision": first["revision"], "path": "/0"})
+	got, err := base64.StdEncoding.DecodeString(page["data"].(string))
+	if err != nil || string(got) != "first" {
+		t.Fatalf("saved ID did not pin original save")
+	}
+	r, err := handleReadSaveScalar(context.Background(), rawRequest(map[string]any{"revision": first["revision"], "path": "/0"}))
+	if err != nil || !r.IsError {
+		t.Fatal("changed latest save was not detected")
+	}
+}
+
 func TestRawSaveExactBytesAndArchivePagination(t *testing.T) {
 	original := []byte("# synthetic comment\r\nvalue=\"日本語\\n\\\"quoted\\\"\"\r\nrepeat=one repeat=two")
 	dir := syntheticSaveDir(t, []syntheticEntry{{"gamestate", original}, {"meta", []byte("name=synthetic")}, {"../never_extracted", []byte{0, 255, 1}}})

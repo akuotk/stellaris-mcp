@@ -15,12 +15,14 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_planets available=true` | Surveyed uncolonized habitable planets with features |
 | `get_fleet_power` | Fleets with power, ship-level detail (design, HP, weapons) |
 | `get_leaders` | Leaders with class, traits, council position, assignment |
+| `get_species` | Species identities, traits and saved population references on owned planets |
 | `get_neighbors` | Known empires: opinion, trust, relative power comparison |
 | `get_traditions_ascension` | Adopted traditions and ascension perks |
 | `get_espionage` | Spy networks: infiltration, spymasters, available operations |
 | `get_notifications` | Wars, federations, players, game status |
 | `get_empire_assets` | Recorded agreements, situations and megastructures |
 | `get_galactic_community` | Members and saved proposed/passed resolutions |
+| `get_federations` | Saved federation membership, leadership, progression and laws |
 | `list_save_games` | Paginated local save catalog with stable IDs |
 | `inspect_save_archive` | Save revision and paginated ZIP entry metadata |
 | `read_save_tree` | Ordered tree navigation, including mixed entries and source offsets |
