@@ -12,3 +12,14 @@ func TestTechnologyLevelIsOnlyPairedWhenAdjacent(t *testing.T) {
 		t.Fatalf("incorrect research: %+v", ts)
 	}
 }
+
+func TestResearchPotentialPreservesDuplicatesAndUnsupportedBlocks(t *testing.T) {
+	gs, err := Load([]byte(`country={0={tech_status={potential={tech_a=1 tech_a=2 tech_nested={x=yes}} potential=none auto_researching_physics=no}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := gs.Country[0].TechStatus
+	if ts.PotentialBlocks != 2 || !ts.PotentialUnsupported || len(ts.Potential) != 3 || ts.Potential[0].Value == nil || *ts.Potential[0].Value != "1" || ts.Potential[1].Value == nil || *ts.Potential[1].Value != "2" || ts.Potential[2].Kind != "object" || ts.Potential[2].Value != nil || ts.AutoPhysics == nil || *ts.AutoPhysics != "no" {
+		t.Fatalf("potential data lost: %+v", ts)
+	}
+}

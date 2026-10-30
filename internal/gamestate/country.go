@@ -48,16 +48,28 @@ type Government struct {
 }
 
 type TechStatus struct {
-	Technology       []string           `clausewitz:"technology"`
-	CompletedLevels  []*int             `clausewitz:"-"`
-	PhysicsQueue     []ResearchItem     `clausewitz:"physics_queue"`
-	SocietyQueue     []ResearchItem     `clausewitz:"society_queue"`
-	EngineeringQueue []ResearchItem     `clausewitz:"engineering_queue"`
-	Alternatives     TechAlternatives   `clausewitz:"alternatives"`
-	StoredForTech    map[string]float64 `clausewitz:"stored_techpoints_for_tech"`
-	StoredPoints     []float64          `clausewitz:"stored_techpoints"`
-	AlwaysAvailable  []string           `clausewitz:"always_available_tech"`
-	LastIncreased    string             `clausewitz:"last_increased_tech"`
+	Technology           []string           `clausewitz:"technology"`
+	CompletedLevels      []*int             `clausewitz:"-"`
+	PhysicsQueue         []ResearchItem     `clausewitz:"physics_queue"`
+	SocietyQueue         []ResearchItem     `clausewitz:"society_queue"`
+	EngineeringQueue     []ResearchItem     `clausewitz:"engineering_queue"`
+	Alternatives         TechAlternatives   `clausewitz:"alternatives"`
+	StoredForTech        map[string]float64 `clausewitz:"stored_techpoints_for_tech"`
+	StoredPoints         []float64          `clausewitz:"stored_techpoints"`
+	AlwaysAvailable      []string           `clausewitz:"always_available_tech"`
+	LastIncreased        string             `clausewitz:"last_increased_tech"`
+	AutoPhysics          *string            `clausewitz:"auto_researching_physics"`
+	AutoSociety          *string            `clausewitz:"auto_researching_society"`
+	AutoEngineering      *string            `clausewitz:"auto_researching_engineering"`
+	Potential            []PotentialTech    `clausewitz:"-"`
+	PotentialBlocks      int                `clausewitz:"-"`
+	PotentialUnsupported bool               `clausewitz:"-"`
+}
+
+type PotentialTech struct {
+	Key   string
+	Value *string
+	Kind  string
 }
 
 // UnmarshalClausewitz pairs a technology only with its immediately following level.
@@ -71,6 +83,27 @@ func (t *TechStatus) UnmarshalClausewitz(v clausewitz.Value) error {
 		return fmt.Errorf("tech_status is not an object")
 	}
 	for i, pair := range v.Object.Pairs {
+		if pair.Key == "potential" {
+			p.PotentialBlocks++
+			if !pair.Value.IsObject() {
+				p.PotentialUnsupported = true
+				continue
+			}
+			for _, item := range pair.Value.Object.Pairs {
+				entry := PotentialTech{Key: item.Key}
+				switch {
+				case item.Value.IsScalar():
+					value := item.Value.Scalar
+					entry.Value = &value
+					entry.Kind = "scalar"
+				case item.Value.IsObject():
+					entry.Kind = "object"
+				default:
+					entry.Kind = "list"
+				}
+				p.Potential = append(p.Potential, entry)
+			}
+		}
 		if pair.Key != "technology" {
 			continue
 		}

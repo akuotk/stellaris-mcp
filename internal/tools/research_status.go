@@ -73,6 +73,17 @@ func handleResearchStatus(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	if ts.LastIncreased != "" {
 		fmt.Fprintf(&b, "Last increased technology: %s [%s]\n", l(ts.LastIncreased), ts.LastIncreased)
 	}
+	for _, entry := range []struct {
+		label string
+		value *string
+	}{{"physics", ts.AutoPhysics}, {"society", ts.AutoSociety}, {"engineering", ts.AutoEngineering}} {
+		if entry.value != nil {
+			fmt.Fprintf(&b, "Auto research %s (as saved): %s\n", entry.label, *entry.value)
+		}
+	}
+	if ts.PotentialBlocks > 0 {
+		fmt.Fprintf(&b, "Research potential records: %d; use get_research_potential for saved keys and raw values.\n", len(ts.Potential))
+	}
 
 	return mcp.NewToolResultText(b.String()), nil
 }

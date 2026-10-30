@@ -54,9 +54,10 @@ type SpyNetwork struct {
 }
 
 type PopJob struct {
-	Type      string  `clausewitz:"type"`
-	Planet    int     `clausewitz:"planet"`
-	Workforce float64 `clausewitz:"workforce"`
+	Type         string   `clausewitz:"type"`
+	Planet       int      `clausewitz:"planet"`
+	Workforce    float64  `clausewitz:"workforce"`
+	WorkforceRaw *float64 `clausewitz:"workforce"`
 }
 
 type Deposit struct {

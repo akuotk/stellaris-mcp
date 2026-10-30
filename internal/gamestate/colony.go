@@ -2,26 +2,38 @@ package gamestate
 
 // Colony stores the population and economy records separated from planets in 4.5 saves.
 type Colony struct {
-	Stability        float64            `clausewitz:"stability"`
-	Crime            float64            `clausewitz:"crime"`
-	Amenities        float64            `clausewitz:"amenities"`
-	AmenitiesUsage   float64            `clausewitz:"amenities_usage"`
-	FreeAmenities    float64            `clausewitz:"free_amenities"`
-	TotalHousing     float64            `clausewitz:"total_housing"`
-	HousingUsage     float64            `clausewitz:"housing_usage"`
-	FreeHousing      float64            `clausewitz:"free_housing"`
-	NumPops          int                `clausewitz:"num_sapient_pops"`
-	FinalDesignation string             `clausewitz:"final_designation"`
-	AscensionTier    int                `clausewitz:"ascension_tier"`
-	Districts        []int              `clausewitz:"districts"`
-	BuildingsCache   []int              `clausewitz:"buildings_cache"`
-	Produces         map[string]float64 `clausewitz:"produces"`
-	Upkeep           map[string]float64 `clausewitz:"upkeep"`
-	Profits          map[string]float64 `clausewitz:"profits"`
-	PopGroups        []int              `clausewitz:"pop_groups"`
-	Carrier          struct {
-		Type      string `clausewitz:"type"`
-		Reference int    `clausewitz:"reference"`
+	StabilityRaw      *float64           `clausewitz:"stability"`
+	CrimeRaw          *float64           `clausewitz:"crime"`
+	AmenitiesRaw      *float64           `clausewitz:"amenities"`
+	AmenitiesUsageRaw *float64           `clausewitz:"amenities_usage"`
+	FreeAmenitiesRaw  *float64           `clausewitz:"free_amenities"`
+	FreeHousingRaw    *float64           `clausewitz:"free_housing"`
+	TotalHousingRaw   *float64           `clausewitz:"total_housing"`
+	HousingUsageRaw   *float64           `clausewitz:"housing_usage"`
+	NumPopsRaw        *int               `clausewitz:"num_sapient_pops"`
+	AscensionTierRaw  *int               `clausewitz:"ascension_tier"`
+	PopJobs           []int              `clausewitz:"pop_jobs"`
+	Stability         float64            `clausewitz:"stability"`
+	Crime             float64            `clausewitz:"crime"`
+	Amenities         float64            `clausewitz:"amenities"`
+	AmenitiesUsage    float64            `clausewitz:"amenities_usage"`
+	FreeAmenities     float64            `clausewitz:"free_amenities"`
+	TotalHousing      float64            `clausewitz:"total_housing"`
+	HousingUsage      float64            `clausewitz:"housing_usage"`
+	FreeHousing       float64            `clausewitz:"free_housing"`
+	NumPops           int                `clausewitz:"num_sapient_pops"`
+	FinalDesignation  string             `clausewitz:"final_designation"`
+	AscensionTier     int                `clausewitz:"ascension_tier"`
+	Districts         []int              `clausewitz:"districts"`
+	BuildingsCache    []int              `clausewitz:"buildings_cache"`
+	Produces          map[string]float64 `clausewitz:"produces"`
+	Upkeep            map[string]float64 `clausewitz:"upkeep"`
+	Profits           map[string]float64 `clausewitz:"profits"`
+	PopGroups         []int              `clausewitz:"pop_groups"`
+	Carrier           struct {
+		Type        string `clausewitz:"type"`
+		Reference   int    `clausewitz:"reference"`
+		ReferenceID *int   `clausewitz:"reference"`
 	} `clausewitz:"carrier"`
 }
 
@@ -47,7 +59,7 @@ func (gs *GameState) resolveColonies() {
 			continue
 		}
 		c, ok := gs.Colonies[*p.ColonyID]
-		if !ok || c.Carrier.Type != "planet" || c.Carrier.Reference != id {
+		if !ok || c.Carrier.Type != "planet" || c.Carrier.ReferenceID == nil || *c.Carrier.ReferenceID != id {
 			continue
 		}
 		p.Stability = c.Stability
