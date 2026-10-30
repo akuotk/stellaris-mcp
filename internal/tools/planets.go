@@ -57,7 +57,7 @@ func planetSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 	sort.Slice(owned, func(i, j int) bool { return owned[i].id < owned[j].id })
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Planets (%s) — %d planets ===\n", c.Adjective.Display(), len(owned))
+	fmt.Fprintf(&b, "=== Planets (%s) — %d planets ===\n", name(c.Adjective), len(owned))
 	fmt.Fprintf(&b, "Use get_planets with planet_id for details.\n\n")
 	fmt.Fprintf(&b, "%-6s %-25s %-16s %4s %5s %5s %-12s %-20s %-30s %s\n", "ID", "Name", "Class", "Size", "Pop(raw)", "Stab", "Design.", "Districts", "Buildings", "Deficit")
 	fmt.Fprintf(&b, "%s\n", strings.Repeat("-", 160))
@@ -65,7 +65,7 @@ func planetSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 	for _, e := range owned {
 		fmt.Fprintf(&b, "%-6d %-25s %-16s %4d %5d %5.0f %-12s %-20s %-30s %s\n",
 			e.id,
-			truncate(e.p.Name.Display(), 25),
+			truncate(name(e.p.Name), 25),
 			l(e.p.PlanetClass),
 			e.p.PlanetSize,
 			e.p.NumPops,
@@ -91,7 +91,20 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Planet %d: %s ===\n", planetID, p.Name.Display())
+	fmt.Fprintf(&b, "=== Planet %d: %s ===\n", planetID, name(p.Name))
+	var systems []string
+	for id, system := range gs.Systems {
+		for _, candidate := range system.Planets {
+			if candidate == planetID {
+				systems = append(systems, fmt.Sprintf("%s (ID %d)", name(system.Name), id))
+				break
+			}
+		}
+	}
+	sort.Strings(systems)
+	if len(systems) > 0 {
+		fmt.Fprintf(&b, "System: %s\n", strings.Join(systems, ", "))
+	}
 	fmt.Fprintf(&b, "Class: %s, Size: %d\n", l(p.PlanetClass), p.PlanetSize)
 	fmt.Fprintf(&b, "Designation: %s (Ascension Tier %d)\n", l(p.FinalDesignation), p.AscensionTier)
 	if p.OwnerID != nil {
@@ -112,7 +125,8 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 			if !ok {
 				continue
 			}
-			fmt.Fprintf(&b, "  Group %d: species=%d category=%s population=%d growth=%+d happiness=%g habitability=%g\n", id, group.Key.Species, group.Key.Category, group.Size, group.LastMonthGrowth, group.Happiness, group.Habitability)
+			fmt.Fprintf(&b, "  Group %d: species=%s category=%s population=%d growth=%+d happiness=%g habitability=%g\n", id, populationSpecies(gs, group.Key.Species), group.Key.Category, group.Size, group.LastMonthGrowth, group.Happiness, group.Habitability)
+			writePopDistributions(&b, gs, group)
 		}
 	}
 
@@ -407,7 +421,7 @@ func planetAvailable(gs *gamestate.GameState, countryID int, c *gamestate.Countr
 	})
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Available Habitable Planets (%s) — %d planets ===\n", c.Adjective.Display(), len(planets))
+	fmt.Fprintf(&b, "=== Available Habitable Planets (%s) — %d planets ===\n", name(c.Adjective), len(planets))
 	fmt.Fprintf(&b, "Use get_planets with planet_id for details.\n\n")
 
 	fmt.Fprintf(&b, "%-6s %-25s %-18s %4s %s\n", "ID", "Name", "Class", "Size", "Features")
@@ -416,7 +430,7 @@ func planetAvailable(gs *gamestate.GameState, countryID int, c *gamestate.Countr
 	for _, e := range planets {
 		fmt.Fprintf(&b, "%-6d %-25s %-18s %4d %s\n",
 			e.id,
-			truncate(e.p.Name.Display(), 25),
+			truncate(name(e.p.Name), 25),
 			l(e.p.PlanetClass),
 			e.p.PlanetSize,
 			depositSummary(gs, e.p),

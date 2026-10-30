@@ -58,7 +58,7 @@ func leaderSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 	sort.Slice(leaders, func(i, j int) bool { return leaders[i].l.Class < leaders[j].l.Class })
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Leaders (%s) — %d leaders ===\n", c.Adjective.Display(), len(leaders))
+	fmt.Fprintf(&b, "=== Leaders (%s) — %d leaders ===\n", name(c.Adjective), len(leaders))
 	fmt.Fprintf(&b, "Use get_leaders with leader_id for full detail.\n\n")
 
 	fmt.Fprintf(&b, "%-12s %-25s %-12s %3s %3s %-20s %s\n",
@@ -73,7 +73,7 @@ func leaderSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 		}
 		fmt.Fprintf(&b, "%-12d %-25s %-12s %3d %3d %-20s %s\n",
 			e.id,
-			truncate(e.l.Name.FullNames.Display(), 25),
+			truncate(name(e.l.Name.FullNames), 25),
 			e.l.Class,
 			e.l.Level,
 			e.l.Age,
@@ -96,7 +96,7 @@ func leaderDetail(gs *gamestate.GameState, leaderID int) (*mcp.CallToolResult, e
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Leader %d: %s ===\n", leaderID, ldr.Name.FullNames.Display())
+	fmt.Fprintf(&b, "=== Leader %d: %s ===\n", leaderID, name(ldr.Name.FullNames))
 	fmt.Fprintf(&b, "Class: %s\n", ldr.Class)
 	fmt.Fprintf(&b, "Level: %d (bonus: %d)\n", ldr.Level, ldr.BonusSkillLevel)
 	fmt.Fprintf(&b, "Experience: %.1f\n", ldr.Experience)
@@ -147,14 +147,14 @@ func resolveAssignment(gs *gamestate.GameState, c *gamestate.Country, ldr gamest
 	// Fleet/ship assignment
 	if ldr.Location.Type == "ship" {
 		if fleet, ok := gs.Fleet[ldr.Location.ID]; ok {
-			return fmt.Sprintf("Fleet: %s", fleet.Name.Display())
+			return fmt.Sprintf("Fleet: %s", name(fleet.Name))
 		}
 		return fmt.Sprintf("Ship %d", ldr.Location.ID)
 	}
 	// Governor
 	if ldr.Location.Type == "planet" {
 		if p, ok := gs.Planets.Planet[ldr.Location.ID]; ok {
-			return fmt.Sprintf("Governor: %s", p.Name.Display())
+			return fmt.Sprintf("Governor: %s", name(p.Name))
 		}
 	}
 	if ldr.Job != "" {

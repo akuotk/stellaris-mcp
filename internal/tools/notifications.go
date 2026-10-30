@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -31,7 +32,7 @@ func handleNotifications(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Game Status (%s — %s) ===\n", c.Adjective.Display(), gs.Date)
+	fmt.Fprintf(&b, "=== Game Status (%s — %s) ===\n", name(c.Adjective), gs.Date)
 
 	// Players
 	fmt.Fprintf(&b, "\nPlayers:\n")
@@ -56,7 +57,20 @@ func handleNotifications(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 			continue
 		}
 		activeWars++
-		fmt.Fprintf(&b, "  - ID %d: %s (started %s)\n", id, w.Name.Display(), w.StartDate)
+		fmt.Fprintf(&b, "  - ID %d: %s (started %s)\n", id, name(w.Name), w.StartDate)
+		for _, side := range []struct {
+			label   string
+			parties []gamestate.WarParty
+		}{{"Attackers", w.Attackers}, {"Defenders", w.Defenders}} {
+			if len(side.parties) == 0 {
+				continue
+			}
+			var names []string
+			for _, p := range side.parties {
+				names = append(names, fmt.Sprintf("%s (ID %d)", countryName(gs, p.Country), p.Country))
+			}
+			fmt.Fprintf(&b, "    %s: %s\n", side.label, strings.Join(names, ", "))
+		}
 	}
 	if activeWars == 0 {
 		fmt.Fprintf(&b, "  No active wars.\n")
@@ -70,7 +84,7 @@ func handleNotifications(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	for _, f := range gs.Federation {
 		fedType := l(f.FederationProgression.FederationType)
 		fmt.Fprintf(&b, "  - %s (%s, leader: %s, %d members, cohesion: %.0f%%)\n",
-			f.Name.Display(), fedType, countryName(gs, f.Leader),
+			name(f.Name), fedType, countryName(gs, f.Leader),
 			len(f.Members), f.FederationProgression.Cohesion)
 	}
 

@@ -28,6 +28,8 @@ func ll(keys []string) []string {
 	return loc.ResolveAll(keys)
 }
 
+func name(n gamestate.LocalizedName) string { return loc.ResolveName(n) }
+
 func getCountry(gs *gamestate.GameState, req mcp.CallToolRequest) (int, *gamestate.Country, error) {
 	id := int(req.GetFloat("country_id", 0))
 	c, ok := gs.Country[id]
@@ -39,7 +41,7 @@ func getCountry(gs *gamestate.GameState, req mcp.CallToolRequest) (int, *gamesta
 
 func countryName(gs *gamestate.GameState, id int) string {
 	if c, ok := gs.Country[id]; ok {
-		return c.Adjective.Display()
+		return name(c.Adjective)
 	}
 	return fmt.Sprintf("Country %d", id)
 }

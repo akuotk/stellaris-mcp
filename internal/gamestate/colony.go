@@ -26,7 +26,9 @@ type Colony struct {
 }
 
 type PopGroup struct {
-	Key struct {
+	Ethos    PopEthos               `clausewitz:"ethos"`
+	Factions PopFactionDistribution `clausewitz:"factions"`
+	Key      struct {
 		Species  int    `clausewitz:"species"`
 		Category string `clausewitz:"category"`
 	} `clausewitz:"key"`

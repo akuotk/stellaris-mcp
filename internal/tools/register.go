@@ -19,4 +19,5 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
 	registerNotifications(s)
 	registerLeaders(s)
 	registerEspionage(s)
+	registerEmpireAssets(s)
 }

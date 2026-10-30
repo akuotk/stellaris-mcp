@@ -5,13 +5,33 @@ import "strings"
 // LocalizedName represents a Clausewitz localized string reference
 // with optional variable substitutions.
 type LocalizedName struct {
-	Key       string     `clausewitz:"key"`
-	Variables []NameVar  `clausewitz:"variables"`
+	Key       string    `clausewitz:"key"`
+	Variables []NameVar `clausewitz:"variables"`
 }
 
 type NameVar struct {
 	Key   string        `clausewitz:"key"`
 	Value LocalizedName `clausewitz:"value"`
+}
+
+// ResolveName translates known name keys and substitutes nested name variables.
+func (l *Localizer) ResolveName(n LocalizedName) string {
+	if n.Key == "" {
+		return "(unnamed)"
+	}
+	copyName := n
+	copyName.Variables = make([]NameVar, len(n.Variables))
+	for i, v := range n.Variables {
+		copyName.Variables[i] = NameVar{Key: v.Key, Value: LocalizedName{Key: l.ResolveName(v.Value)}}
+	}
+	if value, ok := l.entries[n.Key]; ok {
+		for _, v := range copyName.Variables {
+			value = strings.ReplaceAll(value, "$"+v.Key+"$", v.Value.Key)
+			value = strings.ReplaceAll(value, "%"+strings.ToUpper(v.Key)+"%", v.Value.Key)
+		}
+		return stripMarkup(l.resolveRefs(value))
+	}
+	return copyName.Display()
 }
 
 // Display resolves the name to a human-readable string.

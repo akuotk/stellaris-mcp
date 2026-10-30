@@ -54,7 +54,7 @@ func handleEspionage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 	sort.Slice(theirNets, func(i, j int) bool { return theirNets[i].net.Power > theirNets[j].net.Power })
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Espionage (%s) ===\n", c.Adjective.Display())
+	fmt.Fprintf(&b, "=== Espionage (%s) ===\n", name(c.Adjective))
 
 	// Our spy networks
 	fmt.Fprintf(&b, "\nOur Spy Networks (%d):\n", len(ourNets))
@@ -78,7 +78,7 @@ func handleEspionage(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		// Resolve spymaster
 		if e.net.Leader != 0 {
 			if ldr, ok := gs.Leaders[e.net.Leader]; ok {
-				fmt.Fprintf(&b, "    Spymaster: %s (Level %d)\n", ldr.Name.FullNames.Display(), ldr.Level)
+				fmt.Fprintf(&b, "    Spymaster: %s (Level %d)\n", name(ldr.Name.FullNames), ldr.Level)
 			}
 		}
 

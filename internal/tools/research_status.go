@@ -32,7 +32,7 @@ func handleResearchStatus(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 
 	ts := c.TechStatus
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Research Status (%s) ===\n", c.Adjective.Display())
+	fmt.Fprintf(&b, "=== Research Status (%s) ===\n", name(c.Adjective))
 
 	fmt.Fprintf(&b, "\nCurrent Research:\n")
 	writeQueue(&b, "Physics", ts.PhysicsQueue)

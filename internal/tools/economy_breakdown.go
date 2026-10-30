@@ -32,7 +32,7 @@ func handleEconomyBreakdown(_ context.Context, req mcp.CallToolRequest) (*mcp.Ca
 
 	month := c.Budget.CurrentMonth
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Economy Breakdown (%s) ===\n", c.Adjective.Display())
+	fmt.Fprintf(&b, "=== Economy Breakdown (%s) ===\n", name(c.Adjective))
 
 	// Income
 	fmt.Fprintf(&b, "\n--- INCOME ---\n")

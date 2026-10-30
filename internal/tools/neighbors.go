@@ -30,7 +30,7 @@ func handleNeighbors(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Known Empires (%s) ===\n", c.Adjective.Display())
+	fmt.Fprintf(&b, "=== Known Empires (%s) ===\n", name(c.Adjective))
 	fmt.Fprintf(&b, "Your Military Power: %.1f\n\n", c.MilitaryPower)
 
 	contacts := 0
@@ -59,7 +59,7 @@ func handleNeighbors(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 				ratio = "Pathetic"
 			}
 		}
-		fmt.Fprintf(&b, "%s (Country %d):\n", neighbor.Adjective.Display(), rel.Country)
+		fmt.Fprintf(&b, "%s (Country %d):\n", name(neighbor.Adjective), rel.Country)
 		fmt.Fprintf(&b, "  Opinion: %.0f, Trust: %.0f\n", rel.RelationCurrent, rel.Trust)
 		fmt.Fprintf(&b, "  Military: %.1f (%s)\n", neighbor.MilitaryPower, ratio)
 		fmt.Fprintf(&b, "  Economy: %.1f, Tech: %.1f\n\n", neighbor.EconomyPower, neighbor.TechPower)

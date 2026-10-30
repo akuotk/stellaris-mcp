@@ -30,7 +30,7 @@ func handleTraditionsAscension(_ context.Context, req mcp.CallToolRequest) (*mcp
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Traditions & Ascension Perks (%s) ===\n", c.Adjective.Display())
+	fmt.Fprintf(&b, "=== Traditions & Ascension Perks (%s) ===\n", name(c.Adjective))
 
 	fmt.Fprintf(&b, "\nTraditions:\n")
 	if len(c.Traditions) == 0 {

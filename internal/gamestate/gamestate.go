@@ -12,26 +12,32 @@ import (
 )
 
 type GameState struct {
-	Colonies    map[int]Colony     `clausewitz:"colony"`
-	PopGroups   map[int]PopGroup   `clausewitz:"pop_groups"`
-	Version     string             `clausewitz:"version"`
-	Name        string             `clausewitz:"name"`
-	Date        string             `clausewitz:"date"`
-	Player      []Player           `clausewitz:"player"`
-	Country     map[int]Country    `clausewitz:"country"`
-	Fleet       map[int]Fleet      `clausewitz:"fleet"`
-	Ships       map[int]Ship       `clausewitz:"ships"`
-	ShipDesign  map[int]ShipDesign `clausewitz:"ship_design"`
-	Planets     PlanetsWrapper     `clausewitz:"planets"`
-	Buildings   map[int]Building   `clausewitz:"buildings"`
-	Districts   map[int]District   `clausewitz:"districts"`
-	Zones       map[int]Zone       `clausewitz:"zones"`
-	Deposit     map[int]Deposit    `clausewitz:"deposit"`
-	SpyNetworks map[int]SpyNetwork `clausewitz:"spy_networks"`
-	PopJobs     map[int]PopJob     `clausewitz:"pop_jobs"`
-	Leaders     map[int]Leader     `clausewitz:"leaders"`
-	War         map[int]War        `clausewitz:"war"`
-	Federation  []Federation       `clausewitz:"federation"`
+	Colonies       map[int]Colony         `clausewitz:"colony"`
+	PopGroups      map[int]PopGroup       `clausewitz:"pop_groups"`
+	Species        map[int]Species        `clausewitz:"species_db"`
+	PopFactions    map[int]PopFaction     `clausewitz:"pop_factions"`
+	Agreements     AgreementStore         `clausewitz:"agreements"`
+	Situations     SituationStore         `clausewitz:"situations"`
+	Megastructures map[int]Megastructure  `clausewitz:"megastructures"`
+	Systems        map[int]GalacticSystem `clausewitz:"galactic_object"`
+	Version        string                 `clausewitz:"version"`
+	Name           string                 `clausewitz:"name"`
+	Date           string                 `clausewitz:"date"`
+	Player         []Player               `clausewitz:"player"`
+	Country        map[int]Country        `clausewitz:"country"`
+	Fleet          map[int]Fleet          `clausewitz:"fleet"`
+	Ships          map[int]Ship           `clausewitz:"ships"`
+	ShipDesign     map[int]ShipDesign     `clausewitz:"ship_design"`
+	Planets        PlanetsWrapper         `clausewitz:"planets"`
+	Buildings      map[int]Building       `clausewitz:"buildings"`
+	Districts      map[int]District       `clausewitz:"districts"`
+	Zones          map[int]Zone           `clausewitz:"zones"`
+	Deposit        map[int]Deposit        `clausewitz:"deposit"`
+	SpyNetworks    map[int]SpyNetwork     `clausewitz:"spy_networks"`
+	PopJobs        map[int]PopJob         `clausewitz:"pop_jobs"`
+	Leaders        map[int]Leader         `clausewitz:"leaders"`
+	War            map[int]War            `clausewitz:"war"`
+	Federation     []Federation           `clausewitz:"federation"`
 }
 
 type Building struct {

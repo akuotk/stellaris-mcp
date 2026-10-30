@@ -53,7 +53,7 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Empire Overview (%s) ===\n", gs.Date)
 	fmt.Fprintf(&b, "Game: %s (version %s)\n\n", gs.Name, gs.Version)
-	fmt.Fprintf(&b, "Name: %s\n", c.Adjective.Display())
+	fmt.Fprintf(&b, "Name: %s\n", name(c.Adjective))
 	fmt.Fprintf(&b, "Government: %s (%s)\n", l(c.Government.Type), l(c.Government.Authority))
 	fmt.Fprintf(&b, "Origin: %s\n", l(c.Government.Origin))
 	fmt.Fprintf(&b, "Ethics: %s\n", strings.Join(ll(ethics), ", "))
@@ -70,6 +70,8 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	fmt.Fprintf(&b, "  Starbases: %d capacity\n", c.StarbaseCap)
 	fmt.Fprintf(&b, "  Empire Size: %d\n", c.EmpireSize)
 	fmt.Fprintf(&b, "\nMonthly Net Balance:\n  %s\n", formatResources(netBalance))
+
+	writeCountryFactions(&b, gs, countryID)
 
 	return mcp.NewToolResultText(b.String()), nil
 }

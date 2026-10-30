@@ -41,7 +41,7 @@ func handleFleetPower(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 
 func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolResult, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Fleet Power (%s) ===\n", c.Adjective.Display())
+	fmt.Fprintf(&b, "=== Fleet Power (%s) ===\n", name(c.Adjective))
 	fmt.Fprintf(&b, "Total Military Power: %.1f\n", c.MilitaryPower)
 	fmt.Fprintf(&b, "Fleet Size: %.0f (Naval Cap: %s)\n", c.FleetSize, formatNavalCapacity(c))
 	fmt.Fprintf(&b, "Use get_fleet_power with fleet_id for ship details.\n\n")
@@ -63,7 +63,7 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 			role += " (civilian)"
 		}
 		fmt.Fprintf(&b, "%-8d %-30s %-25s %8.1f %5d\n",
-			of.Fleet, truncate(fleet.Name.Display(), 30), role, fleet.MilitaryPower, len(fleet.Ships))
+			of.Fleet, truncate(name(fleet.Name), 30), role, fleet.MilitaryPower, len(fleet.Ships))
 		if fleet.ShipClass == "shipclass_military" {
 			milPower += fleet.MilitaryPower
 		}
@@ -80,7 +80,7 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 		}
 		if neighbor, ok := gs.Country[rel.Country]; ok {
 			hasNeighbors = true
-			fmt.Fprintf(&b, "  %s: %.1f military power\n", neighbor.Adjective.Display(), neighbor.MilitaryPower)
+			fmt.Fprintf(&b, "  %s: %.1f military power\n", name(neighbor.Adjective), neighbor.MilitaryPower)
 		}
 	}
 	if !hasNeighbors {
@@ -97,7 +97,7 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "=== Fleet %d: %s ===\n", fleetID, fleet.Name.Display())
+	fmt.Fprintf(&b, "=== Fleet %d: %s ===\n", fleetID, name(fleet.Name))
 	fmt.Fprintf(&b, "Class: %s\n", l(fleet.ShipClass))
 	fmt.Fprintf(&b, "Military Power: %.1f\n", fleet.MilitaryPower)
 	fmt.Fprintf(&b, "Ships: %d\n", len(fleet.Ships))
@@ -119,13 +119,13 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 		var design *gamestate.ShipDesign
 		if d, ok := gs.ShipDesign[ship.ShipDesignImplementation.Design]; ok {
 			design = &d
-			designName = d.Name.Display()
+			designName = name(d.Name)
 			if len(d.GrowthStages) > 0 {
 				shipSize = d.GrowthStages[0].ShipSize
 			}
 		}
 
-		fmt.Fprintf(&b, "\n  --- Ship %d: %s ---\n", sid, ship.Name.Display())
+		fmt.Fprintf(&b, "\n  --- Ship %d: %s ---\n", sid, name(ship.Name))
 		fmt.Fprintf(&b, "  Design: %s (%s)\n", designName, l(shipSize))
 		fmt.Fprintf(&b, "  Hull:   %.0f / %.0f\n", ship.Hitpoints, ship.MaxHitpoints)
 		fmt.Fprintf(&b, "  Shield: %.0f / %.0f\n", ship.ShieldHitpoints, ship.MaxShieldHitpoints)
