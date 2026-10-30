@@ -4,9 +4,6 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
 )
@@ -79,8 +76,9 @@ type Zone struct {
 }
 
 type Player struct {
-	Name    string `clausewitz:"name"`
-	Country int    `clausewitz:"country"`
+	Name      string `clausewitz:"name"`
+	Country   int    `clausewitz:"country"`
+	CountryID *int   `clausewitz:"country"`
 }
 
 type PlanetsWrapper struct {
@@ -144,34 +142,7 @@ func Load(data []byte) (*GameState, error) {
 // FindLatestSave selects by modification time, with a deterministic path tie-break.
 // It reports inaccessible directories instead of silently selecting an older save.
 func FindLatestSave(dir string) (string, error) {
-	var newest string
-	var newestTime int64
-
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || !strings.EqualFold(filepath.Ext(d.Name()), ".sav") {
-			return nil
-		}
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		if t := info.ModTime().UnixNano(); newest == "" || t > newestTime || t == newestTime && path < newest {
-			newestTime = t
-			newest = path
-		}
-		return nil
-	})
-	if err != nil {
-		return "", fmt.Errorf("walk save directory %q: %w", dir, err)
-	}
-
-	if newest == "" {
-		return "", fmt.Errorf("no .sav files found in %q", dir)
-	}
-	return newest, nil
+	return FindSaveByID(dir, "")
 }
 
 func extractGamestate(zipPath string) ([]byte, error) {

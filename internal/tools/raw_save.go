@@ -24,12 +24,13 @@ import (
 const rawScalarPreviewBytes = 256
 
 func registerRawSave(s *server.MCPServer) {
-	s.AddTool(mcp.NewTool("inspect_save_archive", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("Inspect the latest local save ZIP: revision SHA-256 and paginated archive entry indexes/names/sizes. Use this revision for all subsequent byte/tree reads; server reads local ZIP and makes no network requests; MCP client receives requested data."), mcp.WithString("revision", mcp.Description("Previous archive revision, required for offset > 0; rejects a changed latest save")), mcp.WithNumber("offset", mcp.DefaultNumber(0)), mcp.WithNumber("limit", mcp.Description("Entries per page, 1..200"), mcp.DefaultNumber(50))), handleInspectSaveArchive)
+	s.AddTool(mcp.NewTool("inspect_save_archive", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithString("save_id", mcp.Description("ID from list_save_games; omitted selects latest")), mcp.WithDescription("Inspect the selected local save ZIP: revision SHA-256 and paginated archive entry indexes/names/sizes. Use this revision for all subsequent byte/tree reads; server reads local ZIP and makes no network requests; MCP client receives requested data."), mcp.WithString("revision", mcp.Description("Previous archive revision, required for offset > 0; rejects a changed selected save")), mcp.WithNumber("offset", mcp.DefaultNumber(0)), mcp.WithNumber("limit", mcp.Description("Entries per page, 1..200"), mcp.DefaultNumber(50))), handleInspectSaveArchive)
 	common := func(description string) []mcp.ToolOption {
 		return []mcp.ToolOption{
 			mcp.WithReadOnlyHintAnnotation(true),
 			mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription(description),
+			mcp.WithString("save_id", mcp.Description("ID from list_save_games; omitted selects latest")),
 			mcp.WithString("revision", mcp.Required(), mcp.Description("SHA-256 returned by inspect_save_archive; stale revisions are rejected")),
 			mcp.WithNumber("entry_index", mcp.Description("ZIP entry index returned by inspect_save_archive; -1 selects unique gamestate (default); -2 reads the exact ZIP container bytes (read_save_bytes only)"), mcp.DefaultNumber(-1)),
 		}
@@ -37,7 +38,7 @@ func registerRawSave(s *server.MCPServer) {
 	options := common("Read exact uncompressed bytes of any entry in the latest local save ZIP, or exact ZIP container bytes with entry_index=-2. Base64 preserves comments, quoting, escapes, whitespace and unknown syntax. Repeat with next_offset until null; offsets and limits are bytes, not characters.")
 	options = append(options, mcp.WithNumber("offset", mcp.DefaultNumber(0)), mcp.WithNumber("limit", mcp.Description("Byte count, 1..65536"), mcp.DefaultNumber(8192)))
 	s.AddTool(mcp.NewTool("read_save_bytes", options...), handleReadSaveBytes)
-	options = common("Navigate a semantic Clausewitz tree using ordered positional paths: empty path=root, /0=first pair, /0/1=its second child. Duplicate keys and anonymous list positions stay distinct. Immediate children are paginated, never depth-truncated. Scalar previews are limited and explicitly flagged; exact source bytes remain available via read_save_bytes. Parsing normalizes quoting/comments/escapes and may reject mixed block syntax.")
+	options = common("Navigate a semantic Clausewitz tree using ordered positional paths: empty path=root, /0=first pair, /0/1=its second child. Duplicate keys and anonymous list positions stay distinct. Immediate children are paginated, never depth-truncated. Scalar previews are limited and explicitly flagged; exact source bytes remain available via read_save_bytes. Parsing normalizes quoting/comments/escapes and supports mixed keyed and anonymous entries. Exact source byte ranges and quote/escape flags are retained; comments/trivia remain in source bytes.")
 	options = append(options, mcp.WithString("path", mcp.DefaultString("")), mcp.WithNumber("offset", mcp.DefaultNumber(0)), mcp.WithNumber("limit", mcp.Description("Children per page, 1..200"), mcp.DefaultNumber(50)))
 	s.AddTool(mcp.NewTool("read_save_tree", options...), handleReadSaveTree)
 	options = common("Read a scalar value or object key's normalized semantic bytes at a positional tree path, in bounded base64 pages. Offsets/limits are bytes, including multibyte UTF-8 boundaries. Quoting/comments/escapes are normalized; use read_save_bytes for authoritative exact source bytes.")
@@ -50,26 +51,31 @@ func registerRawSave(s *server.MCPServer) {
 
 type rawSaveArchive struct {
 	path     string
+	saveID   string
 	revision string
 	zip      *zip.Reader
 	data     []byte
 }
 
-func openRawSave(dir string) (*rawSaveArchive, error) {
-	latest, err := gamestate.FindLatestSave(dir)
+func openRawSave(dir string, selection ...string) (*rawSaveArchive, error) {
+	id := ""
+	if len(selection) > 0 {
+		id = selection[0]
+	}
+	latest, err := gamestate.FindSaveByID(dir, id)
 	if err != nil {
 		return nil, err
 	}
 	data, err := os.ReadFile(latest)
 	if err != nil {
-		return nil, fmt.Errorf("read latest save: %w", err)
+		return nil, fmt.Errorf("read selected save: %w", err)
 	}
 	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return nil, fmt.Errorf("read latest save ZIP: %w", err)
+		return nil, fmt.Errorf("read selected save ZIP: %w", err)
 	}
 	sum := sha256.Sum256(data)
-	return &rawSaveArchive{path: latest, revision: hex.EncodeToString(sum[:]), zip: archive, data: data}, nil
+	return &rawSaveArchive{path: latest, saveID: id, revision: hex.EncodeToString(sum[:]), zip: archive, data: data}, nil
 }
 
 func rawJSON(v any) (*mcp.CallToolResult, error) {
@@ -81,7 +87,12 @@ func rawJSON(v any) (*mcp.CallToolResult, error) {
 }
 
 func handleInspectSaveArchive(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	archive, err := openRawSave(saveDir)
+	if value, ok := req.GetArguments()["save_id"]; ok {
+		if _, ok := value.(string); !ok {
+			return toolError(fmt.Errorf("save_id must be a string")), nil
+		}
+	}
+	archive, err := openRawSave(saveDir, req.GetString("save_id", ""))
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -99,7 +110,7 @@ func handleInspectSaveArchive(_ context.Context, req mcp.CallToolRequest) (*mcp.
 		return toolError(fmt.Errorf("revision is required for archive pagination")), nil
 	}
 	if revision != "" && revision != archive.revision {
-		return toolError(fmt.Errorf("latest save changed; restart inspect_save_archive pagination")), nil
+		return toolError(fmt.Errorf("selected save changed; restart inspect_save_archive pagination")), nil
 	}
 	limit, err := rawInteger(req, "limit", 50, 1, 200)
 	if err != nil {
@@ -115,7 +126,7 @@ func handleInspectSaveArchive(_ context.Context, req mcp.CallToolRequest) (*mcp.
 	if end < len(archive.zip.File) {
 		next = &end
 	}
-	return rawJSON(map[string]any{"save_path": archive.path, "revision": archive.revision, "revision_algorithm": "sha256_archive_bytes", "entries": entries, "entry_count": len(archive.zip.File), "offset": offset, "next_offset": next})
+	return rawJSON(map[string]any{"save_id": archive.saveID, "save_path": archive.path, "revision": archive.revision, "revision_algorithm": "sha256_archive_bytes", "entries": entries, "entry_count": len(archive.zip.File), "offset": offset, "next_offset": next})
 }
 
 func rawInteger(req mcp.CallToolRequest, key string, defaultValue, minValue, maxValue int) (int, error) {
@@ -137,7 +148,7 @@ func rawInteger(req mcp.CallToolRequest, key string, defaultValue, minValue, max
 }
 
 func openRawEntry(req mcp.CallToolRequest) (*rawSaveArchive, int, *zip.File, error) {
-	for _, key := range []string{"revision", "path", "query", "part"} {
+	for _, key := range []string{"revision", "path", "query", "part", "save_id"} {
 		if value, ok := req.GetArguments()[key]; ok {
 			if _, ok := value.(string); !ok {
 				return nil, 0, nil, fmt.Errorf("%s must be a string", key)
@@ -148,12 +159,12 @@ func openRawEntry(req mcp.CallToolRequest) (*rawSaveArchive, int, *zip.File, err
 	if revision == "" {
 		return nil, 0, nil, fmt.Errorf("revision is required; call inspect_save_archive first")
 	}
-	archive, err := openRawSave(saveDir)
+	archive, err := openRawSave(saveDir, req.GetString("save_id", ""))
 	if err != nil {
 		return nil, 0, nil, err
 	}
 	if revision != archive.revision {
-		return nil, 0, nil, fmt.Errorf("latest save changed; call inspect_save_archive again and restart pagination (current revision %s)", archive.revision)
+		return nil, 0, nil, fmt.Errorf("selected save changed; call inspect_save_archive again and restart pagination (current revision %s)", archive.revision)
 	}
 	index, err := rawInteger(req, "entry_index", -1, -2, len(archive.zip.File)-1)
 	if err != nil {
@@ -249,28 +260,19 @@ func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	if end < total {
 		next = &end
 	}
-	return rawJSON(map[string]any{"revision": archive.revision, "entry_index": index, "entry_name": entryName, "source": source, "encoding": "base64", "offset": offset, "returned_bytes": len(data), "total_bytes": total, "next_offset": next, "data": base64.StdEncoding.EncodeToString(data), "entry_crc_verified": crcVerified, "integrity_note": "ZIP CRC is verified only when a request reads through the entry end"})
+	return rawJSON(map[string]any{"save_id": archive.saveID, "revision": archive.revision, "entry_index": index, "entry_name": entryName, "source": source, "encoding": "base64", "offset": offset, "returned_bytes": len(data), "total_bytes": total, "next_offset": next, "data": base64.StdEncoding.EncodeToString(data), "entry_crc_verified": crcVerified, "integrity_note": "ZIP CRC is verified only when a request reads through the entry end"})
 }
 
-func rawChildCount(v clausewitz.Value) int {
-	if v.IsObject() {
-		return len(v.Object.Pairs)
+func rawChildCount(v *clausewitz.RawNode) int { return len(v.Children) }
+func rawChild(v *clausewitz.RawNode, index int) (*clausewitz.RawNode, *string) {
+	child := v.Children[index]
+	if child.Key != nil {
+		return child, &child.Key.Text
 	}
-	if v.IsList() {
-		return len(v.List)
-	}
-	return 0
+	return child, nil
 }
 
-func rawChild(v clausewitz.Value, index int) (clausewitz.Value, *string) {
-	if v.IsObject() {
-		p := v.Object.Pairs[index]
-		return p.Value, &p.Key
-	}
-	return v.List[index], nil
-}
-
-func rawAtPath(root clausewitz.Value, path string) (clausewitz.Value, *string, error) {
+func rawAtPath(root *clausewitz.RawNode, path string) (*clausewitz.RawNode, *string, error) {
 	v := root
 	var key *string
 	if path == "" {
@@ -292,7 +294,7 @@ func rawAtPath(root clausewitz.Value, path string) (clausewitz.Value, *string, e
 	return v, key, nil
 }
 
-func rawNode(path string, key *string, v clausewitz.Value) map[string]any {
+func rawNode(path string, key *string, v *clausewitz.RawNode) map[string]any {
 	node := map[string]any{"path": path, "children_count": rawChildCount(v)}
 	if key != nil {
 		preview := []byte(*key)
@@ -304,14 +306,15 @@ func rawNode(path string, key *string, v clausewitz.Value) map[string]any {
 		node["key"] = strings.ToValidUTF8(string(preview), "�")
 		node["key_preview_base64"] = base64.StdEncoding.EncodeToString(preview)
 	}
-	switch {
-	case v.IsObject():
-		node["kind"] = "object"
-	case v.IsList():
-		node["kind"] = "list"
-	default:
-		node["kind"] = "scalar"
-		preview := []byte(v.Scalar)
+	node["kind"] = v.Kind
+	node["entry_source_offset"], node["entry_source_bytes"] = v.EntryStart, v.End-v.EntryStart
+	node["value_source_offset"], node["value_source_bytes"] = v.Start, v.End-v.Start
+	if v.Key != nil {
+		node["key_source_offset"], node["key_source_bytes"], node["key_quoted"], node["key_escaped"] = v.Key.Start, v.Key.End-v.Key.Start, v.Key.Quoted, v.Key.Escaped
+	}
+	if v.IsScalar() {
+		node["scalar_quoted"], node["scalar_escaped"] = v.Scalar.Quoted, v.Scalar.Escaped
+		preview := []byte(v.Scalar.Text)
 		truncated := len(preview) > rawScalarPreviewBytes
 		if truncated {
 			preview = preview[:rawScalarPreviewBytes]
@@ -319,43 +322,43 @@ func rawNode(path string, key *string, v clausewitz.Value) map[string]any {
 		// Base64 preserves partial UTF-8 sequences at preview byte boundaries.
 		node["scalar_preview_base64"] = base64.StdEncoding.EncodeToString(preview)
 		node["scalar_preview"] = strings.ToValidUTF8(string(preview), "�")
-		node["scalar_bytes"] = len(v.Scalar)
+		node["scalar_bytes"] = len(v.Scalar.Text)
 		node["scalar_preview_truncated"] = truncated
 	}
 	return node
 }
 
-func rawTree(req mcp.CallToolRequest) (*rawSaveArchive, int, clausewitz.Value, *string, error) {
+func rawTree(ctx context.Context, req mcp.CallToolRequest) (*rawSaveArchive, int, *clausewitz.RawNode, *string, error) {
 	archive, index, f, err := openRawEntry(req)
 	if err != nil {
-		return nil, 0, clausewitz.Value{}, nil, err
+		return nil, 0, nil, nil, err
 	}
 	if index == -2 {
-		return nil, 0, clausewitz.Value{}, nil, fmt.Errorf("ZIP container is binary; use read_save_bytes with entry_index=-2")
+		return nil, 0, nil, nil, fmt.Errorf("ZIP container is binary; use read_save_bytes with entry_index=-2")
 	}
 	stream, err := f.Open()
 	if err != nil {
-		return nil, 0, clausewitz.Value{}, nil, fmt.Errorf("open archive entry: %w", err)
+		return nil, 0, nil, nil, fmt.Errorf("open archive entry: %w", err)
 	}
 	defer stream.Close()
 	data, err := io.ReadAll(stream)
 	if err != nil {
-		return nil, 0, clausewitz.Value{}, nil, fmt.Errorf("read archive entry: %w", err)
+		return nil, 0, nil, nil, fmt.Errorf("read archive entry: %w", err)
 	}
-	obj, err := clausewitz.Parse(data)
+	obj, err := clausewitz.ParseRaw(ctx, data)
 	if err != nil {
-		return nil, 0, clausewitz.Value{}, nil, fmt.Errorf("semantic tree unsupported for this entry: %w; use read_save_bytes for exact complete content", err)
+		return nil, 0, nil, nil, fmt.Errorf("semantic tree unsupported for this entry: %w; use read_save_bytes for exact complete content", err)
 	}
-	v, key, err := rawAtPath(clausewitz.Value{Object: obj}, req.GetString("path", ""))
+	v, key, err := rawAtPath(obj, req.GetString("path", ""))
 	return archive, index, v, key, err
 }
 
 func rawTreePage(archive *rawSaveArchive, index int) map[string]any {
-	return map[string]any{"revision": archive.revision, "entry_index": index, "entry_name": archive.zip.File[index].Name, "representation": "semantic Clausewitz AST; quotes/comments/escapes normalized; exact bytes via read_save_bytes"}
+	return map[string]any{"save_id": archive.saveID, "revision": archive.revision, "entry_index": index, "entry_name": archive.zip.File[index].Name, "source_range_unit": "zero-based bytes in the uncompressed ZIP entry; lengths include original token quotes/braces", "representation": "ordered mixed Clausewitz AST; scalar/key text normalized, exact entry-byte ranges retained; comments/trivia available via read_save_bytes"}
 }
 
-func handleReadSaveTree(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	archive, index, v, key, err := rawTree(req)
+func handleReadSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	archive, index, v, key, err := rawTree(ctx, req)
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -387,7 +390,7 @@ func handleReadSaveTree(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTo
 }
 
 func handleSearchSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	archive, index, v, key, err := rawTree(req)
+	archive, index, v, key, err := rawTree(ctx, req)
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -403,7 +406,7 @@ func handleSearchSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	type item struct {
 		path  string
 		key   *string
-		value clausewitz.Value
+		value *clausewitz.RawNode
 	}
 	stack := []item{{req.GetString("path", ""), key, v}}
 	matches := make([]map[string]any, 0, limit)
@@ -415,7 +418,7 @@ func handleSearchSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 		n := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		visited++
-		if query == "" || n.key != nil && strings.Contains(strings.ToLower(*n.key), query) || n.value.IsScalar() && strings.Contains(strings.ToLower(n.value.Scalar), query) {
+		if query == "" || n.key != nil && strings.Contains(strings.ToLower(*n.key), query) || n.value.IsScalar() && strings.Contains(strings.ToLower(n.value.Scalar.Text), query) {
 			if total >= offset && len(matches) < limit {
 				matches = append(matches, rawNode(n.path, n.key, n.value))
 			}
@@ -439,8 +442,8 @@ func handleSearchSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	return rawJSON(result)
 }
 
-func handleReadSaveScalar(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	archive, index, v, key, err := rawTree(req)
+func handleReadSaveScalar(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	archive, index, v, key, err := rawTree(ctx, req)
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -451,7 +454,7 @@ func handleReadSaveScalar(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 		if !v.IsScalar() {
 			return toolError(fmt.Errorf("path must select a scalar; selected node has %d children", rawChildCount(v))), nil
 		}
-		text = v.Scalar
+		text = v.Scalar.Text
 	case "key":
 		if key == nil {
 			return toolError(fmt.Errorf("selected node has no object key")), nil

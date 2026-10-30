@@ -6,18 +6,74 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
+	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
 type syntheticEntry struct {
 	name string
 	data []byte
+}
+
+// This optional survey reports aggregate counts only; it never logs save content.
+func TestRawParserLocalCatalogCoverage(t *testing.T) {
+	dir := os.Getenv("STELLARIS_TEST_SAVE_DIR")
+	if dir == "" {
+		t.Skip("set STELLARIS_TEST_SAVE_DIR for a read-only survey")
+	}
+	files, err := gamestate.ListSaveFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, failed, missing := 0, 0, 0
+	for _, save := range files {
+		z, err := zip.OpenReader(save.Path)
+		if err != nil {
+			failed++
+			continue
+		}
+		found := false
+		for _, entry := range z.File {
+			if entry.Name != "gamestate" && entry.Name != "meta" {
+				continue
+			}
+			if entry.Name == "gamestate" {
+				found = true
+			}
+			stream, err := entry.Open()
+			if err != nil {
+				failed++
+				continue
+			}
+			data, err := io.ReadAll(stream)
+			stream.Close()
+			if err != nil {
+				failed++
+				continue
+			}
+			if _, err := clausewitz.ParseRaw(context.Background(), data); err != nil {
+				failed++
+			} else {
+				parsed++
+			}
+		}
+		z.Close()
+		if !found {
+			missing++
+		}
+	}
+	t.Logf("local raw parser: %d saves, %d gamestate/meta entries parsed, %d entry errors, %d saves without gamestate", len(files), parsed, failed, missing)
+	if parsed == 0 {
+		t.Fatal("no local save entries parsed")
+	}
 }
 
 func writeSyntheticSave(t *testing.T, path string, entries []syntheticEntry) {
@@ -234,13 +290,13 @@ func TestRawSaveErrorsAreExplicit(t *testing.T) {
 	}
 	writeSyntheticSave(t, filepath.Join(dir, "synthetic.sav"), []syntheticEntry{{"gamestate", []byte("changed=yes")}})
 	r, err := handleReadSaveBytes(context.Background(), rawRequest(map[string]any{"revision": revision}))
-	if err != nil || !r.IsError || !strings.Contains(resultText(r), "latest save changed") {
+	if err != nil || !r.IsError || !strings.Contains(resultText(r), "selected save changed") {
 		t.Fatal("stale revision accepted")
 	}
 }
 
 func TestRawSaveUnsupportedTreeStillHasExactBytes(t *testing.T) {
-	source := []byte(`mixed={key=value {anonymous=yes}}`)
+	source := []byte(`broken={key=}`)
 	syntheticSaveDir(t, []syntheticEntry{{"gamestate", source}})
 	revision := rawRevision(t)
 	r, err := handleReadSaveTree(context.Background(), rawRequest(map[string]any{"revision": revision}))
@@ -451,4 +507,73 @@ func TestRawSaveDetectsEntryChecksumFailure(t *testing.T) {
 	}
 	// The ZIP container remains accessible exactly, regardless of member CRC validity.
 	rawCall(t, handleReadSaveBytes, map[string]any{"revision": revision, "entry_index": -2, "limit": 7})
+}
+
+func TestRawSaveMixedTreeSourceRanges(t *testing.T) {
+	source := []byte("# leading comment\nroot={ duplicate=one anonymous { inner=yes } duplicate=\"two\\nlines\" \"quoted key\"=\"value\" empty={} } # tail")
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", source}})
+	revision := rawRevision(t)
+	page := rawCall(t, handleReadSaveTree, map[string]any{"revision": revision, "path": "/0"})
+	if page["node"].(map[string]any)["kind"] != "mixed" {
+		t.Fatal("mixed block not represented")
+	}
+	children := page["children"].([]any)
+	if len(children) != 6 {
+		t.Fatalf("mixed children lost: %d", len(children))
+	}
+	if _, ok := children[1].(map[string]any)["key"]; ok {
+		t.Fatal("anonymous scalar acquired a key")
+	}
+	if children[2].(map[string]any)["kind"] != "object" {
+		t.Fatal("anonymous nested block lost")
+	}
+	node := children[3].(map[string]any)
+	if node["key"] != "duplicate" || node["scalar_quoted"] != true || node["scalar_escaped"] != true {
+		t.Fatal("duplicate or token spelling lost")
+	}
+	start, size := int(node["value_source_offset"].(float64)), int(node["value_source_bytes"].(float64))
+	exact := rawCall(t, handleReadSaveBytes, map[string]any{"revision": revision, "offset": start, "limit": size})
+	fragment, err := base64.StdEncoding.DecodeString(exact["data"].(string))
+	if err != nil || string(fragment) != `"two\nlines"` {
+		t.Fatal("source range does not select exact quoted source")
+	}
+	normalized := rawCall(t, handleReadSaveScalar, map[string]any{"revision": revision, "path": "/0/3"})
+	decoded, err := base64.StdEncoding.DecodeString(normalized["data"].(string))
+	if err != nil || string(decoded) != "two\nlines" {
+		t.Fatal("escaped text normalization incorrect")
+	}
+	if children[4].(map[string]any)["key_quoted"] != true || children[5].(map[string]any)["kind"] != "empty_block" {
+		t.Fatal("quoted key or empty block distinction lost")
+	}
+}
+
+func TestRawSaveSelectsCatalogSaveID(t *testing.T) {
+	dir := syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte("selected=first")}})
+	writeSyntheticSave(t, filepath.Join(dir, "second.sav"), []syntheticEntry{{"gamestate", []byte("selected=second")}})
+	files, err := gamestate.ListSaveFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var id string
+	for _, f := range files {
+		if f.RelativePath == "synthetic.sav" {
+			id = f.ID
+		}
+	}
+	if id == "" {
+		t.Fatal("catalog ID missing")
+	}
+	archive := rawCall(t, handleInspectSaveArchive, map[string]any{"save_id": id})
+	if archive["save_id"] != id {
+		t.Fatal("selection ID not returned")
+	}
+	page := rawCall(t, handleReadSaveScalar, map[string]any{"save_id": id, "revision": archive["revision"], "path": "/0"})
+	data, err := base64.StdEncoding.DecodeString(page["data"].(string))
+	if err != nil || string(data) != "first" || page["save_id"] != id {
+		t.Fatal("selected save not read")
+	}
+	r, err := handleInspectSaveArchive(context.Background(), rawRequest(map[string]any{"save_id": "../outside.sav"}))
+	if err != nil || !r.IsError {
+		t.Fatal("untrusted path accepted as save ID")
+	}
 }

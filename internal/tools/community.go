@@ -11,11 +11,11 @@ import (
 )
 
 func registerGalacticCommunity(s *server.MCPServer) {
-	s.AddTool(mcp.NewTool("get_galactic_community", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("Show saved galactic community members and proposed/passed resolution records, with supporters and opponents")), handleGalacticCommunity)
+	s.AddTool(mcp.NewTool("get_galactic_community", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("Show saved galactic community members and proposed/passed resolution records, with supporters and opponents")), handleGalacticCommunity)
 }
 
-func handleGalacticCommunity(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	gs, err := loadLatestSave()
+func handleGalacticCommunity(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	gs, err := loadSave(req)
 	if err != nil {
 		return toolError(err), nil
 	}

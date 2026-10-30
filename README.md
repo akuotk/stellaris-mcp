@@ -2,7 +2,7 @@
 
 MCP (Model Context Protocol) server for analyzing Stellaris save games from Claude Desktop or Claude Code.
 
-Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and exposes 11 analysis tools. Includes a `/stellaris` skill with compiled strategy guides for patch 4.3 (Cetus).
+Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and exposes analysis and raw exploration tools. The upstream `/stellaris` skill contains strategy guides for patch 4.3 (Cetus), not an assurance of current game compatibility.
 
 ## Available Tools
 
@@ -19,8 +19,18 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_traditions_ascension` | Adopted traditions and ascension perks |
 | `get_espionage` | Spy networks: infiltration, spymasters, available operations |
 | `get_notifications` | Wars, federations, players, game status |
+| `get_empire_assets` | Recorded agreements, situations and megastructures |
+| `get_galactic_community` | Members and saved proposed/passed resolutions |
+| `list_save_games` | Paginated local save catalog with stable IDs |
+| `inspect_save_archive` | Save revision and paginated ZIP entry metadata |
+| `read_save_tree` | Ordered tree navigation, including mixed entries and source offsets |
+| `search_save_tree` | Paginated search for keys and scalar values |
+| `read_save_scalar` | Paginated normalized scalar or key bytes |
+| `read_save_bytes` | Paginated exact source bytes from a ZIP entry or container |
 
-All tools accept `country_id` (default 0 = player).
+Country-specific tools accept `country_id`. If omitted, they select the sole player recorded in a single-player save; if the player is ambiguous or absent, supply the ID explicitly. Use `list_save_games` and `save_id` to select a save, or omit `save_id` for the newest.
+
+Raw exploration preserves ordered duplicate keys, mixed keyed/anonymous blocks, quote/escape flags and source offsets. Normalized values may not preserve spelling or comments: use the offsets with `read_save_bytes` for exact content. Pagination requires the archive revision returned by `inspect_save_archive`; a changed save is rejected. The server does not send files to a network service, but clients receive requested data and may forward it according to their own configuration. Never upload private saves. See [COMPATIBILITY.md](COMPATIBILITY.md) for the remaining limits.
 
 Drill-down tools (`get_planets`, `get_fleet_power`, `get_leaders`) accept an ID for detailed view.
 

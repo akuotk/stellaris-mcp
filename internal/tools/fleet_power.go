@@ -12,9 +12,9 @@ import (
 
 func registerFleetPower(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_fleet_power", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
+		mcp.NewTool("get_fleet_power", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("List fleets with power (summary). Pass fleet_id for ship-level detail with weapons and HP."),
-			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
+			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 			mcp.WithNumber("fleet_id", mcp.Description("Fleet ID for detailed view (omit for summary)"), mcp.DefaultNumber(-1)),
 		),
 		handleFleetPower,
@@ -22,7 +22,7 @@ func registerFleetPower(s *server.MCPServer) {
 }
 
 func handleFleetPower(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	gs, err := loadLatestSave()
+	gs, err := loadSave(req)
 	if err != nil {
 		return toolError(err), nil
 	}

@@ -12,16 +12,16 @@ import (
 
 func registerEconomyBreakdown(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_economy_breakdown", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
+		mcp.NewTool("get_economy_breakdown", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Get detailed income and expenses breakdown by category"),
-			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
+			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 		),
 		handleEconomyBreakdown,
 	)
 }
 
 func handleEconomyBreakdown(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	gs, err := loadLatestSave()
+	gs, err := loadSave(req)
 	if err != nil {
 		return toolError(err), nil
 	}

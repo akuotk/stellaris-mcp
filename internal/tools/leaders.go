@@ -13,9 +13,9 @@ import (
 
 func registerLeaders(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_leaders", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
+		mcp.NewTool("get_leaders", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("List leaders with class, assignment, level, traits. Pass leader_id for full detail."),
-			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
+			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 			mcp.WithNumber("leader_id", mcp.Description("Leader ID for detailed view (omit for summary)"), mcp.DefaultNumber(-1)),
 		),
 		handleLeaders,
@@ -23,7 +23,7 @@ func registerLeaders(s *server.MCPServer) {
 }
 
 func handleLeaders(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	gs, err := loadLatestSave()
+	gs, err := loadSave(req)
 	if err != nil {
 		return toolError(err), nil
 	}

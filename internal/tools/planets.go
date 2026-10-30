@@ -13,9 +13,9 @@ import (
 
 func registerPlanets(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_planets", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
+		mcp.NewTool("get_planets", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("List owned planets (summary). Use available=true to list uncolonized habitable planets surveyed by this empire. Pass planet_id for full details."),
-			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
+			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 			mcp.WithNumber("planet_id", mcp.Description("Planet ID for detailed view (omit for summary list)"), mcp.DefaultNumber(-1)),
 			mcp.WithBoolean("available", mcp.Description("Show uncolonized habitable planets instead of owned"), mcp.DefaultBool(false)),
 		),
@@ -24,7 +24,7 @@ func registerPlanets(s *server.MCPServer) {
 }
 
 func handlePlanets(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	gs, err := loadLatestSave()
+	gs, err := loadSave(req)
 	if err != nil {
 		return toolError(err), nil
 	}

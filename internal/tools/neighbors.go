@@ -11,16 +11,16 @@ import (
 
 func registerNeighbors(s *server.MCPServer) {
 	s.AddTool(
-		mcp.NewTool("get_neighbors", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
+		mcp.NewTool("get_neighbors", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Get known empires: relations, opinion, trust, and relative power"),
-			mcp.WithNumber("country_id", mcp.Description("Country ID (default 0 = player)"), mcp.DefaultNumber(0)),
+			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 		),
 		handleNeighbors,
 	)
 }
 
 func handleNeighbors(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	gs, err := loadLatestSave()
+	gs, err := loadSave(req)
 	if err != nil {
 		return toolError(err), nil
 	}
