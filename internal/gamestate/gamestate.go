@@ -9,6 +9,7 @@ import (
 )
 
 type GameState struct {
+	FirstContacts       FirstContacts          `clausewitz:"first_contacts"`
 	ArchaeologySites    ArchaeologySites       `clausewitz:"archaeological_sites"`
 	EspionageOperations EspionageOperations    `clausewitz:"espionage_operations"`
 	Armies              Armies                 `clausewitz:"army"`

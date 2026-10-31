@@ -8,30 +8,64 @@ import (
 )
 
 type Country struct {
-	Name             LocalizedName    `clausewitz:"name"`
-	Adjective        LocalizedName    `clausewitz:"adjective"`
-	Ethos            Ethos            `clausewitz:"ethos"`
-	Government       Government       `clausewitz:"government"`
-	TechStatus       TechStatus       `clausewitz:"tech_status"`
-	Budget           Budget           `clausewitz:"budget"`
-	RelationsManager RelationsManager `clausewitz:"relations_manager"`
-	FleetsManager    FleetsManager    `clausewitz:"fleets_manager"`
-	Capital          int              `clausewitz:"capital"`
-	MilitaryPower    float64          `clausewitz:"military_power"`
-	EconomyPower     float64          `clausewitz:"economy_power"`
-	TechPower        float64          `clausewitz:"tech_power"`
-	FleetSize        float64          `clausewitz:"fleet_size"`
-	UsedNavalCap     float64          `clausewitz:"used_naval_capacity"`
-	NavalCap         *float64         `clausewitz:"naval_capacity"`
-	StarbaseCap      int              `clausewitz:"starbase_capacity"`
-	NumPops          int              `clausewitz:"num_sapient_pops"`
-	EmpireSize       int              `clausewitz:"empire_size"`
-	VictoryRank      int              `clausewitz:"victory_rank"`
-	OwnedPlanets     []int            `clausewitz:"owned_planets"`
-	OwnedLeaders     []int            `clausewitz:"owned_leaders"`
-	OwnedArmies      []int            `clausewitz:"owned_armies"`
-	Traditions       []string         `clausewitz:"traditions"`
-	AscensionPerks   []string         `clausewitz:"ascension_perks"`
+	Name                LocalizedName      `clausewitz:"name"`
+	Adjective           LocalizedName      `clausewitz:"adjective"`
+	Ethos               Ethos              `clausewitz:"ethos"`
+	Government          Government         `clausewitz:"government"`
+	TechStatus          TechStatus         `clausewitz:"tech_status"`
+	Budget              Budget             `clausewitz:"budget"`
+	RelationsManager    RelationsManager   `clausewitz:"relations_manager"`
+	FleetsManager       FleetsManager      `clausewitz:"fleets_manager"`
+	Capital             int                `clausewitz:"capital"`
+	MilitaryPower       float64            `clausewitz:"military_power"`
+	EconomyPower        float64            `clausewitz:"economy_power"`
+	TechPower           float64            `clausewitz:"tech_power"`
+	FleetSize           float64            `clausewitz:"fleet_size"`
+	UsedNavalCap        float64            `clausewitz:"used_naval_capacity"`
+	NavalCap            *float64           `clausewitz:"naval_capacity"`
+	StarbaseCap         int                `clausewitz:"starbase_capacity"`
+	NumPops             int                `clausewitz:"num_sapient_pops"`
+	EmpireSize          int                `clausewitz:"empire_size"`
+	VictoryRank         int                `clausewitz:"victory_rank"`
+	OwnedPlanets        []int              `clausewitz:"owned_planets"`
+	OwnedLeaders        []int              `clausewitz:"owned_leaders"`
+	OwnedArmies         []int              `clausewitz:"owned_armies"`
+	Traditions          OptionalStringList `clausewitz:"traditions"`
+	AscensionPerks      OptionalStringList `clausewitz:"ascension_perks"`
+	TraditionCategories OptionalStringList `clausewitz:"tradition_categories"`
+	LastPickedTradition OptionalString     `clausewitz:"last_picked_tradition"`
+}
+
+// Optional fields isolate unsupported shapes instead of preventing other save data from loading.
+type OptionalStringList struct {
+	Recorded    bool
+	Values      []string
+	Unsupported bool
+}
+
+func (v *OptionalStringList) UnmarshalClausewitz(value clausewitz.Value) error {
+	*v = OptionalStringList{Recorded: true}
+	if err := clausewitz.DecodeValue(value, &v.Values); err != nil {
+		v.Values = nil
+		v.Unsupported = true
+	}
+	return nil
+}
+
+type OptionalString struct {
+	Recorded    bool
+	Value       string
+	Unsupported bool
+}
+
+func (v *OptionalString) UnmarshalClausewitz(value clausewitz.Value) error {
+	*v = OptionalString{Recorded: true}
+	if !value.IsScalar() {
+		v.Unsupported = true
+	} else {
+		v.Value = value.Scalar
+	}
+	return nil
 }
 
 type Ethos struct {

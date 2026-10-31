@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -32,27 +33,35 @@ func handleTraditionsAscension(_ context.Context, req mcp.CallToolRequest) (*mcp
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Traditions & Ascension Perks (%s) ===\n", name(c.Adjective))
 
-	fmt.Fprintf(&b, "\nTraditions:\n")
-	if len(c.Traditions) == 0 {
-		fmt.Fprintf(&b, "  (none adopted)\n")
+	writeSavedTraditionList(&b, "Traditions", c.Traditions)
+	writeSavedTraditionList(&b, "Ascension perks", c.AscensionPerks)
+	writeSavedTraditionList(&b, "Tradition categories (saved keys; completion not inferred)", c.TraditionCategories)
+	if !c.LastPickedTradition.Recorded {
+		fmt.Fprintln(&b, "\nLast picked tradition: not recorded")
+	} else if c.LastPickedTradition.Unsupported {
+		fmt.Fprintln(&b, "\nLast picked tradition: unsupported shape; inspect raw save tree")
 	} else {
-		for _, t := range c.Traditions {
-			fmt.Fprintf(&b, "  - %s\n", l(t))
-		}
-	}
-
-	fmt.Fprintf(&b, "\nAscension Perks:\n")
-	if len(c.AscensionPerks) == 0 {
-		fmt.Fprintf(&b, "  (none adopted)\n")
-	} else {
-		for _, p := range c.AscensionPerks {
-			fmt.Fprintf(&b, "  - %s\n", l(p))
-		}
-	}
-
-	if len(c.Traditions) == 0 && len(c.AscensionPerks) == 0 {
-		fmt.Fprintf(&b, "\nNote: Early game — traditions require Unity to adopt.\n")
+		fmt.Fprintf(&b, "\nLast picked tradition: %s [%s]\n", l(c.LastPickedTradition.Value), c.LastPickedTradition.Value)
 	}
 
 	return mcp.NewToolResultText(b.String()), nil
+}
+
+func writeSavedTraditionList(b *strings.Builder, label string, list gamestate.OptionalStringList) {
+	fmt.Fprintf(b, "\n%s:\n", label)
+	if !list.Recorded {
+		fmt.Fprintln(b, "  not recorded")
+		return
+	}
+	if list.Unsupported {
+		fmt.Fprintln(b, "  unsupported shape; inspect raw save tree")
+		return
+	}
+	if len(list.Values) == 0 {
+		fmt.Fprintln(b, "  empty")
+		return
+	}
+	for _, key := range list.Values {
+		fmt.Fprintf(b, "  - %s [%s]\n", l(key), key)
+	}
 }
