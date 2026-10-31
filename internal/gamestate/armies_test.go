@@ -109,3 +109,16 @@ func TestArmyLocalCatalogReferenceCoverage(t *testing.T) {
 		t.Fatal("local army shape needs additional support")
 	}
 }
+
+func TestArmyMixedRecordIsIsolated(t *testing.T) {
+	gs, err := Load([]byte(`army={1={owner=0 mixed_unknown={a=1 anonymous} health=10} 2={owner=0 health=20} 3={owner={id=0 anonymous}}} date="2201.01.01"`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gs.Date != "2201.01.01" || gs.Armies.Items[2].Health == nil || *gs.Armies.Items[2].Health != 20 {
+		t.Fatal("unrelated records lost")
+	}
+	if _, bad := gs.Armies.DecodeErrors[3]; !bad {
+		t.Fatal("unsupported known mixed value was silently accepted")
+	}
+}

@@ -106,6 +106,10 @@ func decodeValue(val Value, rv reflect.Value) error {
 		}
 	}
 
+	if val.Mixed {
+		return fmt.Errorf("cannot decode mixed keyed and anonymous block into %s", rv.Type())
+	}
+
 	switch rv.Kind() {
 	case reflect.String:
 		if !val.IsScalar() {

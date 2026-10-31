@@ -7,16 +7,17 @@ type Value struct {
 	Scalar string
 	Object *Object
 	List   []Value
+	Mixed  bool
 }
 
 // IsScalar returns true if the value is a scalar (string, number, boolean).
-func (v Value) IsScalar() bool { return v.Object == nil && v.List == nil }
+func (v Value) IsScalar() bool { return !v.Mixed && v.Object == nil && v.List == nil }
 
 // IsObject returns true if the value is a key-value block.
-func (v Value) IsObject() bool { return v.Object != nil }
+func (v Value) IsObject() bool { return !v.Mixed && v.Object != nil }
 
 // IsList returns true if the value is a list of values.
-func (v Value) IsList() bool { return v.List != nil }
+func (v Value) IsList() bool { return !v.Mixed && v.List != nil }
 
 // Object is an ordered collection of key-value pairs.
 // Keys may be duplicated.
@@ -84,86 +85,50 @@ func (p *parser) parseValue() (Value, error) {
 	}
 }
 
-// parseBlock parses a brace-delimited block.
-// It disambiguates between key-value objects and value lists
-// by peeking at the first two tokens inside the braces.
+// parseBlock keeps mixed keyed and anonymous values distinct from valid typed objects and lists.
 func (p *parser) parseBlock() (Value, error) {
-	p.lex.next() // consume {
-
-	first := p.lex.peek()
-
-	if first.kind == tokenRBrace {
-		p.lex.next()
-		return Value{Object: &Object{}}, nil
-	}
-
-	// Starts with { -> list of blocks/values
-	if first.kind == tokenLBrace {
-		return p.parseListUntilClose()
-	}
-
-	// Consume first token and peek at second to determine block type
 	p.lex.next()
-	second := p.lex.peek()
-
-	if second.kind == tokenEquals {
-		return p.parsePairsFrom(first)
-	}
-	return p.parseValuesFrom(first)
-}
-
-// parsePairsFrom finishes parsing an object block where first key is already consumed.
-func (p *parser) parsePairsFrom(firstKey token) (Value, error) {
-	p.lex.next() // consume =
-	val, err := p.parseValue()
-	if err != nil {
-		return Value{}, err
-	}
-	pairs := []Pair{{Key: firstKey.value, Value: val}}
-	for p.lex.peek().kind != tokenRBrace {
-		if p.lex.peek().kind == tokenEOF {
-			return Value{}, fmt.Errorf("line %d: unterminated block", p.lex.peek().line)
-		}
-		pair, err := p.parsePair()
-		if err != nil {
-			return Value{}, err
-		}
-		pairs = append(pairs, pair)
-	}
-	p.lex.next() // consume }
-	return Value{Object: &Object{Pairs: pairs}}, nil
-}
-
-// parseValuesFrom finishes parsing a value list where first item is already consumed.
-func (p *parser) parseValuesFrom(first token) (Value, error) {
-	items := []Value{{Scalar: first.value}}
-	for p.lex.peek().kind != tokenRBrace {
-		if p.lex.peek().kind == tokenEOF {
-			return Value{}, fmt.Errorf("line %d: unterminated list", p.lex.peek().line)
-		}
-		val, err := p.parseValue()
-		if err != nil {
-			return Value{}, err
-		}
-		items = append(items, val)
-	}
-	p.lex.next() // consume }
-	return Value{List: items}, nil
-}
-
-// parseListUntilClose parses values until a closing brace.
-func (p *parser) parseListUntilClose() (Value, error) {
+	var pairs []Pair
 	var items []Value
-	for p.lex.peek().kind != tokenRBrace {
-		if p.lex.peek().kind == tokenEOF {
-			return Value{}, fmt.Errorf("line %d: unterminated list", p.lex.peek().line)
+	for {
+		tok := p.lex.peek()
+		switch tok.kind {
+		case tokenRBrace:
+			p.lex.next()
+			if len(pairs) > 0 && len(items) > 0 {
+				return Value{Mixed: true}, nil
+			}
+			if len(pairs) > 0 {
+				return Value{Object: &Object{Pairs: pairs}}, nil
+			}
+			if len(items) > 0 {
+				return Value{List: items}, nil
+			}
+			return Value{Object: &Object{}}, nil
+		case tokenEOF:
+			return Value{}, fmt.Errorf("line %d: unterminated block", tok.line)
+		case tokenIdent, tokenString:
+			first := p.lex.next()
+			if p.lex.peek().kind == tokenEquals {
+				p.lex.next()
+				value, err := p.parseValue()
+				if err != nil {
+					return Value{}, err
+				}
+				pairs = append(pairs, Pair{Key: first.value, Value: value})
+			} else {
+				items = append(items, Value{Scalar: first.value})
+			}
+		case tokenLBrace:
+			value, err := p.parseBlock()
+			if err != nil {
+				return Value{}, err
+			}
+			items = append(items, value)
+		case tokenInvalid:
+			return Value{}, fmt.Errorf("line %d: %s", tok.line, tok.value)
+		default:
+			return Value{}, fmt.Errorf("line %d: unexpected token in block", tok.line)
 		}
-		val, err := p.parseValue()
-		if err != nil {
-			return Value{}, err
-		}
-		items = append(items, val)
 	}
-	p.lex.next() // consume }
-	return Value{List: items}, nil
 }

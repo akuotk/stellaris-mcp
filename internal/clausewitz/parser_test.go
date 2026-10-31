@@ -196,3 +196,30 @@ func TestParse_ErrorUnterminatedBlock(t *testing.T) {
 		t.Fatal("expected error for unterminated block")
 	}
 }
+
+func TestMixedBlocksDoNotMasqueradeAsObjectsOrLists(t *testing.T) {
+	for _, src := range []string{`x={a=1 anonymous}`, `x={anonymous a=1}`, `x={{x=1} a=1}`, `x={a=1 {x=1}}`} {
+		obj, err := Parse([]byte(src))
+		if err != nil {
+			t.Fatalf("%s: %v", src, err)
+		}
+		v := obj.Pairs[0].Value
+		if !v.Mixed || v.IsObject() || v.IsList() || v.IsScalar() {
+			t.Fatalf("%s: mixed block misclassified", src)
+		}
+		var typed struct {
+			X map[string]string `clausewitz:"x"`
+		}
+		if err := Unmarshal([]byte(src), &typed); err == nil {
+			t.Fatalf("%s: mixed block silently decoded", src)
+		}
+	}
+}
+func TestUnknownMixedFieldDoesNotBlockKnownFields(t *testing.T) {
+	var typed struct {
+		Answer int `clausewitz:"answer"`
+	}
+	if err := Unmarshal([]byte(`unknown={a=1 anonymous} answer=42`), &typed); err != nil || typed.Answer != 42 {
+		t.Fatalf("known data lost: %+v %v", typed, err)
+	}
+}
