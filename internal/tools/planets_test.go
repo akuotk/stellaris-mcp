@@ -41,12 +41,10 @@ func TestPlanetAvailableRequiresSurveyAndNoOwner(t *testing.T) {
 }
 
 func TestJobBreakdownPreservesFractionalWorkforce(t *testing.T) {
-	gs := &gamestate.GameState{PopJobs: map[int]gamestate.PopJob{
-		1: {Type: "miner", Planet: 3, Workforce: 1.25},
-		2: {Type: "miner", Planet: 3, Workforce: 0.5},
-		3: {Type: "unused", Planet: 3, Workforce: -1},
-		4: {Type: "other", Planet: 4, Workforce: 100},
-	}}
+	gs, err := gamestate.Load([]byte(`planets={planet={3={}}} pop_jobs={1={type=miner planet=3 workforce=1.25} 2={type=miner planet=3 workforce=0.5} 3={type=unused planet=3 workforce=-1} 4={type=other planet=4 workforce=100}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
 	got := jobBreakdown(gs, 3)
 	if len(got) != 1 || got[0].workforce != 1.75 {
 		t.Fatalf("workforce truncated or wrong jobs included: %+v", got)
@@ -76,13 +74,82 @@ func TestPlanetSummaryUsesPlanetOwnerNotColonyIDs(t *testing.T) {
 }
 
 func TestJobBreakdownResolvesColonyID(t *testing.T) {
-	colonyID := 0
-	gs := &gamestate.GameState{
-		Planets: gamestate.PlanetsWrapper{Planet: map[int]gamestate.Planet{3: {ColonyID: &colonyID}}},
-		PopJobs: map[int]gamestate.PopJob{1: {Type: "miner", Planet: 0, Workforce: 3.5}, 2: {Type: "other", Planet: 3, Workforce: 99}},
+	gs, err := gamestate.Load([]byte(`planets={planet={3={colony=0}}} colony={0={carrier={type=planet reference=3} pop_jobs={1 1 2 4}}} pop_jobs={1={type=miner planet=0 workforce=3.5} 2={type=other planet=3 workforce=99} 3={type=unlisted planet=0 workforce=12} 4={type=missing_planet workforce=5}}`))
+	if err != nil {
+		t.Fatal(err)
 	}
 	got := jobBreakdown(gs, 3)
 	if len(got) != 1 || got[0].jobType != "miner" || got[0].workforce != 3.5 {
-		t.Fatalf("job colony ID treated as physical planet: %+v", got)
+		t.Fatalf("unverified or duplicate job included: %+v", got)
+	}
+	gs.Colonies = map[int]gamestate.Colony{}
+	if got := jobBreakdown(gs, 3); len(got) != 0 {
+		t.Fatalf("unverified colony matched: %+v", got)
+	}
+}
+
+func TestPlanetMissingAndZeroStats(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`planets={planet={0={colony=0 owner=0} 1={colony=1 owner=0 num_sapient_pops=9} 2={owner=0}}} colony={0={carrier={type=planet reference=0} num_sapient_pops=0 stability=0} 1={carrier={type=planet reference=99} num_sapient_pops=100}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, _ := planetDetail(gs, 0)
+	text := resultText(detail)
+	for _, want := range []string{"Population: 0", "Stability: 0", "Crime: not recorded"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %s in %s", want, text)
+		}
+	}
+	mismatch, _ := planetDetail(gs, 1)
+	text = resultText(mismatch)
+	for _, want := range []string{"reciprocal planet link unavailable", "Population: 9", "Stability: not recorded"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %s in %s", want, text)
+		}
+	}
+	empty, _ := planetDetail(gs, 2)
+	if !strings.Contains(resultText(empty), "Population: not recorded") {
+		t.Fatal(resultText(empty))
+	}
+}
+
+func TestPlanetJobWarningsAndMissingDistricts(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`planets={planet={3={colony=0}}} colony={0={carrier={type=planet reference=3} pop_jobs={1 1 2 3 4 99}}} pop_jobs={1={type=miner planet=0 workforce=3} 2={type=missing_planet workforce=4} 3={type=wrong planet=9 workforce=5} 4={type=missing_workforce planet=0}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, _ := planetDetail(gs, 3)
+	text := resultText(detail)
+	for _, want := range []string{"Job 1: duplicate reference", "Job 2: colony back-reference not recorded", "Job 3: colony back-reference mismatch", "Job 4: workforce not recorded", "Job 99: referenced record unavailable", "District references: not recorded"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in %s", want, text)
+		}
+	}
+}
+
+func TestPlanetMixedLegacyAndColonyValues(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`planets={planet={3={colony=0 num_sapient_pops=77 stability=50 crime=8 final_designation=legacy_designation ascension_tier=2 districts={1} profits={energy=2}}}} colony={0={carrier={type=planet reference=3} stability=0}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := gs.Planets.Planet[3]
+	if p.NumPopsRaw == nil || *p.NumPopsRaw != 77 || p.StabilityRaw == nil || *p.StabilityRaw != 0 || p.CrimeRaw == nil || *p.CrimeRaw != 8 || len(p.Districts) != 1 || p.Profits["energy"] != 2 || p.FinalDesignationRaw == nil || *p.FinalDesignationRaw != "legacy_designation" || p.AscensionTierRaw == nil || *p.AscensionTierRaw != 2 {
+		t.Fatalf("mixed saved values lost: %+v", p)
+	}
+	detail, _ := planetDetail(gs, 3)
+	text := resultText(detail)
+	for _, want := range []string{"Population: 77", "Stability: 0", "Crime: 8"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %s in %s", want, text)
+		}
 	}
 }

@@ -58,19 +58,19 @@ func planetSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Planets (%s) — %d planets ===\n", name(c.Adjective), len(owned))
-	fmt.Fprintf(&b, "Use get_planets with planet_id for details.\n\n")
+	fmt.Fprintf(&b, "Use get_planets with planet_id for details. Colony values take precedence when present; saved planet values are retained otherwise.\n\n")
 	fmt.Fprintf(&b, "%-6s %-25s %-16s %4s %5s %5s %-12s %-20s %-30s %s\n", "ID", "Name", "Class", "Size", "Pop(raw)", "Stab", "Design.", "Districts", "Buildings", "Deficit")
 	fmt.Fprintf(&b, "%s\n", strings.Repeat("-", 160))
 
 	for _, e := range owned {
-		fmt.Fprintf(&b, "%-6d %-25s %-16s %4d %5d %5.0f %-12s %-20s %-30s %s\n",
+		fmt.Fprintf(&b, "%-6d %-25s %-16s %4d %5s %5s %-12s %-20s %-30s %s\n",
 			e.id,
 			truncate(name(e.p.Name), 25),
 			l(e.p.PlanetClass),
 			e.p.PlanetSize,
-			e.p.NumPops,
-			e.p.Stability,
-			l(e.p.FinalDesignation),
+			armyInt(e.p.NumPopsRaw),
+			armyFloat(e.p.StabilityRaw),
+			planetDesignation(e.p),
 			districtSummary(gs, e.p),
 			buildingSummary(gs, e.p),
 			deficitSummary(e.p),
@@ -106,28 +106,37 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 		fmt.Fprintf(&b, "System: %s\n", strings.Join(systems, ", "))
 	}
 	fmt.Fprintf(&b, "Class: %s, Size: %d\n", l(p.PlanetClass), p.PlanetSize)
-	fmt.Fprintf(&b, "Designation: %s (Ascension Tier %d)\n", l(p.FinalDesignation), p.AscensionTier)
+	fmt.Fprintf(&b, "Designation: %s (Ascension Tier %s)\n", planetDesignation(p), armyInt(p.AscensionTierRaw))
 	if p.OwnerID != nil {
 		fmt.Fprintf(&b, "Owner: %d\n", *p.OwnerID)
 	} else {
-		fmt.Fprintf(&b, "Owner: none\n")
+		fmt.Fprintf(&b, "Owner: not recorded\n")
 	}
 	if p.ControllerID != nil {
 		fmt.Fprintf(&b, "Controller: %d\n", *p.ControllerID)
 	} else {
 		fmt.Fprintln(&b, "Controller: not recorded")
 	}
-	fmt.Fprintf(&b, "\nPopulation: %d (raw save units)\n", p.NumPops)
-	fmt.Fprintf(&b, "Stability: %.1f\n", p.Stability)
-	fmt.Fprintf(&b, "Crime: %.1f\n", p.Crime)
-	fmt.Fprintf(&b, "Amenities: %.0f (used: %.0f, free: %.0f)\n", p.Amenities, p.AmenitiesUsage, p.FreeAmenities)
-	fmt.Fprintf(&b, "Housing: %.0f (used: %.0f, free: %.0f)\n", p.TotalHousing, p.HousingUsage, p.FreeHousing)
+	if p.ColonyID != nil {
+		colony, ok := gs.Colonies[*p.ColonyID]
+		if !ok || colony.Carrier.Type != "planet" || colony.Carrier.ReferenceID == nil || *colony.Carrier.ReferenceID != planetID {
+			fmt.Fprintf(&b, "Colony %d: reciprocal planet link unavailable; colony values not joined\n", *p.ColonyID)
+		} else {
+			fmt.Fprintln(&b, "Colony values take precedence where recorded; otherwise saved planet values are retained.")
+		}
+	}
+	fmt.Fprintf(&b, "\nPopulation: %s (raw save units)\n", armyInt(p.NumPopsRaw))
+	fmt.Fprintf(&b, "Stability: %s\n", armyFloat(p.StabilityRaw))
+	fmt.Fprintf(&b, "Crime: %s\n", armyFloat(p.CrimeRaw))
+	fmt.Fprintf(&b, "Amenities: %s (used: %s, free: %s)\n", armyFloat(p.AmenitiesRaw), armyFloat(p.AmenitiesUsageRaw), armyFloat(p.FreeAmenitiesRaw))
+	fmt.Fprintf(&b, "Housing: %s (used: %s, free: %s)\n", armyFloat(p.TotalHousingRaw), armyFloat(p.HousingUsageRaw), armyFloat(p.FreeHousingRaw))
 
 	if len(p.PopGroups) > 0 {
 		fmt.Fprintf(&b, "\nPOP groups (population and growth in raw save units; happiness/habitability as saved; group totals may differ from cached colony population):\n")
 		for _, id := range p.PopGroups {
 			group, ok := gs.PopGroups[id]
 			if !ok {
+				fmt.Fprintf(&b, "  Group %d: referenced record unavailable\n", id)
 				continue
 			}
 			fmt.Fprintf(&b, "  Group %d: species=%s category=%s population=%d growth=%+d happiness=%g habitability=%g\n", id, populationSpecies(gs, group.Key.Species), group.Key.Category, group.Size, group.LastMonthGrowth, group.Happiness, group.Habitability)
@@ -135,10 +144,42 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 		}
 	}
 
-	// Jobs breakdown
+	// Only jobs with reciprocal references are included in the positive workforce total.
+	if p.ColonyID != nil {
+		if colony, ok := gs.Colonies[*p.ColonyID]; ok && colony.Carrier.Type == "planet" && colony.Carrier.ReferenceID != nil && *colony.Carrier.ReferenceID == planetID {
+			if colony.PopJobs == nil {
+				fmt.Fprintln(&b, "\nJob references: not recorded")
+			} else {
+				seen := map[int]bool{}
+				for _, id := range colony.PopJobs {
+					if seen[id] {
+						fmt.Fprintf(&b, "Job %d: duplicate reference, counted once\n", id)
+						continue
+					}
+					seen[id] = true
+					job, exists := gs.PopJobs[id]
+					if !exists {
+						fmt.Fprintf(&b, "Job %d: referenced record unavailable\n", id)
+						continue
+					}
+					if job.PlanetID == nil {
+						fmt.Fprintf(&b, "Job %d: colony back-reference not recorded\n", id)
+						continue
+					}
+					if *job.PlanetID != *p.ColonyID {
+						fmt.Fprintf(&b, "Job %d: colony back-reference mismatch (%d)\n", id, *job.PlanetID)
+						continue
+					}
+					if job.WorkforceRaw == nil {
+						fmt.Fprintf(&b, "Job %d: workforce not recorded\n", id)
+					}
+				}
+			}
+		}
+	}
 	jobCounts := jobBreakdown(gs, planetID)
 	if len(jobCounts) > 0 {
-		fmt.Fprintf(&b, "\nJob workforce (raw save units):\n")
+		fmt.Fprintf(&b, "\nPositive job workforce (raw save units; zero and negative values excluded):\n")
 		for _, jc := range jobCounts {
 			fmt.Fprintf(&b, "  %s: %g\n", l(jc.jobType), jc.workforce)
 		}
@@ -150,7 +191,11 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 	for _, n := range counts {
 		totalUsed += n
 	}
-	fmt.Fprintf(&b, "\nDistrict Slots: %d used (planet size %d)\n", totalUsed, p.PlanetSize)
+	if p.Districts == nil {
+		fmt.Fprintln(&b, "\nDistrict references: not recorded")
+	} else {
+		fmt.Fprintf(&b, "\nDistrict Slots: %d used (planet size %d)\n", totalUsed, p.PlanetSize)
+	}
 	for dtype, n := range counts {
 		fmt.Fprintf(&b, "  %s: %d\n", l(dtype), n)
 	}
@@ -265,6 +310,9 @@ func countDistrictTypes(gs *gamestate.GameState, p gamestate.Planet) map[string]
 }
 
 func districtSummary(gs *gamestate.GameState, p gamestate.Planet) string {
+	if p.Districts == nil {
+		return "not recorded"
+	}
 	counts := countDistrictTypes(gs, p)
 	if len(counts) == 0 {
 		return fmt.Sprintf("0/%d", p.PlanetSize)
@@ -288,21 +336,43 @@ type jobCount struct {
 
 func jobBreakdown(gs *gamestate.GameState, planetID int) []jobCount {
 	counts := make(map[string]float64)
-	// The job's planet field refers to the colony ID in 4.5 saves.
-	targetID := planetID
-	if p, ok := gs.Planets.Planet[planetID]; ok && p.ColonyID != nil {
-		targetID = *p.ColonyID
+	p, exists := gs.Planets.Planet[planetID]
+	if !exists {
+		return nil
 	}
-	for _, job := range gs.PopJobs {
-		if job.Planet == targetID && job.Workforce > 0 {
-			counts[job.Type] += job.Workforce
+	if p.ColonyID != nil {
+		colony, ok := gs.Colonies[*p.ColonyID]
+		if !ok || colony.Carrier.Type != "planet" || colony.Carrier.ReferenceID == nil || *colony.Carrier.ReferenceID != planetID {
+			return nil
+		}
+		seen := map[int]bool{}
+		for _, id := range colony.PopJobs {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			job, ok := gs.PopJobs[id]
+			if ok && job.PlanetID != nil && *job.PlanetID == *p.ColonyID && job.WorkforceRaw != nil && *job.WorkforceRaw > 0 {
+				counts[job.Type] += *job.WorkforceRaw
+			}
+		}
+	} else {
+		for _, job := range gs.PopJobs {
+			if job.PlanetID != nil && *job.PlanetID == planetID && job.WorkforceRaw != nil && *job.WorkforceRaw > 0 {
+				counts[job.Type] += *job.WorkforceRaw
+			}
 		}
 	}
 	result := make([]jobCount, 0, len(counts))
 	for t, w := range counts {
 		result = append(result, jobCount{t, w})
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].workforce > result[j].workforce })
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].workforce != result[j].workforce {
+			return result[i].workforce > result[j].workforce
+		}
+		return result[i].jobType < result[j].jobType
+	})
 	return result
 }
 
@@ -331,11 +401,21 @@ var habitableClasses = map[string]bool{
 	"pc_gaia": true, "pc_tomb": true, "pc_relic": true,
 }
 
+func planetDesignation(p gamestate.Planet) string {
+	if p.FinalDesignationRaw == nil {
+		return "not recorded"
+	}
+	return l(*p.FinalDesignationRaw)
+}
+
 func isColonized(p gamestate.Planet) bool {
 	return p.ColonyID != nil || p.NumPops > 0 || p.FinalDesignation != ""
 }
 
 func buildingSummary(gs *gamestate.GameState, p gamestate.Planet) string {
+	if p.Districts == nil {
+		return "not recorded"
+	}
 	counts := make(map[string]int)
 	for _, did := range p.Districts {
 		d, ok := gs.Districts[did]
@@ -387,6 +467,9 @@ func buildingSummary(gs *gamestate.GameState, p gamestate.Planet) string {
 }
 
 func deficitSummary(p gamestate.Planet) string {
+	if p.Profits == nil {
+		return "not recorded"
+	}
 	var deficits []string
 	for res, val := range p.Profits {
 		if val < -0.1 {

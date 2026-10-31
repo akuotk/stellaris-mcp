@@ -9,36 +9,37 @@ import (
 )
 
 type GameState struct {
-	Armies         Armies                 `clausewitz:"army"`
-	Construction   Construction           `clausewitz:"construction"`
-	Colonies       map[int]Colony         `clausewitz:"colony"`
-	PopGroups      map[int]PopGroup       `clausewitz:"pop_groups"`
-	Species        map[int]Species        `clausewitz:"species_db"`
-	PopFactions    map[int]PopFaction     `clausewitz:"pop_factions"`
-	Agreements     AgreementStore         `clausewitz:"agreements"`
-	Situations     SituationStore         `clausewitz:"situations"`
-	Megastructures map[int]Megastructure  `clausewitz:"megastructures"`
-	Systems        map[int]GalacticSystem `clausewitz:"galactic_object"`
-	Community      *GalacticCommunity     `clausewitz:"galactic_community"`
-	Resolutions    map[int]Resolution     `clausewitz:"resolution"`
-	Version        string                 `clausewitz:"version"`
-	Name           string                 `clausewitz:"name"`
-	Date           string                 `clausewitz:"date"`
-	Player         []Player               `clausewitz:"player"`
-	Country        map[int]Country        `clausewitz:"country"`
-	Fleet          map[int]Fleet          `clausewitz:"fleet"`
-	Ships          map[int]Ship           `clausewitz:"ships"`
-	ShipDesign     map[int]ShipDesign     `clausewitz:"ship_design"`
-	Planets        PlanetsWrapper         `clausewitz:"planets"`
-	Buildings      map[int]Building       `clausewitz:"buildings"`
-	Districts      map[int]District       `clausewitz:"districts"`
-	Zones          map[int]Zone           `clausewitz:"zones"`
-	Deposit        map[int]Deposit        `clausewitz:"deposit"`
-	SpyNetworks    map[int]SpyNetwork     `clausewitz:"spy_networks"`
-	PopJobs        map[int]PopJob         `clausewitz:"pop_jobs"`
-	Leaders        map[int]Leader         `clausewitz:"leaders"`
-	War            map[int]War            `clausewitz:"war"`
-	Federation     map[int]Federation     `clausewitz:"federation"`
+	EspionageOperations EspionageOperations    `clausewitz:"espionage_operations"`
+	Armies              Armies                 `clausewitz:"army"`
+	Construction        Construction           `clausewitz:"construction"`
+	Colonies            map[int]Colony         `clausewitz:"colony"`
+	PopGroups           map[int]PopGroup       `clausewitz:"pop_groups"`
+	Species             map[int]Species        `clausewitz:"species_db"`
+	PopFactions         map[int]PopFaction     `clausewitz:"pop_factions"`
+	Agreements          AgreementStore         `clausewitz:"agreements"`
+	Situations          SituationStore         `clausewitz:"situations"`
+	Megastructures      map[int]Megastructure  `clausewitz:"megastructures"`
+	Systems             map[int]GalacticSystem `clausewitz:"galactic_object"`
+	Community           *GalacticCommunity     `clausewitz:"galactic_community"`
+	Resolutions         map[int]Resolution     `clausewitz:"resolution"`
+	Version             string                 `clausewitz:"version"`
+	Name                string                 `clausewitz:"name"`
+	Date                string                 `clausewitz:"date"`
+	Player              []Player               `clausewitz:"player"`
+	Country             map[int]Country        `clausewitz:"country"`
+	Fleet               map[int]Fleet          `clausewitz:"fleet"`
+	Ships               map[int]Ship           `clausewitz:"ships"`
+	ShipDesign          map[int]ShipDesign     `clausewitz:"ship_design"`
+	Planets             PlanetsWrapper         `clausewitz:"planets"`
+	Buildings           map[int]Building       `clausewitz:"buildings"`
+	Districts           map[int]District       `clausewitz:"districts"`
+	Zones               map[int]Zone           `clausewitz:"zones"`
+	Deposit             map[int]Deposit        `clausewitz:"deposit"`
+	SpyNetworks         map[int]SpyNetwork     `clausewitz:"spy_networks"`
+	PopJobs             map[int]PopJob         `clausewitz:"pop_jobs"`
+	Leaders             map[int]Leader         `clausewitz:"leaders"`
+	War                 map[int]War            `clausewitz:"war"`
+	Federation          map[int]Federation     `clausewitz:"federation"`
 }
 
 type Building struct {
@@ -56,6 +57,7 @@ type SpyNetwork struct {
 }
 
 type PopJob struct {
+	PlanetID     *int     `clausewitz:"planet"`
 	Type         string   `clausewitz:"type"`
 	Planet       int      `clausewitz:"planet"`
 	Workforce    float64  `clausewitz:"workforce"`
