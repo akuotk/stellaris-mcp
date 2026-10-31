@@ -50,9 +50,12 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 	fmt.Fprintf(&b, "%s\n", strings.Repeat("-", 80))
 
 	milPower := 0.0
+	missingFleets := 0
 	for _, of := range c.FleetsManager.OwnedFleets {
 		fleet, ok := gs.Fleet[of.Fleet]
 		if !ok {
+			missingFleets++
+			fmt.Fprintf(&b, "Fleet %d: referenced record unavailable\n", of.Fleet)
 			continue
 		}
 		role := l(fleet.ShipClass)
@@ -70,6 +73,9 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 	}
 
 	fmt.Fprintf(&b, "\nMilitary-class fleet power: %.1f\n", milPower)
+	if missingFleets > 0 {
+		fmt.Fprintf(&b, "  Incomplete: %d referenced fleet records unavailable.\n", missingFleets)
+	}
 
 	// Comparison
 	fmt.Fprintf(&b, "\nComparison with Known Empires:\n")
@@ -111,59 +117,78 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 	for _, sid := range fleet.Ships {
 		ship, ok := gs.Ships[sid]
 		if !ok {
+			fmt.Fprintf(&b, "\n  Ship %d: referenced record unavailable\n", sid)
 			continue
 		}
 		// Resolve design
 		designName := "unknown"
 		shipSize := "unknown"
 		var design *gamestate.ShipDesign
-		if d, ok := gs.ShipDesign[ship.ShipDesignImplementation.Design]; ok {
-			design = &d
-			designName = name(d.Name)
-			if len(d.GrowthStages) > 0 {
-				shipSize = d.GrowthStages[0].ShipSize
+		if id := ship.ShipDesignImplementation.Design; id != nil {
+			if d, ok := gs.ShipDesign[*id]; ok {
+				design = &d
+				designName = name(d.Name)
+				if len(d.GrowthStages) == 1 {
+					shipSize = d.GrowthStages[0].ShipSize
+				}
 			}
 		}
 
 		fmt.Fprintf(&b, "\n  --- Ship %d: %s ---\n", sid, name(ship.Name))
+		if id := ship.ShipDesignImplementation.Design; id != nil {
+			fmt.Fprintf(&b, "  Design reference: %d\n", *id)
+		} else {
+			fmt.Fprintf(&b, "  Design reference: not recorded\n")
+		}
+		if stage := ship.ShipDesignImplementation.GrowthStage; stage != nil {
+			fmt.Fprintf(&b, "  Saved design implementation growth_stage: %d (index interpretation not established)\n", *stage)
+		}
+		if upgrade := ship.ShipDesignImplementation.Upgrade; upgrade != nil {
+			fmt.Fprintf(&b, "  Saved design implementation upgrade: %d\n", *upgrade)
+		}
 		fmt.Fprintf(&b, "  Design: %s (%s)\n", designName, l(shipSize))
 		fmt.Fprintf(&b, "  Hull:   %.0f / %.0f\n", ship.Hitpoints, ship.MaxHitpoints)
 		fmt.Fprintf(&b, "  Shield: %.0f / %.0f\n", ship.ShieldHitpoints, ship.MaxShieldHitpoints)
 		fmt.Fprintf(&b, "  Armor:  %.0f / %.0f\n", ship.ArmorHitpoints, ship.MaxArmorHitpoints)
 
 		// Components from design (weapons, utilities, aux, required)
-		if design != nil && len(design.GrowthStages) > 0 {
-			stage := design.GrowthStages[0]
-			var weapons, utilities, aux []string
-			for _, section := range stage.Sections {
-				for _, comp := range section.Component {
-					name := l(comp.Template)
-					switch {
-					case strings.Contains(comp.Slot, "GUN") || strings.Contains(comp.Slot, "TORPEDO") || strings.Contains(comp.Slot, "HANGAR") || strings.Contains(comp.Slot, "STRIKE"):
-						weapons = append(weapons, name)
-					case strings.Contains(comp.Slot, "AUX"):
-						aux = append(aux, name)
-					default:
-						utilities = append(utilities, name)
+		if design != nil {
+			if len(design.GrowthStages) == 0 {
+				fmt.Fprintf(&b, "  Design growth stages: not recorded\n")
+			}
+			for index, stage := range design.GrowthStages {
+				fmt.Fprintf(&b, "  Saved design growth stage %d (ship size: %s; actual stage not established):\n", index, l(stage.ShipSize))
+				var weapons, utilities, aux []string
+				for _, section := range stage.Sections {
+					for _, comp := range section.Component {
+						name := l(comp.Template)
+						switch {
+						case strings.Contains(comp.Slot, "GUN") || strings.Contains(comp.Slot, "TORPEDO") || strings.Contains(comp.Slot, "HANGAR") || strings.Contains(comp.Slot, "STRIKE"):
+							weapons = append(weapons, name)
+						case strings.Contains(comp.Slot, "AUX"):
+							aux = append(aux, name)
+						default:
+							utilities = append(utilities, name)
+						}
 					}
 				}
-			}
-			var required []string
-			for _, r := range stage.RequiredComponent {
-				required = append(required, l(r))
-			}
+				var required []string
+				for _, r := range stage.RequiredComponent {
+					required = append(required, l(r))
+				}
 
-			if len(weapons) > 0 {
-				fmt.Fprintf(&b, "  Weapons: %s\n", strings.Join(weapons, ", "))
-			}
-			if len(utilities) > 0 {
-				fmt.Fprintf(&b, "  Utilities: %s\n", strings.Join(utilities, ", "))
-			}
-			if len(aux) > 0 {
-				fmt.Fprintf(&b, "  Aux: %s\n", strings.Join(aux, ", "))
-			}
-			if len(required) > 0 {
-				fmt.Fprintf(&b, "  Core: %s\n", strings.Join(required, ", "))
+				if len(weapons) > 0 {
+					fmt.Fprintf(&b, "  Weapons: %s\n", strings.Join(weapons, ", "))
+				}
+				if len(utilities) > 0 {
+					fmt.Fprintf(&b, "  Utilities: %s\n", strings.Join(utilities, ", "))
+				}
+				if len(aux) > 0 {
+					fmt.Fprintf(&b, "  Aux: %s\n", strings.Join(aux, ", "))
+				}
+				if len(required) > 0 {
+					fmt.Fprintf(&b, "  Core: %s\n", strings.Join(required, ", "))
+				}
 			}
 		}
 	}

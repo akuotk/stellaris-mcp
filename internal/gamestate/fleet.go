@@ -23,7 +23,9 @@ type Ship struct {
 }
 
 type ShipDesignImpl struct {
-	Design int `clausewitz:"design"`
+	Design      *int `clausewitz:"design"`
+	Upgrade     *int `clausewitz:"upgrade"`
+	GrowthStage *int `clausewitz:"growth_stage"`
 }
 
 type ShipSection struct {
