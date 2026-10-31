@@ -2,6 +2,8 @@ package gamestate
 
 // Colony stores the population and economy records separated from planets in 4.5 saves.
 type Colony struct {
+	Armies            []int              `clausewitz:"army"`
+	SpawnedArmies     []int              `clausewitz:"spawned_armies"`
 	StabilityRaw      *float64           `clausewitz:"stability"`
 	CrimeRaw          *float64           `clausewitz:"crime"`
 	AmenitiesRaw      *float64           `clausewitz:"amenities"`

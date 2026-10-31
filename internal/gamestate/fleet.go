@@ -10,7 +10,9 @@ type Fleet struct {
 }
 
 type Ship struct {
+	ArmyID                   *int           `clausewitz:"army"`
 	Fleet                    int            `clausewitz:"fleet"`
+	FleetID                  *int           `clausewitz:"fleet"`
 	Name                     LocalizedName  `clausewitz:"name"`
 	ShipDesignImplementation ShipDesignImpl `clausewitz:"ship_design_implementation"`
 	Section                  ShipSection    `clausewitz:"section"`

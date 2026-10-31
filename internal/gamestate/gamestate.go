@@ -9,6 +9,7 @@ import (
 )
 
 type GameState struct {
+	Armies         Armies                 `clausewitz:"army"`
 	Construction   Construction           `clausewitz:"construction"`
 	Colonies       map[int]Colony         `clausewitz:"colony"`
 	PopGroups      map[int]PopGroup       `clausewitz:"pop_groups"`

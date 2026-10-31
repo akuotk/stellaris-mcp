@@ -55,7 +55,12 @@ func leaderSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 			leaders = append(leaders, entry{id, ldr})
 		}
 	}
-	sort.Slice(leaders, func(i, j int) bool { return leaders[i].l.Class < leaders[j].l.Class })
+	sort.Slice(leaders, func(i, j int) bool {
+		if leaders[i].l.Class != leaders[j].l.Class {
+			return leaders[i].l.Class < leaders[j].l.Class
+		}
+		return leaders[i].id < leaders[j].id
+	})
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Leaders (%s) — %d leaders ===\n", name(c.Adjective), len(leaders))
@@ -82,8 +87,18 @@ func leaderSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 		)
 	}
 
-	if len(leaders) == 0 {
-		fmt.Fprintf(&b, "No leaders.\n")
+	missing := make([]int, 0)
+	for id := range owned {
+		if _, ok := gs.Leaders[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+	sort.Ints(missing)
+	for _, id := range missing {
+		fmt.Fprintf(&b, "Leader %d: referenced record unavailable\n", id)
+	}
+	if len(leaders) == 0 && len(missing) == 0 {
+		fmt.Fprintf(&b, "No owned leader references recorded.\n")
 	}
 
 	return mcp.NewToolResultText(b.String()), nil
@@ -113,11 +128,23 @@ func leaderDetail(gs *gamestate.GameState, leaderID int) (*mcp.CallToolResult, e
 	fmt.Fprintf(&b, "\nAssignment: %s\n", resolveAssignment(gs, c, ldr))
 
 	if ldr.Location.Type != "" {
-		fmt.Fprintf(&b, "Location: %s (id=%d)\n", ldr.Location.Type, ldr.Location.ID)
+		if ldr.Location.IDRaw == nil {
+			fmt.Fprintf(&b, "Location: %s (id not recorded)\n", ldr.Location.Type)
+		} else {
+			fmt.Fprintf(&b, "Location: %s (id=%d)\n", ldr.Location.Type, *ldr.Location.IDRaw)
+		}
 	}
 	if ldr.CouncilLocation.Type != "" {
-		fmt.Fprintf(&b, "Council: %s (id=%d, position=%d)\n",
-			ldr.CouncilLocation.Type, ldr.CouncilLocation.ID, ldr.CouncilLocation.Position)
+		id := "not recorded"
+		if ldr.CouncilLocation.IDRaw != nil {
+			id = fmt.Sprint(*ldr.CouncilLocation.IDRaw)
+		}
+		position := "not recorded"
+		if ldr.CouncilLocation.PositionRaw != nil {
+			position = fmt.Sprint(*ldr.CouncilLocation.PositionRaw)
+		}
+		fmt.Fprintf(&b, "Council: %s (id=%s, position=%s)\n",
+			ldr.CouncilLocation.Type, id, position)
 	}
 
 	fmt.Fprintf(&b, "\nTraits:\n")
@@ -134,7 +161,10 @@ func leaderDetail(gs *gamestate.GameState, leaderID int) (*mcp.CallToolResult, e
 func resolveAssignment(gs *gamestate.GameState, c *gamestate.Country, ldr gamestate.Leader) string {
 	// Council position — resolve to council type name
 	if ldr.CouncilLocation.Type == "council_position" {
-		posID := ldr.CouncilLocation.ID
+		if ldr.CouncilLocation.IDRaw == nil {
+			return "Council position reference not recorded"
+		}
+		posID := *ldr.CouncilLocation.IDRaw
 		if c != nil {
 			for i, id := range c.Government.CouncilPositions {
 				if id == posID && i < len(c.Government.PickedCouncilTypes) {
@@ -144,18 +174,38 @@ func resolveAssignment(gs *gamestate.GameState, c *gamestate.Country, ldr gamest
 		}
 		return fmt.Sprintf("Council #%d", posID)
 	}
-	// Fleet/ship assignment
+	// A ship ID can collide with an unrelated fleet ID, so follow the ship reference first.
 	if ldr.Location.Type == "ship" {
-		if fleet, ok := gs.Fleet[ldr.Location.ID]; ok {
-			return fmt.Sprintf("Fleet: %s", name(fleet.Name))
+		if ldr.Location.IDRaw == nil {
+			return "Ship reference not recorded"
 		}
-		return fmt.Sprintf("Ship %d", ldr.Location.ID)
+		shipID := *ldr.Location.IDRaw
+		ship, ok := gs.Ships[shipID]
+		if !ok {
+			return fmt.Sprintf("Ship %d (record unavailable)", shipID)
+		}
+		if ship.FleetID != nil {
+			if fleet, ok := gs.Fleet[*ship.FleetID]; ok {
+				for _, id := range fleet.Ships {
+					if id == shipID {
+						return fmt.Sprintf("Ship %d, fleet %s", shipID, name(fleet.Name))
+					}
+				}
+				return fmt.Sprintf("Ship %d, fleet %d (membership unverified)", shipID, *ship.FleetID)
+			}
+			return fmt.Sprintf("Ship %d, fleet %d (record unavailable)", shipID, *ship.FleetID)
+		}
+		return fmt.Sprintf("Ship %d (fleet reference not recorded)", shipID)
 	}
 	// Governor
 	if ldr.Location.Type == "planet" {
-		if p, ok := gs.Planets.Planet[ldr.Location.ID]; ok {
-			return fmt.Sprintf("Governor: %s", name(p.Name))
+		if ldr.Location.IDRaw == nil {
+			return "Planet reference not recorded"
 		}
+		if p, ok := gs.Planets.Planet[*ldr.Location.IDRaw]; ok {
+			return fmt.Sprintf("Planet: %s", name(p.Name))
+		}
+		return fmt.Sprintf("Planet %d (record unavailable)", *ldr.Location.IDRaw)
 	}
 	if ldr.Job != "" {
 		return l(ldr.Job)
