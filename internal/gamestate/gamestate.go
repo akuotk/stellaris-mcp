@@ -9,6 +9,7 @@ import (
 )
 
 type GameState struct {
+	MarketOrders        MarketOrders           `clausewitz:"market"`
 	Starbases           Starbases              `clausewitz:"starbase_mgr"`
 	FirstContacts       FirstContacts          `clausewitz:"first_contacts"`
 	ArchaeologySites    ArchaeologySites       `clausewitz:"archaeological_sites"`

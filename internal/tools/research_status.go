@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -89,22 +90,34 @@ func handleResearchStatus(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 }
 
 func writeQueue(b *strings.Builder, label string, queue []gamestate.ResearchItem) {
+	if queue == nil {
+		fmt.Fprintf(b, "  %s: not recorded\n", label)
+		return
+	}
 	if len(queue) == 0 {
-		fmt.Fprintf(b, "  %s: (none)\n", label)
+		fmt.Fprintf(b, "  %s: empty\n", label)
 		return
 	}
 	for _, r := range queue {
-		fmt.Fprintf(b, "  %s: %s [%s] (progress: %.1f", label, l(r.Technology), r.Technology, r.Progress)
-		if r.Date != "" {
-			fmt.Fprintf(b, ", saved date: %s", r.Date)
+		technology := "not recorded"
+		if r.TechnologyRaw != nil {
+			technology = fmt.Sprintf("%s [%s]", l(*r.TechnologyRaw), *r.TechnologyRaw)
 		}
-		fmt.Fprintln(b, ")")
+		date := "not recorded"
+		if r.DateRaw != nil {
+			date = strconv.Quote(*r.DateRaw)
+		}
+		fmt.Fprintf(b, "  %s: %s (saved progress: %s, saved date: %s)\n", label, technology, armyFloat(r.ProgressRaw), date)
 	}
 }
 
 func writeAlternatives(b *strings.Builder, label string, alts []string) {
+	if alts == nil {
+		fmt.Fprintf(b, "  %s: not recorded\n", label)
+		return
+	}
 	if len(alts) == 0 {
-		fmt.Fprintf(b, "  %s: (none)\n", label)
+		fmt.Fprintf(b, "  %s: empty\n", label)
 		return
 	}
 	options := make([]string, 0, len(alts))
