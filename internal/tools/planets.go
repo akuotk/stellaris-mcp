@@ -533,10 +533,14 @@ func planetAvailable(gs *gamestate.GameState, countryID int, c *gamestate.Countr
 }
 
 func truncate(s string, max int) string {
-	if len(s) <= max {
+	if max <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= max {
 		return s
 	}
-	return s[:max-1] + "…"
+	return string(runes[:max-1]) + "…"
 }
 
 func isBlocker(depositType string) bool {

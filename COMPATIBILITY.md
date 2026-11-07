@@ -48,6 +48,8 @@ Planet population, stability, crime, amenities and housing distinguish missing v
 
 `get_construction` connects saved queues and their ordered items, reporting missing or inconsistent references. Saved progress, resources and numeric location types are not converted to UI values; a matching colony ID is only a candidate. Unsupported construction shapes are flagged and remain accessible through the raw tools.
 
+`get_grand_archive` exposes saved exhibit and management-setting structures. Empty entries are not interpreted as specimen counts; specimen identity, ownership and setting effects are unverified. Deep or mixed structures remain available via raw tools.
+
 `get_species_rights` exposes saved default, primary, built-species and species-specific records. Species ID matches are candidates; effective rights, inheritance and date meanings remain unverified.
 
 `get_species` links species records to owned planets' population groups and displays traits and saved group-size totals. Incomplete or duplicate references are reported; groups referenced by multiple owned planets are counted once and their location is marked ambiguous. Non-planet carriers are not included. `get_colonies` exposes owned colony records and raw carrier types and references without inventing a carrier identity. Non-planet carrier serialization has not yet been checked against a real Arkship save.

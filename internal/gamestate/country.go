@@ -8,6 +8,7 @@ import (
 )
 
 type Country struct {
+	GrandArchiveModules  CountryGrandArchiveModules  `clausewitz:"modules"`
 	SpeciesRightsModules CountrySpeciesRightsModules `clausewitz:"modules"`
 	FleetTemplateRefs    FleetTemplateManagerRefs    `clausewitz:"fleet_template_manager"`
 	DiplomaticModules    CountryDiplomaticModules    `clausewitz:"modules"`

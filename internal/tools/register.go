@@ -38,5 +38,6 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
 	registerSaveCatalog(s)
 	registerSpecies(s)
 	registerSpeciesRights(s)
+	registerGrandArchive(s)
 	registerFederations(s)
 }

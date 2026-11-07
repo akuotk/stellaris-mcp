@@ -5,6 +5,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func resultText(r *mcp.CallToolResult) string {
@@ -151,5 +152,37 @@ func TestPlanetMixedLegacyAndColonyValues(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Errorf("missing %s in %s", want, text)
 		}
+	}
+}
+
+func TestTruncatePreservesUnicodeCharacters(t *testing.T) {
+	for _, test := range []struct {
+		text string
+		max  int
+		want string
+	}{
+		{"銀河帝国", 10, "銀河帝国"}, {"銀河帝国連合", 4, "銀河帝…"}, {"A🚀星団", 3, "A🚀…"}, {"abcdef", 4, "abc…"}, {"abc", 1, "…"}, {"abc", 0, ""}, {"abc", -1, ""},
+	} {
+		if got := truncate(test.text, test.max); got != test.want {
+			t.Errorf("truncate(%q,%d)=%q, want %q", test.text, test.max, got, test.want)
+		}
+	}
+}
+func TestPlanetSummaryRetainsShortJapaneseName(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`country={0={}} planets={planet={0={owner=0 colony=0 name={key="日本語の惑星名"}}}} colony={0={carrier={type=planet reference=0}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := gs.Country[0]
+	result, err := planetSummary(gs, 0, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := resultText(result)
+	if !strings.Contains(text, "日本語の惑星名") || !utf8.ValidString(text) {
+		t.Fatal("planet name truncated or invalid UTF-8")
 	}
 }
