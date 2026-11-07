@@ -42,7 +42,7 @@ func handleFleetPower(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolResult, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Fleet Power (%s) ===\n", name(c.Adjective))
-	fmt.Fprintf(&b, "Total Military Power: %.1f\n", c.MilitaryPower)
+	fmt.Fprintf(&b, "Total Military Power: %s\n", armyFloat(c.MilitaryPowerRaw))
 	fmt.Fprintf(&b, "Fleet Size: %.0f (Naval Cap: %s)\n", c.FleetSize, formatNavalCapacity(c))
 	fmt.Fprintf(&b, "Use get_fleet_power with fleet_id for ship details.\n\n")
 
@@ -51,11 +51,17 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 
 	milPower := 0.0
 	missingFleets := 0
+	missingMilitaryPower := 0
 	for _, of := range c.FleetsManager.OwnedFleets {
-		fleet, ok := gs.Fleet[of.Fleet]
+		if of.FleetID == nil {
+			missingFleets++
+			fmt.Fprintln(&b, "Fleet reference: not recorded")
+			continue
+		}
+		fleet, ok := gs.Fleet[*of.FleetID]
 		if !ok {
 			missingFleets++
-			fmt.Fprintf(&b, "Fleet %d: referenced record unavailable\n", of.Fleet)
+			fmt.Fprintf(&b, "Fleet %d: referenced record unavailable\n", *of.FleetID)
 			continue
 		}
 		role := l(fleet.ShipClass)
@@ -65,10 +71,14 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 		if fleet.Civilian {
 			role += " (civilian)"
 		}
-		fmt.Fprintf(&b, "%-8d %-30s %-25s %8.1f %5d\n",
-			of.Fleet, truncate(name(fleet.Name), 30), role, fleet.MilitaryPower, len(fleet.Ships))
+		fmt.Fprintf(&b, "%-8d %-30s %-25s %8s %5d\n",
+			*of.FleetID, truncate(name(fleet.Name), 30), role, armyFloat(fleet.MilitaryPowerRaw), len(fleet.Ships))
 		if fleet.ShipClass == "shipclass_military" {
-			milPower += fleet.MilitaryPower
+			if fleet.MilitaryPowerRaw == nil {
+				missingMilitaryPower++
+			} else {
+				milPower += *fleet.MilitaryPowerRaw
+			}
 		}
 	}
 
@@ -76,21 +86,28 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 	if missingFleets > 0 {
 		fmt.Fprintf(&b, "  Incomplete: %d referenced fleet records unavailable.\n", missingFleets)
 	}
+	if missingMilitaryPower > 0 {
+		fmt.Fprintf(&b, "  Incomplete: %d military-class fleet power values not recorded.\n", missingMilitaryPower)
+	}
 
 	// Comparison
 	fmt.Fprintf(&b, "\nComparison with Known Empires:\n")
 	hasNeighbors := false
 	for _, rel := range c.RelationsManager.Relation {
-		if !rel.Contact {
+		if rel.ContactRaw == nil || *rel.ContactRaw != "yes" {
 			continue
 		}
-		if neighbor, ok := gs.Country[rel.Country]; ok {
-			hasNeighbors = true
-			fmt.Fprintf(&b, "  %s: %.1f military power\n", name(neighbor.Adjective), neighbor.MilitaryPower)
+		hasNeighbors = true
+		if rel.CountryID == nil {
+			fmt.Fprintln(&b, "  Contact country reference not recorded")
+		} else if neighbor, ok := gs.Country[*rel.CountryID]; ok {
+			fmt.Fprintf(&b, "  %s: %s military power\n", name(neighbor.Adjective), armyFloat(neighbor.MilitaryPowerRaw))
+		} else {
+			fmt.Fprintf(&b, "  Contact country %d: referenced record unavailable\n", *rel.CountryID)
 		}
 	}
 	if !hasNeighbors {
-		fmt.Fprintf(&b, "  No known empires.\n")
+		fmt.Fprintln(&b, "  No saved contact=yes relations.")
 	}
 
 	return mcp.NewToolResultText(b.String()), nil
@@ -105,7 +122,7 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Fleet %d: %s ===\n", fleetID, name(fleet.Name))
 	fmt.Fprintf(&b, "Class: %s\n", l(fleet.ShipClass))
-	fmt.Fprintf(&b, "Military Power: %.1f\n", fleet.MilitaryPower)
+	fmt.Fprintf(&b, "Military Power: %s\n", armyFloat(fleet.MilitaryPowerRaw))
 	fmt.Fprintf(&b, "Ships: %d\n", len(fleet.Ships))
 	if fleet.Station {
 		fmt.Fprintf(&b, "Station: yes\n")

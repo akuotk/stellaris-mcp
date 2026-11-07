@@ -8,6 +8,9 @@ import (
 )
 
 type Country struct {
+	MilitaryPowerRaw    *float64           `clausewitz:"military_power"`
+	EconomyPowerRaw     *float64           `clausewitz:"economy_power"`
+	TechPowerRaw        *float64           `clausewitz:"tech_power"`
 	Name                LocalizedName      `clausewitz:"name"`
 	Adjective           LocalizedName      `clausewitz:"adjective"`
 	Ethos               Ethos              `clausewitz:"ethos"`
@@ -184,10 +187,14 @@ type RelationsManager struct {
 }
 
 type Relation struct {
-	Country         int     `clausewitz:"country"`
-	Contact         bool    `clausewitz:"contact"`
-	Trust           float64 `clausewitz:"trust"`
-	RelationCurrent float64 `clausewitz:"relation_current"`
+	CountryID          *int     `clausewitz:"country"`
+	ContactRaw         *string  `clausewitz:"contact"`
+	TrustRaw           *float64 `clausewitz:"trust"`
+	RelationCurrentRaw *float64 `clausewitz:"relation_current"`
+	Country            int      `clausewitz:"country"`
+	Contact            bool     `clausewitz:"contact"`
+	Trust              float64  `clausewitz:"trust"`
+	RelationCurrent    float64  `clausewitz:"relation_current"`
 }
 
 type FleetsManager struct {
@@ -195,5 +202,6 @@ type FleetsManager struct {
 }
 
 type OwnedFleet struct {
-	Fleet int `clausewitz:"fleet"`
+	FleetID *int `clausewitz:"fleet"`
+	Fleet   int  `clausewitz:"fleet"`
 }

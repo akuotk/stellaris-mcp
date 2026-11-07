@@ -1,27 +1,29 @@
 package gamestate
 
 type Fleet struct {
-	Name          LocalizedName `clausewitz:"name"`
-	Ships         []int         `clausewitz:"ships"`
-	MilitaryPower float64       `clausewitz:"military_power"`
-	ShipClass     string        `clausewitz:"ship_class"`
-	Station       bool          `clausewitz:"station"`
-	Civilian      bool          `clausewitz:"civilian"`
+	MilitaryPowerRaw *float64      `clausewitz:"military_power"`
+	Name             LocalizedName `clausewitz:"name"`
+	Ships            []int         `clausewitz:"ships"`
+	MilitaryPower    float64       `clausewitz:"military_power"`
+	ShipClass        string        `clausewitz:"ship_class"`
+	Station          bool          `clausewitz:"station"`
+	Civilian         bool          `clausewitz:"civilian"`
 }
 
 type Ship struct {
-	ArmyID                   *int           `clausewitz:"army"`
-	Fleet                    int            `clausewitz:"fleet"`
-	FleetID                  *int           `clausewitz:"fleet"`
-	Name                     LocalizedName  `clausewitz:"name"`
-	ShipDesignImplementation ShipDesignImpl `clausewitz:"ship_design_implementation"`
-	Section                  ShipSection    `clausewitz:"section"`
-	Hitpoints                float64        `clausewitz:"hitpoints"`
-	ShieldHitpoints          float64        `clausewitz:"shield_hitpoints"`
-	ArmorHitpoints           float64        `clausewitz:"armor_hitpoints"`
-	MaxHitpoints             float64        `clausewitz:"max_hitpoints"`
-	MaxShieldHitpoints       float64        `clausewitz:"max_shield_hitpoints"`
-	MaxArmorHitpoints        float64        `clausewitz:"max_armor_hitpoints"`
+	Coordinate               OptionalCoordinate `clausewitz:"coordinate"`
+	ArmyID                   *int               `clausewitz:"army"`
+	Fleet                    int                `clausewitz:"fleet"`
+	FleetID                  *int               `clausewitz:"fleet"`
+	Name                     LocalizedName      `clausewitz:"name"`
+	ShipDesignImplementation ShipDesignImpl     `clausewitz:"ship_design_implementation"`
+	Section                  ShipSection        `clausewitz:"section"`
+	Hitpoints                float64            `clausewitz:"hitpoints"`
+	ShieldHitpoints          float64            `clausewitz:"shield_hitpoints"`
+	ArmorHitpoints           float64            `clausewitz:"armor_hitpoints"`
+	MaxHitpoints             float64            `clausewitz:"max_hitpoints"`
+	MaxShieldHitpoints       float64            `clausewitz:"max_shield_hitpoints"`
+	MaxArmorHitpoints        float64            `clausewitz:"max_armor_hitpoints"`
 }
 
 type ShipDesignImpl struct {

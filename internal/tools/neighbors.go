@@ -3,8 +3,10 @@ package tools
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
+	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -12,7 +14,7 @@ import (
 func registerNeighbors(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("get_neighbors", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-			mcp.WithDescription("Get known empires: relations, opinion, trust, and relative power"),
+			mcp.WithDescription("Get saved known-country relations, opinion, trust, and raw military-power ratio; game UI strength categories are not inferred"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 		),
 		handleNeighbors,
@@ -29,45 +31,53 @@ func handleNeighbors(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 		return toolError(err), nil
 	}
 
+	return renderNeighbors(gs, c), nil
+}
+
+func renderNeighbors(gs *gamestate.GameState, c *gamestate.Country) *mcp.CallToolResult {
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Known Empires (%s) ===\n", name(c.Adjective))
-	fmt.Fprintf(&b, "Your Military Power: %.1f\n\n", c.MilitaryPower)
-
+	fmt.Fprintf(&b, "Your saved military power: %s\n", armyFloat(c.MilitaryPowerRaw))
+	fmt.Fprintln(&b, "Military ratios are calculated from saved values, not Stellaris UI strength categories.")
 	contacts := 0
+	unknownContact := 0
 	for _, rel := range c.RelationsManager.Relation {
-		if !rel.Contact {
+		if rel.ContactRaw == nil || (*rel.ContactRaw != "yes" && *rel.ContactRaw != "no") {
+			unknownContact++
+			fmt.Fprintf(&b, "\nRelation: country=%s contact=%s (contact status not established)\n", armyInt(rel.CountryID), operationFlagText(rel.ContactRaw))
+			continue
+		}
+		if *rel.ContactRaw != "yes" {
 			continue
 		}
 		contacts++
-		neighbor, ok := gs.Country[rel.Country]
-		if !ok {
+		if rel.CountryID == nil {
+			fmt.Fprintln(&b, "\nContact: country reference not recorded")
+			fmt.Fprintf(&b, "  Saved relation_current=%s trust=%s\n", armyFloat(rel.RelationCurrentRaw), armyFloat(rel.TrustRaw))
 			continue
 		}
-		ratio := ""
-		if c.MilitaryPower > 0 {
-			r := neighbor.MilitaryPower / c.MilitaryPower
-			switch {
-			case r > 2:
-				ratio = "Overwhelming"
-			case r > 1.5:
-				ratio = "Superior"
-			case r > 0.75:
-				ratio = "Equivalent"
-			case r > 0.4:
-				ratio = "Inferior"
-			default:
-				ratio = "Pathetic"
-			}
+		neighbor, ok := gs.Country[*rel.CountryID]
+		if !ok {
+			fmt.Fprintf(&b, "\nContact country %d: referenced record unavailable\n", *rel.CountryID)
+			fmt.Fprintf(&b, "  Saved relation_current=%s trust=%s\n", armyFloat(rel.RelationCurrentRaw), armyFloat(rel.TrustRaw))
+			continue
 		}
-		fmt.Fprintf(&b, "%s (Country %d):\n", name(neighbor.Adjective), rel.Country)
-		fmt.Fprintf(&b, "  Opinion: %.0f, Trust: %.0f\n", rel.RelationCurrent, rel.Trust)
-		fmt.Fprintf(&b, "  Military: %.1f (%s)\n", neighbor.MilitaryPower, ratio)
-		fmt.Fprintf(&b, "  Economy: %.1f, Tech: %.1f\n\n", neighbor.EconomyPower, neighbor.TechPower)
+		fmt.Fprintf(&b, "\n%s (Country %d):\n", name(neighbor.Adjective), *rel.CountryID)
+		fmt.Fprintf(&b, "  Saved relation_current=%s trust=%s\n", armyFloat(rel.RelationCurrentRaw), armyFloat(rel.TrustRaw))
+		fmt.Fprintf(&b, "  Saved military=%s economy=%s tech=%s\n", armyFloat(neighbor.MilitaryPowerRaw), armyFloat(neighbor.EconomyPowerRaw), armyFloat(neighbor.TechPowerRaw))
+		if c.MilitaryPowerRaw != nil && *c.MilitaryPowerRaw > 0 && !math.IsInf(*c.MilitaryPowerRaw, 0) && neighbor.MilitaryPowerRaw != nil && !math.IsNaN(*neighbor.MilitaryPowerRaw) && !math.IsInf(*neighbor.MilitaryPowerRaw, 0) {
+			ratio := *neighbor.MilitaryPowerRaw / *c.MilitaryPowerRaw
+			if math.IsInf(ratio, 0) || math.IsNaN(ratio) {
+				fmt.Fprintln(&b, "  Derived military ratio: unavailable (non-finite result)")
+			} else {
+				fmt.Fprintf(&b, "  Derived military ratio (neighbor / selected): %g\n", ratio)
+			}
+		} else {
+			fmt.Fprintln(&b, "  Derived military ratio: unavailable")
+		}
 	}
-
-	if contacts == 0 {
-		fmt.Fprintf(&b, "No known empires yet.\n")
+	if contacts == 0 && unknownContact == 0 {
+		fmt.Fprintln(&b, "No saved contact=yes relations.")
 	}
-
-	return mcp.NewToolResultText(b.String()), nil
+	return mcp.NewToolResultText(b.String())
 }

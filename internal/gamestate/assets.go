@@ -56,6 +56,7 @@ type Megastructure struct {
 	} `clausewitz:"coordinate"`
 }
 type GalacticSystem struct {
-	Name    LocalizedName `clausewitz:"name"`
-	Planets []int         `clausewitz:"planet"`
+	StarbaseRefs OptionalIntList `clausewitz:"starbases"`
+	Name         LocalizedName   `clausewitz:"name"`
+	Planets      []int           `clausewitz:"planet"`
 }

@@ -26,6 +26,7 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
 	registerEspionageOperations(s)
 	registerArchaeology(s)
 	registerFirstContacts(s)
+	registerStarbases(s)
 	registerEmpireAssets(s)
 	registerGalacticCommunity(s)
 	registerRawSave(s)

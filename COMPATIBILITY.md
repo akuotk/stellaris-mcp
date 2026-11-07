@@ -2,6 +2,8 @@
 
 This fork adds preliminary support for Stellaris 4.5 colony and population records. It reads colony data through verified planet-to-colony references, connects population groups to species, ethics and factions, and reports population values in raw save units; it does not assume a conversion to the game's displayed POP counts. Mismatched distribution arrays are explicitly reported rather than paired.
 
+`get_neighbors` reports saved contact and strength values, with a derived military ratio where both inputs permit it. It does not assign Stellaris UI strength categories. Missing country and fleet references are reported rather than treated as ID zero.
+
 The military-class total only includes fleets whose `ship_class` is `shipclass_military`. Ship designs can have multiple sections and growth stages; fleet detail lists each saved design stage without claiming which stage the ship currently uses. Missing fleet and ship references are reported, and military-class totals are labeled incomplete when fleet records are missing. Spy network power is reported as a raw save value; infiltration conversion and operation availability are not established.
 
 The `get_empire_assets` tool lists saved agreements, situations and megastructures matching the selected country. Agreement owner/target roles, discrete and resource terms, selected subject-specialization fields, and situation progress are shown as stored, without inferring their in-game meaning. It does not reconstruct all diplomacy, situation mechanics, or unrecorded game state.
@@ -11,6 +13,8 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 `get_federations` and `get_notifications` expose indexed federation records, including members, leadership, laws and saved progression values. Cohesion and experience are reported as saved rather than converted into UI percentages.
 
 `list_save_games` lists local saves and their path-based IDs. Pass a `save_id` to an analysis or raw exploration tool to select a listed save, or omit it for the newest. For country-specific tools, an omitted `country_id` selects the sole recorded player; multiplayer or absent player data requires an explicit ID. `inspect_save_archive`, `read_save_tree`, `search_save_tree` and `read_save_scalar` navigate entries using positional paths and a required archive revision. Directory symlinks are not traversed. The semantic tree preserves ordered mixed and duplicate entries plus original byte offsets, but normalizes token text and may not represent every possible Clausewitz syntax. `read_save_bytes` returns bounded base64-encoded raw bytes from ZIP entries or the ZIP container itself, including syntax the parser does not understand. These tools read locally and do not make network requests; clients receive requested data and may have their own data-handling behavior. Do not upload saves to external services.
+
+`get_starbases` displays saved starbase slots and candidate station, system, fleet and construction queue references. Matching IDs and queue ownership do not alone prove base ownership; unsupported shapes and unresolved links are reported.
 
 `get_first_contacts` exposes saved country, location and leader references, events and completed-history entries. Object ID matches remain candidates; stage, status and timing are reported without inferring current completion or activity.
 
