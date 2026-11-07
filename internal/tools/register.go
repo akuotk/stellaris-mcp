@@ -13,6 +13,7 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
 	registerResearchStatus(s)
 	registerResearchPotential(s)
 	registerNeighbors(s)
+	registerCasusBelli(s)
 	registerFleetPower(s)
 	registerEconomyBreakdown(s)
 	registerResourceMarket(s)

@@ -8,41 +8,42 @@ import (
 )
 
 type Country struct {
-	SectorRefs          CountrySectorRefs     `clausewitz:"sectors"`
-	VictoryRankRaw      *int                  `clausewitz:"victory_rank"`
-	EconomyModules      CountryEconomyModules `clausewitz:"modules"`
-	ActivePolicies      ActivePolicyList      `clausewitz:"active_policies"`
-	Edicts              EdictList             `clausewitz:"edicts"`
-	PolicyFlags         OptionalStringList    `clausewitz:"policy_flags"`
-	MilitaryPowerRaw    *float64              `clausewitz:"military_power"`
-	EconomyPowerRaw     *float64              `clausewitz:"economy_power"`
-	TechPowerRaw        *float64              `clausewitz:"tech_power"`
-	Name                LocalizedName         `clausewitz:"name"`
-	Adjective           LocalizedName         `clausewitz:"adjective"`
-	Ethos               Ethos                 `clausewitz:"ethos"`
-	Government          Government            `clausewitz:"government"`
-	TechStatus          TechStatus            `clausewitz:"tech_status"`
-	Budget              Budget                `clausewitz:"budget"`
-	RelationsManager    RelationsManager      `clausewitz:"relations_manager"`
-	FleetsManager       FleetsManager         `clausewitz:"fleets_manager"`
-	Capital             int                   `clausewitz:"capital"`
-	MilitaryPower       float64               `clausewitz:"military_power"`
-	EconomyPower        float64               `clausewitz:"economy_power"`
-	TechPower           float64               `clausewitz:"tech_power"`
-	FleetSize           float64               `clausewitz:"fleet_size"`
-	UsedNavalCap        float64               `clausewitz:"used_naval_capacity"`
-	NavalCap            *float64              `clausewitz:"naval_capacity"`
-	StarbaseCap         int                   `clausewitz:"starbase_capacity"`
-	NumPops             int                   `clausewitz:"num_sapient_pops"`
-	EmpireSize          int                   `clausewitz:"empire_size"`
-	VictoryRank         int                   `clausewitz:"victory_rank"`
-	OwnedPlanets        []int                 `clausewitz:"owned_planets"`
-	OwnedLeaders        []int                 `clausewitz:"owned_leaders"`
-	OwnedArmies         []int                 `clausewitz:"owned_armies"`
-	Traditions          OptionalStringList    `clausewitz:"traditions"`
-	AscensionPerks      OptionalStringList    `clausewitz:"ascension_perks"`
-	TraditionCategories OptionalStringList    `clausewitz:"tradition_categories"`
-	LastPickedTradition OptionalString        `clausewitz:"last_picked_tradition"`
+	DiplomaticModules   CountryDiplomaticModules `clausewitz:"modules"`
+	SectorRefs          CountrySectorRefs        `clausewitz:"sectors"`
+	VictoryRankRaw      *int                     `clausewitz:"victory_rank"`
+	EconomyModules      CountryEconomyModules    `clausewitz:"modules"`
+	ActivePolicies      ActivePolicyList         `clausewitz:"active_policies"`
+	Edicts              EdictList                `clausewitz:"edicts"`
+	PolicyFlags         OptionalStringList       `clausewitz:"policy_flags"`
+	MilitaryPowerRaw    *float64                 `clausewitz:"military_power"`
+	EconomyPowerRaw     *float64                 `clausewitz:"economy_power"`
+	TechPowerRaw        *float64                 `clausewitz:"tech_power"`
+	Name                LocalizedName            `clausewitz:"name"`
+	Adjective           LocalizedName            `clausewitz:"adjective"`
+	Ethos               Ethos                    `clausewitz:"ethos"`
+	Government          Government               `clausewitz:"government"`
+	TechStatus          TechStatus               `clausewitz:"tech_status"`
+	Budget              Budget                   `clausewitz:"budget"`
+	RelationsManager    RelationsManager         `clausewitz:"relations_manager"`
+	FleetsManager       FleetsManager            `clausewitz:"fleets_manager"`
+	Capital             int                      `clausewitz:"capital"`
+	MilitaryPower       float64                  `clausewitz:"military_power"`
+	EconomyPower        float64                  `clausewitz:"economy_power"`
+	TechPower           float64                  `clausewitz:"tech_power"`
+	FleetSize           float64                  `clausewitz:"fleet_size"`
+	UsedNavalCap        float64                  `clausewitz:"used_naval_capacity"`
+	NavalCap            *float64                 `clausewitz:"naval_capacity"`
+	StarbaseCap         int                      `clausewitz:"starbase_capacity"`
+	NumPops             int                      `clausewitz:"num_sapient_pops"`
+	EmpireSize          int                      `clausewitz:"empire_size"`
+	VictoryRank         int                      `clausewitz:"victory_rank"`
+	OwnedPlanets        []int                    `clausewitz:"owned_planets"`
+	OwnedLeaders        []int                    `clausewitz:"owned_leaders"`
+	OwnedArmies         []int                    `clausewitz:"owned_armies"`
+	Traditions          OptionalStringList       `clausewitz:"traditions"`
+	AscensionPerks      OptionalStringList       `clausewitz:"ascension_perks"`
+	TraditionCategories OptionalStringList       `clausewitz:"tradition_categories"`
+	LastPickedTradition OptionalString           `clausewitz:"last_picked_tradition"`
 }
 
 // Optional fields isolate unsupported shapes instead of preventing other save data from loading.
@@ -184,9 +185,21 @@ type Budget struct {
 }
 
 type BudgetMonth struct {
+	Recorded bool                 `clausewitz:"-"`
 	Income   map[string]Resources `clausewitz:"income"`
 	Expenses map[string]Resources `clausewitz:"expenses"`
 	Balance  map[string]Resources `clausewitz:"balance"`
+}
+
+func (m *BudgetMonth) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields BudgetMonth
+	var decoded fields
+	if err := clausewitz.DecodeValue(value, &decoded); err != nil {
+		return err
+	}
+	*m = BudgetMonth(decoded)
+	m.Recorded = true
+	return nil
 }
 
 type Resources = map[string]float64

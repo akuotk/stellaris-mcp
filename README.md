@@ -11,13 +11,14 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_empire_overview` | Ethics, civics, government, power ratings, naval/starbase capacity, resources |
 | `get_research_status` | Current research + progress, available options, completed techs |
 | `get_research_potential` | Paginated saved research-potential records with snapshot revision |
-| `get_economy_breakdown` | Income/expenses by category, net balance per resource |
+| `get_economy_breakdown` | Current or last month saved budget categories and calculated net |
 | `get_planets` | Colonized planets with districts, buildings, jobs, modifiers, production |
 | `get_colonies` | Direct saved colony records and carrier references, including non-planet types |
 | `get_construction` | Construction queues and item references, saved progress and resources |
 | `get_espionage_operations` | Espionage operations, network cross-references and saved logs |
 | `get_first_contacts` | Saved first-contact records, references and event histories |
 | `get_sectors` | Saved sectors and country, system and capital references |
+| `get_casus_belli` | Saved diplomatic casus belli records and country references |
 | `get_resource_market` | Saved economy-module resource amounts and country-matched monthly trade entries |
 | `get_policies_edicts` | Saved policy selections, edict records and policy flags |
 | `get_starbases` | Saved starbase records and candidate station, system, fleet and queue links |

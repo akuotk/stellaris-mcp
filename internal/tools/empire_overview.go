@@ -69,7 +69,12 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	fmt.Fprintf(&b, "  Fleet Size: %.0f (Naval Cap: %s)\n", c.FleetSize, formatNavalCapacity(c))
 	fmt.Fprintf(&b, "  Starbases: %d capacity\n", c.StarbaseCap)
 	fmt.Fprintf(&b, "  Empire Size: %d\n", c.EmpireSize)
-	fmt.Fprintf(&b, "\nMonthly Net Balance:\n  %s\n", formatResources(netBalance))
+	fmt.Fprintln(&b, "\nSaved current-month balance (sum of saved categories):")
+	if !c.Budget.CurrentMonth.Recorded || c.Budget.CurrentMonth.Balance == nil {
+		fmt.Fprintln(&b, "  not recorded")
+	} else {
+		fmt.Fprintf(&b, "  %s\n", formatBudgetResources(netBalance))
+	}
 
 	writeCountryFactions(&b, gs, countryID)
 
