@@ -11,6 +11,7 @@ import (
 )
 
 type GameState struct {
+	Debris              DebrisTable                                 `clausewitz:"debris"`
 	Bypasses            ConnectionRecordTable[SavedBypass]          `clausewitz:"bypasses"`
 	NaturalWormholes    ConnectionRecordTable[SavedNaturalWormhole] `clausewitz:"natural_wormholes"`
 	CouncilPositions    CouncilPositionTable                        `clausewitz:"council_positions"`
@@ -29,7 +30,7 @@ type GameState struct {
 	PopFactions         map[int]PopFaction                          `clausewitz:"pop_factions"`
 	Agreements          AgreementStore                              `clausewitz:"agreements"`
 	Situations          SituationStore                              `clausewitz:"situations"`
-	Megastructures      map[int]Megastructure                       `clausewitz:"megastructures"`
+	Megastructures      ConnectionRecordTable[Megastructure]        `clausewitz:"megastructures"`
 	Systems             map[int]GalacticSystem                      `clausewitz:"galactic_object"`
 	Community           *GalacticCommunity                          `clausewitz:"galactic_community"`
 	Resolutions         map[int]Resolution                          `clausewitz:"resolution"`
@@ -146,6 +147,9 @@ func Load(data []byte) (*GameState, error) {
 	if err := clausewitz.DecodeValue(value, &gs); err != nil {
 		return nil, fmt.Errorf("parse gamestate: %w", err)
 	}
+	if uniqueSavedFields(value, "debris") != nil {
+		gs.Debris = DebrisTable{Recorded: true, Unsupported: true}
+	}
 	if uniqueSavedFields(value, "bypasses") != nil {
 		gs.Bypasses = ConnectionRecordTable[SavedBypass]{Recorded: true, TableIssue: true}
 	}
@@ -155,6 +159,9 @@ func Load(data []byte) (*GameState, error) {
 	if uniqueSavedFields(value, "agreements") != nil {
 		gs.Agreements = AgreementStore{}
 		gs.Agreements.TableIssue = true
+	}
+	if uniqueSavedFields(value, "megastructures") != nil {
+		gs.Megastructures = ConnectionRecordTable[Megastructure]{Recorded: true, TableIssue: true}
 	}
 	gs.markAmbiguousFleetOrders(value)
 	if uniqueSavedFields(value, "archaeological_sites") != nil {

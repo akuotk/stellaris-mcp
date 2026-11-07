@@ -26,6 +26,7 @@ type Country struct {
 	OverlordRef                 OptionalIntRef              `clausewitz:"overlord"`
 	SubjectRefs                 OptionalIntList             `clausewitz:"subjects"`
 	SubjectDate                 OptionalString              `clausewitz:"subject_date"`
+	OwnedMegastructureRefs      OptionalIntList             `clausewitz:"owned_megastructures"`
 	SectorRefs                  CountrySectorRefs           `clausewitz:"sectors"`
 	VictoryRankRaw              *int                        `clausewitz:"victory_rank"`
 	EconomyModules              CountryEconomyModules       `clausewitz:"modules"`
@@ -100,6 +101,9 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	if uniqueSavedFields(value, "subject_date") != nil {
 		c.SubjectDate = OptionalString{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "owned_megastructures") != nil {
+		c.OwnedMegastructureRefs = OptionalIntList{Recorded: true, Unsupported: true}
 	}
 	return nil
 }

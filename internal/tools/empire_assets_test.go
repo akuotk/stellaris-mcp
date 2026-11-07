@@ -107,3 +107,63 @@ func TestEmpireAssetsReportsSavedSubjectLinksAndAgreementEvidence(t *testing.T) 
 		}
 	}
 }
+
+func TestEmpireAssetsMegastructureReferencesAndRawDetails(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	data := []byte(`player={{country=0}}
+	country={0={adjective={key=Home} owned_megastructures={0 1 1 2 4 6}} 2={adjective={key=Foreign}}}
+	galactic_object={0={name={key="Origin System"} megastructures={0 1 1} planet=0}
+	1={name={key="Other System"} megastructures={1 3}}
+	2={megastructures={3} megastructures={3}}}
+	planets={planet={0={name={key="Orbit Body"}}}}
+	bypasses={0={type=gate owner={type=unknown id=0}} 2={type=gate owner={id=99}}}
+	megastructures={
+	0={owner=0 type=gate coordinate={origin=0 x=-0.0000 y=0.00 randomized=no visual_height=5.123456} planet=0 bypass=0
+	build_queue=4294967295 dismantle_progress=00.125 dismantle_finish_date=2201.01.01 graphical_culture=style
+	upgrade={upgrade_to=gate_2 progress=-0.000 halted=no indefinitely_halted=yes}}
+	1={owner=2 type=habitat coordinate={origin=0} planet=4294967295 bypass=2}
+	2={type=unknown coordinate={origin=99} bypass=9}
+	3={owner=0 type=unknown}
+	4={owner=0} 4=none
+	5={owner=2 type=hidden}
+	6=none}`)
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", data}})
+	result, err := handleEmpireAssets(context.Background(), mcp.CallToolRequest{})
+	if err != nil || result.IsError {
+		t.Fatalf("get_empire_assets returned an error: %v", err)
+	}
+	text := resultText(result)
+	for _, want := range []string{
+		"Megastructure table has unsupported or duplicate data",
+		"System reverse-reference survey incomplete",
+		"ID 0: Gate [gate], Origin System (system ID 0; coordinate.origin and galactic_object.megastructures membership=validated)",
+		"owner=Home (0); country.owned_megastructures membership=validated",
+		`coordinate.x="-0.0000" coordinate.y="0.00" coordinate.randomized="no" coordinate.visual_height="5.123456"`,
+		`dismantle_progress="00.125" dismantle_finish_date="2201.01.01" graphical_culture="style"`,
+		`upgrade.upgrade_to="gate_2" upgrade.progress="-0.000" upgrade.halted="no" upgrade.indefinitely_halted="yes"`,
+		"planet=0 (planet record Orbit Body); coordinate.origin system planet membership=validated",
+		`bypass=0; bypass.type="gate"; bypass.owner.type="unknown" bypass.owner.id=0 (owner namespace unverified)`,
+		"build_queue=4294967295 (raw save value; queue reference unverified)",
+		"owner=Foreign (2); country.owned_megastructures membership=2 duplicate references",
+		"Saved owner differs from selected country.",
+		"galactic_object.megastructures reverse system IDs=[0 0 1]",
+		"Duplicate system membership entries recorded.",
+		"Saved system references disagree or span multiple systems.",
+		"planet=4294967295 (planet record unavailable; raw value)",
+		"saved owner ID differs from megastructure ID",
+		"coordinate.origin=99 (system record unavailable)",
+		"bypass=9 (bypass record unavailable)",
+		"ID 3: Unknown [unknown], coordinate.origin not recorded",
+		"ID 4: referenced record unsupported or duplicate",
+		"ID 6: referenced record unavailable",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in synthetic output: %s", want, text)
+		}
+	}
+	if strings.Contains(text, "ID 5:") {
+		t.Fatal("foreign megastructure without a saved reference entered selected country scope")
+	}
+}

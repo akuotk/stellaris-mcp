@@ -117,20 +117,66 @@ type Situation struct {
 	Approach             string   `clausewitz:"approach"`
 }
 type Megastructure struct {
-	Owner      *int   `clausewitz:"owner"`
-	Type       string `clausewitz:"type"`
-	Coordinate struct {
-		Origin *int `clausewitz:"origin"`
-	} `clausewitz:"coordinate"`
+	Owner               *int                    `clausewitz:"owner"`
+	Type                string                  `clausewitz:"type"`
+	Coordinate          MegastructureCoordinate `clausewitz:"coordinate"`
+	Planet              *int                    `clausewitz:"planet"`
+	Bypass              *int                    `clausewitz:"bypass"`
+	BuildQueue          *string                 `clausewitz:"build_queue"`
+	DismantleProgress   *string                 `clausewitz:"dismantle_progress"`
+	DismantleFinishDate *string                 `clausewitz:"dismantle_finish_date"`
+	GraphicalCulture    *string                 `clausewitz:"graphical_culture"`
+	Upgrade             *MegastructureUpgrade   `clausewitz:"upgrade"`
 }
+
+func (m *Megastructure) UnmarshalClausewitz(value clausewitz.Value) error {
+	if err := uniqueSavedFields(value, "owner", "type", "coordinate", "planet", "bypass", "build_queue", "dismantle_progress", "dismantle_finish_date", "graphical_culture", "upgrade"); err != nil {
+		return err
+	}
+	type fields Megastructure
+	return clausewitz.DecodeValue(value, (*fields)(m))
+}
+
+type MegastructureCoordinate struct {
+	Origin       *int    `clausewitz:"origin"`
+	X            *string `clausewitz:"x"`
+	Y            *string `clausewitz:"y"`
+	Randomized   *string `clausewitz:"randomized"`
+	VisualHeight *string `clausewitz:"visual_height"`
+}
+
+func (c *MegastructureCoordinate) UnmarshalClausewitz(value clausewitz.Value) error {
+	if err := uniqueSavedFields(value, "origin", "x", "y", "randomized", "visual_height"); err != nil {
+		return err
+	}
+	type fields MegastructureCoordinate
+	return clausewitz.DecodeValue(value, (*fields)(c))
+}
+
+type MegastructureUpgrade struct {
+	To                 *string `clausewitz:"upgrade_to"`
+	Progress           *string `clausewitz:"progress"`
+	Halted             *string `clausewitz:"halted"`
+	IndefinitelyHalted *string `clausewitz:"indefinitely_halted"`
+}
+
+func (u *MegastructureUpgrade) UnmarshalClausewitz(value clausewitz.Value) error {
+	if err := uniqueSavedFields(value, "upgrade_to", "progress", "halted", "indefinitely_halted"); err != nil {
+		return err
+	}
+	type fields MegastructureUpgrade
+	return clausewitz.DecodeValue(value, (*fields)(u))
+}
+
 type GalacticSystem struct {
-	Hyperlanes   HyperlaneList   `clausewitz:"hyperlane"`
-	BypassRefs   OptionalIntList `clausewitz:"bypasses"`
-	WormholeRefs OptionalIntList `clausewitz:"natural_wormholes"`
-	SectorRef    OptionalIntRef  `clausewitz:"sector"`
-	StarbaseRefs OptionalIntList `clausewitz:"starbases"`
-	Name         LocalizedName   `clausewitz:"name"`
-	Planets      []int           `clausewitz:"planet"`
+	Hyperlanes        HyperlaneList   `clausewitz:"hyperlane"`
+	BypassRefs        OptionalIntList `clausewitz:"bypasses"`
+	WormholeRefs      OptionalIntList `clausewitz:"natural_wormholes"`
+	SectorRef         OptionalIntRef  `clausewitz:"sector"`
+	StarbaseRefs      OptionalIntList `clausewitz:"starbases"`
+	MegastructureRefs OptionalIntList `clausewitz:"megastructures"`
+	Name              LocalizedName   `clausewitz:"name"`
+	Planets           []int           `clausewitz:"planet"`
 }
 
 // Keep duplicate references from being mistaken for a unique link.
@@ -155,6 +201,9 @@ func (s *GalacticSystem) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	if uniqueSavedFields(value, "natural_wormholes") != nil {
 		s.WormholeRefs = OptionalIntList{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "megastructures") != nil {
+		s.MegastructureRefs = OptionalIntList{Recorded: true, Unsupported: true}
 	}
 	return nil
 }

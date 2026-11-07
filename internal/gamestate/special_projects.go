@@ -12,6 +12,7 @@ type SavedSpecialProject struct {
 	Value       clausewitz.Value
 	ID          OptionalIntRef
 	Planet      OptionalIntRef
+	Debris      OptionalIntRef
 	Unsupported bool
 }
 
@@ -42,6 +43,8 @@ func decodeSavedSpecialProject(value clausewitz.Value) SavedSpecialProject {
 			ref = &project.ID
 		case "planet":
 			ref = &project.Planet
+		case "debris":
+			ref = &project.Debris
 		default:
 			continue
 		}

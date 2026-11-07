@@ -12,7 +12,7 @@ import (
 
 func registerSpecialProjects(s *server.MCPServer) {
 	s.AddTool(mcp.NewTool("get_special_projects", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-		mcp.WithDescription("Read repeated special_project records from the selected country's saved events and ID candidates in its research queues and fleet current orders. Shows raw status, days_left and other saved fields. Availability, completion, timing units and scope or location namespaces remain unverified. Deeper and mixed payloads are available through raw tree/byte tools."),
+		mcp.WithDescription("Read repeated special_project records from the selected country's saved events and ID candidates in its research queues and fleet current orders. Shows raw status, days_left and other saved fields, including debris ID candidates. Availability, completion, timing units and scope or location namespaces remain unverified. Deeper and mixed payloads are available through raw tree/byte tools."),
 		mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")),
 		mcp.WithNumber("country_id", mcp.Description("Country ID; omit for sole player"))), handleSpecialProjects)
 }
@@ -75,6 +75,7 @@ func renderSpecialProjects(gs *gamestate.GameState, countryID int, country *game
 				fmt.Fprintf(&b, "  Saved planet ID candidate %d unavailable\n", id)
 			}
 		}
+		writeProjectDebrisCandidate(&b, gs.Debris, project.Debris, countryID)
 	}
 	fmt.Fprintln(&b, "\nResearch queue special_project references (saved positions)")
 	seen := false
@@ -107,6 +108,26 @@ func renderSpecialProjects(gs *gamestate.GameState, countryID int, country *game
 	}
 	writeFleetSpecialProjectRefs(&b, gs, country, positions)
 	return mcp.NewToolResultText(b.String())
+}
+
+func writeProjectDebrisCandidate(b *strings.Builder, table gamestate.DebrisTable, ref gamestate.OptionalIntRef, countryID int) {
+	switch {
+	case ref.Unsupported:
+		fmt.Fprintln(b, "  Debris field unsupported or duplicate. Candidate unresolved. Use raw tree/byte tools.")
+	case ref.Value == nil:
+		fmt.Fprintln(b, "  Debris reference not recorded")
+	default:
+		id := *ref.Value
+		record, issue := debrisCandidate(table, id)
+		if issue != "" {
+			fmt.Fprintf(b, "  Saved debris reference %d unresolved (%s)\n", id, issue)
+			return
+		}
+		fmt.Fprintf(b, "  Saved debris ID candidate %d debris.country=%s (use get_debris for saved fields)\n", id, debrisRefText(record.Country))
+		if record.Country.Value != nil {
+			fmt.Fprintf(b, "    debris.country numeric ID %s the project country ID\n", debrisCountryComparison(*record.Country.Value, countryID))
+		}
+	}
 }
 
 func writeSpecialProjectCandidates(b *strings.Builder, positions []int) {

@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func registerEmpireAssets(s *server.MCPServer) {
-	s.AddTool(mcp.NewTool("get_empire_assets", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("List this country's saved agreements, subject links, situations and megastructures. Checks agreement owner/target against the saved country.subjects and country.overlord references. Uninterpreted values are labeled raw."), mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save"))), handleEmpireAssets)
+	s.AddTool(mcp.NewTool("get_empire_assets", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("List this country's saved agreements, subject links, situations and megastructures. Cross-checks agreement participants and megastructure country/system references. Shows saved megastructure upgrades, dismantling, planet and bypass references. Uninterpreted values are labeled raw."), mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save"))), handleEmpireAssets)
 }
 
 func handleEmpireAssets(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -106,32 +107,156 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 	if count == 0 {
 		fmt.Fprintln(&b, "  No matching records.")
 	}
-	ids = ids[:0]
-	for k := range gs.Megastructures {
-		ids = append(ids, k)
+	writeMegastructures(&b, gs, id, c.OwnedMegastructureRefs)
+	return mcp.NewToolResultText(b.String())
+}
+
+func writeMegastructures(b *strings.Builder, gs *gamestate.GameState, countryID int, countryRefs gamestate.OptionalIntList) {
+	fmt.Fprintln(b, "\nMegastructures (saved owner or country.owned_megastructures):")
+	table := gs.Megastructures
+	switch {
+	case table.TableIssue || len(table.DecodeErrors) != 0:
+		fmt.Fprintln(b, "  Megastructure table has unsupported or duplicate data; use raw tree/byte tools for omitted entries.")
+	case !table.Recorded:
+		fmt.Fprintln(b, "  Megastructure table not recorded.")
+	}
+	if countryRefs.Unsupported {
+		fmt.Fprintln(b, "  country.owned_megastructures unsupported or duplicate; use raw tools.")
+	}
+	scoped := map[int]bool{}
+	for _, id := range countryRefs.Values {
+		scoped[id] = true
+	}
+	for id, m := range table.Items {
+		if m.Owner != nil && *m.Owner == countryID {
+			scoped[id] = true
+		}
+	}
+	if len(scoped) == 0 {
+		fmt.Fprintln(b, "  No matching decoded records or country references.")
+		return
+	}
+	ids := make([]int, 0, len(scoped))
+	for id := range scoped {
+		ids = append(ids, id)
 	}
 	sort.Ints(ids)
-	count = 0
-	fmt.Fprintln(&b, "\nMegastructures:")
-	for _, k := range ids {
-		v := gs.Megastructures[k]
-		if v.Owner == nil || *v.Owner != id {
-			continue
+	systemRefs := map[int][]int{}
+	unsupportedSystems := 0
+	for systemID, system := range gs.Systems {
+		if system.MegastructureRefs.Unsupported {
+			unsupportedSystems++
 		}
-		count++
-		system := "system unavailable"
-		if v.Coordinate.Origin != nil {
-			system = fmt.Sprintf("system ID %d", *v.Coordinate.Origin)
-			if s, ok := gs.Systems[*v.Coordinate.Origin]; ok {
-				system = fmt.Sprintf("possible system ID match %s (system ID %d; reverse link unverified)", name(s.Name), *v.Coordinate.Origin)
+		for _, id := range system.MegastructureRefs.Values {
+			if scoped[id] {
+				systemRefs[id] = append(systemRefs[id], systemID)
 			}
 		}
-		fmt.Fprintf(&b, "  ID %d: %s [%s], %s\n", k, l(v.Type), v.Type, system)
 	}
-	if count == 0 {
-		fmt.Fprintln(&b, "  No matching records.")
+	if unsupportedSystems != 0 {
+		fmt.Fprintf(b, "  System reverse-reference survey incomplete: unsupported galactic_object.megastructures fields=%d.\n", unsupportedSystems)
 	}
-	return mcp.NewToolResultText(b.String())
+	for _, id := range ids {
+		m, ok := table.Items[id]
+		membership := armyMembership(countryRefs.Values, id)
+		if countryRefs.Unsupported {
+			membership = "unsupported or duplicate"
+		}
+		if !ok {
+			status := "referenced record unavailable"
+			if _, bad := table.DecodeErrors[id]; bad {
+				status = "referenced record unsupported or duplicate; use raw tools"
+			}
+			fmt.Fprintf(b, "  ID %d: %s; country.owned_megastructures membership=%s\n", id, status, membership)
+			continue
+		}
+		origin := m.Coordinate.Origin
+		system, systemOK := gamestate.GalacticSystem{}, false
+		if origin != nil {
+			system, systemOK = gs.Systems[*origin]
+		}
+		refs := systemRefs[id]
+		sort.Ints(refs)
+		fmt.Fprintf(b, "  ID %d: %s [%s], %s\n", id, l(m.Type), m.Type, megastructureSystemLink(origin, system, systemOK, id))
+		fmt.Fprintf(b, "    owner=%s; country.owned_megastructures membership=%s\n", assetCountryReference(gs, m.Owner), membership)
+		if m.Owner != nil && *m.Owner != countryID {
+			fmt.Fprintln(b, "    Saved owner differs from selected country.")
+		}
+		if len(refs) != 0 {
+			fmt.Fprintf(b, "    galactic_object.megastructures reverse system IDs=%v\n", refs)
+			uniqueRefs := slices.Compact(refs)
+			if len(uniqueRefs) < len(refs) {
+				fmt.Fprintln(b, "    Duplicate system membership entries recorded.")
+			}
+			if len(uniqueRefs) > 1 || (origin != nil && uniqueRefs[0] != *origin) {
+				fmt.Fprintln(b, "    Saved system references disagree or span multiple systems.")
+			}
+		}
+		writeMegastructureDetails(b, gs, id, m, system, systemOK)
+	}
+}
+
+func megastructureSystemLink(origin *int, system gamestate.GalacticSystem, systemOK bool, id int) string {
+	if origin == nil {
+		return "coordinate.origin not recorded"
+	}
+	if !systemOK {
+		return fmt.Sprintf("coordinate.origin=%d (system record unavailable)", *origin)
+	}
+	if !system.MegastructureRefs.Recorded {
+		return fmt.Sprintf("possible system ID match %s (system ID %d; reverse link unverified)", name(system.Name), *origin)
+	}
+	membership := armyMembership(system.MegastructureRefs.Values, id)
+	if system.MegastructureRefs.Unsupported {
+		membership = "unsupported or duplicate"
+	}
+	return fmt.Sprintf("%s (system ID %d; coordinate.origin and galactic_object.megastructures membership=%s)", name(system.Name), *origin, membership)
+}
+
+func writeMegastructureDetails(b *strings.Builder, gs *gamestate.GameState, id int, m gamestate.Megastructure, system gamestate.GalacticSystem, systemOK bool) {
+	c := m.Coordinate
+	fmt.Fprintf(b, "    coordinate.x=%s coordinate.y=%s coordinate.randomized=%s coordinate.visual_height=%s (raw save values)\n", governanceValue(c.X), governanceValue(c.Y), governanceValue(c.Randomized), governanceValue(c.VisualHeight))
+	fmt.Fprintf(b, "    dismantle_progress=%s dismantle_finish_date=%s graphical_culture=%s (raw save values)\n", governanceValue(m.DismantleProgress), governanceValue(m.DismantleFinishDate), governanceValue(m.GraphicalCulture))
+	if u := m.Upgrade; u != nil {
+		fmt.Fprintf(b, "    upgrade.upgrade_to=%s upgrade.progress=%s upgrade.halted=%s upgrade.indefinitely_halted=%s (raw save values)\n", governanceValue(u.To), governanceValue(u.Progress), governanceValue(u.Halted), governanceValue(u.IndefinitelyHalted))
+	}
+	if m.Planet != nil {
+		planet, found := gs.Planets.Planet[*m.Planet]
+		fmt.Fprintf(b, "    planet=%d", *m.Planet)
+		if found {
+			fmt.Fprintf(b, " (planet record %s)", name(planet.Name))
+		} else {
+			fmt.Fprint(b, " (planet record unavailable; raw value)")
+		}
+		if systemOK {
+			fmt.Fprintf(b, "; coordinate.origin system planet membership=%s", armyMembership(system.Planets, *m.Planet))
+		}
+		fmt.Fprintln(b)
+	}
+	if m.Bypass != nil {
+		fmt.Fprintf(b, "    bypass=%d", *m.Bypass)
+		if bypass, found := gs.Bypasses.Items[*m.Bypass]; found {
+			fmt.Fprintf(b, "; bypass.type=%s", governanceValue(bypass.Type))
+			if owner := bypass.Owner; owner != nil {
+				fmt.Fprintf(b, "; bypass.owner.type=%s bypass.owner.id=%s (owner namespace unverified)", governanceValue(owner.Type), armyInt(owner.ID))
+				if owner.ID != nil {
+					if *owner.ID == id {
+						fmt.Fprint(b, "; saved owner ID equals megastructure ID")
+					} else {
+						fmt.Fprint(b, "; saved owner ID differs from megastructure ID")
+					}
+				}
+			} else {
+				fmt.Fprint(b, "; bypass.owner not recorded")
+			}
+		} else {
+			fmt.Fprint(b, " (bypass record unavailable)")
+		}
+		fmt.Fprintln(b)
+	}
+	if m.BuildQueue != nil {
+		fmt.Fprintf(b, "    build_queue=%s (raw save value; queue reference unverified)\n", *m.BuildQueue)
+	}
 }
 
 func writeCountrySubjectLinks(b *strings.Builder, gs *gamestate.GameState, c *gamestate.Country) {
