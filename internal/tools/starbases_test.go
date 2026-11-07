@@ -26,14 +26,14 @@ func TestStarbasesCandidateReferencesAndDetails(t *testing.T) {
 	 ships={0={name={key="Candidate station"} fleet=0 coordinate={origin=4} ship_design_implementation={design=1}} 7={fleet=0 coordinate={unexpected={}}}}
 	 fleet={0={name={key="Referenced fleet"} ships={7}}}
 	 ship_design={0={name={key="Saved design"}}}
-	 galactic_object={4={name={key="System four"} starbases={0 0}} 5={starbases={0}} 6={starbases=unsupported} 7={}}
+	 galactic_object={4={name={key="System four"} starbases={0 0 4294967295 987654}} 5={starbases={0 4294967295}} 6={starbases=unsupported} 7={}}
 	 `))
 	if err != nil {
 		t.Fatal(err)
 	}
 	country := gs.Country[0]
 	summary := resultText(renderStarbases(gs, 0, &country, nil))
-	for _, want := range []string{"Starbase 0:", "Starbase 1:", "Starbase 2:", "fleet ID: 1", "Base/ship saved design IDs disagree", "fleet.ships membership: missing reverse reference", "2 duplicate references", "coordinate ID agrees", "coordinate ID differs", "Unsupported system.starbases fields: 1", "Systems without recorded starbase references: 1", "station ID has no decoded ship candidate", "Slot decoding incomplete", "Starbase decoding incomplete", "do not prove starbase ownership", "Saved design ID record: Saved design"} {
+	for _, want := range []string{"Starbase 0:", "Starbase 1:", "Starbase 2:", "fleet ID: 1", "Base/ship saved design IDs disagree", "fleet.ships membership: missing reverse reference", "2 duplicate references", "coordinate ID agrees", "coordinate ID differs", "Unsupported system.starbases fields: 1", "Systems without recorded starbase references: 1", "station ID has no decoded ship candidate", "Slot decoding incomplete", "Starbase decoding incomplete", "do not prove starbase ownership", "Saved design ID record: Saved design", "raw 4294967295=2 (meaning unverified); other IDs without a decoded base record=1", "Survey coverage incomplete"} {
 		if !strings.Contains(summary, want) {
 			t.Fatalf("missing %q in %s", want, summary)
 		}

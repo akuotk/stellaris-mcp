@@ -54,6 +54,26 @@ func renderStarbases(gs *gamestate.GameState, countryID int, country *gamestate.
 	if gs.Construction.DecodeError != "" {
 		fmt.Fprintln(&b, "Construction decoding incomplete; queue owner paths are unavailable. Use raw tree/byte tools for complete queue data.")
 	}
+	// These are global saved references, independent of the selected country's scope.
+	maxUint32Refs, otherUnmatched, unknownLists := 0, 0, 0
+	for _, system := range gs.Systems {
+		if system.StarbaseRefs.Unsupported {
+			unknownLists++
+		}
+		for _, ref := range system.StarbaseRefs.Values {
+			if ref >= 0 && uint64(ref) == uint64(4294967295) {
+				maxUint32Refs++
+				continue
+			}
+			if _, ok := gs.Starbases.Items[ref]; !ok {
+				otherUnmatched++
+			}
+		}
+	}
+	fmt.Fprintf(&b, "System starbase reference survey (all saved systems): raw 4294967295=%d (meaning unverified); other IDs without a decoded base record=%d\n", maxUint32Refs, otherUnmatched)
+	if !gs.Starbases.Recorded || gs.Starbases.TableIssue || len(gs.Starbases.DecodeErrors) > 0 || unknownLists > 0 {
+		fmt.Fprintln(&b, "  Survey coverage incomplete; use raw tools for unknown tables or lists.")
+	}
 	fleets := map[int]bool{}
 	missingFleetRefs := 0
 	for _, ref := range country.FleetsManager.OwnedFleets {

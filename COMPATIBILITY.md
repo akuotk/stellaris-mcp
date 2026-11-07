@@ -14,6 +14,10 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 
 `list_save_games` lists local saves and their path-based IDs. Pass a `save_id` to an analysis or raw exploration tool to select a listed save, or omit it for the newest. For country-specific tools, an omitted `country_id` selects the sole recorded player; multiplayer or absent player data requires an explicit ID. `inspect_save_archive`, `read_save_tree`, `search_save_tree` and `read_save_scalar` navigate entries using positional paths and a required archive revision. Directory symlinks are not traversed. The semantic tree preserves ordered mixed and duplicate entries plus original byte offsets, but normalizes token text and may not represent every possible Clausewitz syntax. `read_save_bytes` returns bounded base64-encoded raw bytes from ZIP entries or the ZIP container itself, including syntax the parser does not understand. These tools read locally and do not make network requests; clients receive requested data and may have their own data-handling behavior. Do not upload saves to external services.
 
+`get_policies_edicts` displays saved policy selections, edicts and policy flags in saved order. The meaning of dates and flags, policy effects and current edict activity are not inferred.
+
+`get_starbases` counts the raw system reference value 4294967295 separately from other IDs without a decoded base record; its meaning is unverified. The survey spans all saved systems and warns when coverage is incomplete.
+
 `get_starbases` displays saved starbase slots and candidate station, system, fleet and construction queue references. Matching IDs and queue ownership do not alone prove base ownership; unsupported shapes and unresolved links are reported.
 
 `get_first_contacts` exposes saved country, location and leader references, events and completed-history entries. Object ID matches remain candidates; stage, status and timing are reported without inferring current completion or activity.

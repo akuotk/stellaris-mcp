@@ -17,6 +17,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_construction` | Construction queues and item references, saved progress and resources |
 | `get_espionage_operations` | Espionage operations, network cross-references and saved logs |
 | `get_first_contacts` | Saved first-contact records, references and event histories |
+| `get_policies_edicts` | Saved policy selections, edict records and policy flags |
 | `get_starbases` | Saved starbase records and candidate station, system, fleet and queue links |
 | `get_archaeology` | Saved archaeological sites, event and completion records |
 | `get_armies` | Ground armies, country, colony, ship, fleet, leader and species references |

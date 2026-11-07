@@ -8,6 +8,9 @@ import (
 )
 
 type Country struct {
+	ActivePolicies      ActivePolicyList   `clausewitz:"active_policies"`
+	Edicts              EdictList          `clausewitz:"edicts"`
+	PolicyFlags         OptionalStringList `clausewitz:"policy_flags"`
 	MilitaryPowerRaw    *float64           `clausewitz:"military_power"`
 	EconomyPowerRaw     *float64           `clausewitz:"economy_power"`
 	TechPowerRaw        *float64           `clausewitz:"tech_power"`

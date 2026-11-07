@@ -20,6 +20,7 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
 	registerConstruction(s)
 	registerArmies(s)
 	registerTraditionsAscension(s)
+	registerGovernance(s)
 	registerNotifications(s)
 	registerLeaders(s)
 	registerEspionage(s)
