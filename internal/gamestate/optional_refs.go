@@ -31,7 +31,7 @@ func (v *OptionalCoordinate) UnmarshalClausewitz(value clausewitz.Value) error {
 	err := clausewitz.DecodeValue(value, &decoded)
 	*v = OptionalCoordinate(decoded)
 	v.Recorded = true
-	if err != nil {
+	if err != nil || uniqueSavedFields(value, "origin") != nil {
 		v.Origin = nil
 		v.Unsupported = true
 	}

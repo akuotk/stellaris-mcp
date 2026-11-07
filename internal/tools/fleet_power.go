@@ -43,7 +43,7 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Fleet Power (%s) ===\n", name(c.Adjective))
 	fmt.Fprintf(&b, "Total Military Power: %s\n", armyFloat(c.MilitaryPowerRaw))
-	fmt.Fprintf(&b, "Fleet Size: %.0f (Naval Cap: %s)\n", c.FleetSize, formatNavalCapacity(c))
+	fmt.Fprintf(&b, "Fleet Size: %s (Naval Cap: %s)\n", armyFloat(c.FleetSizeRaw), formatNavalCapacity(c))
 	fmt.Fprintf(&b, "Use get_fleet_power with fleet_id for ship details.\n\n")
 
 	fmt.Fprintf(&b, "%-8s %-30s %-25s %8s %5s\n", "ID", "Name", "Class", "Power", "Ships")

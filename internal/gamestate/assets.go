@@ -60,13 +60,16 @@ type Megastructure struct {
 	} `clausewitz:"coordinate"`
 }
 type GalacticSystem struct {
+	Hyperlanes   HyperlaneList   `clausewitz:"hyperlane"`
+	BypassRefs   OptionalIntList `clausewitz:"bypasses"`
+	WormholeRefs OptionalIntList `clausewitz:"natural_wormholes"`
 	SectorRef    OptionalIntRef  `clausewitz:"sector"`
 	StarbaseRefs OptionalIntList `clausewitz:"starbases"`
 	Name         LocalizedName   `clausewitz:"name"`
 	Planets      []int           `clausewitz:"planet"`
 }
 
-// Keep duplicate sector references from being mistaken for a unique link.
+// Keep duplicate references from being mistaken for a unique link.
 func (s *GalacticSystem) UnmarshalClausewitz(value clausewitz.Value) error {
 	type fields GalacticSystem
 	var decoded fields
@@ -74,8 +77,20 @@ func (s *GalacticSystem) UnmarshalClausewitz(value clausewitz.Value) error {
 		return err
 	}
 	*s = GalacticSystem(decoded)
+	if uniqueSavedFields(value, "starbases") != nil {
+		s.StarbaseRefs = OptionalIntList{Recorded: true, Unsupported: true}
+	}
 	if uniqueSavedFields(value, "sector") != nil {
 		s.SectorRef = OptionalIntRef{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "hyperlane") != nil {
+		s.Hyperlanes = HyperlaneList{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "bypasses") != nil {
+		s.BypassRefs = OptionalIntList{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "natural_wormholes") != nil {
+		s.WormholeRefs = OptionalIntList{Recorded: true, Unsupported: true}
 	}
 	return nil
 }

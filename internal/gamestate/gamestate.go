@@ -11,44 +11,46 @@ import (
 )
 
 type GameState struct {
-	CouncilPositions    CouncilPositionTable   `clausewitz:"council_positions"`
-	FleetTemplates      FleetTemplates         `clausewitz:"fleet_template"`
-	Sectors             Sectors                `clausewitz:"sectors"`
-	MarketOrders        MarketOrders           `clausewitz:"market"`
-	Starbases           Starbases              `clausewitz:"starbase_mgr"`
-	FirstContacts       FirstContacts          `clausewitz:"first_contacts"`
-	ArchaeologySites    ArchaeologySites       `clausewitz:"archaeological_sites"`
-	EspionageOperations EspionageOperations    `clausewitz:"espionage_operations"`
-	Armies              Armies                 `clausewitz:"army"`
-	Construction        Construction           `clausewitz:"construction"`
-	Colonies            map[int]Colony         `clausewitz:"colony"`
-	PopGroups           map[int]PopGroup       `clausewitz:"pop_groups"`
-	Species             map[int]Species        `clausewitz:"species_db"`
-	PopFactions         map[int]PopFaction     `clausewitz:"pop_factions"`
-	Agreements          AgreementStore         `clausewitz:"agreements"`
-	Situations          SituationStore         `clausewitz:"situations"`
-	Megastructures      map[int]Megastructure  `clausewitz:"megastructures"`
-	Systems             map[int]GalacticSystem `clausewitz:"galactic_object"`
-	Community           *GalacticCommunity     `clausewitz:"galactic_community"`
-	Resolutions         map[int]Resolution     `clausewitz:"resolution"`
-	Version             string                 `clausewitz:"version"`
-	Name                string                 `clausewitz:"name"`
-	Date                string                 `clausewitz:"date"`
-	Player              []Player               `clausewitz:"player"`
-	Country             map[int]Country        `clausewitz:"country"`
-	Fleet               map[int]Fleet          `clausewitz:"fleet"`
-	Ships               map[int]Ship           `clausewitz:"ships"`
-	ShipDesign          map[int]ShipDesign     `clausewitz:"ship_design"`
-	Planets             PlanetsWrapper         `clausewitz:"planets"`
-	Buildings           map[int]Building       `clausewitz:"buildings"`
-	Districts           map[int]District       `clausewitz:"districts"`
-	Zones               map[int]Zone           `clausewitz:"zones"`
-	Deposit             map[int]Deposit        `clausewitz:"deposit"`
-	SpyNetworks         map[int]SpyNetwork     `clausewitz:"spy_networks"`
-	PopJobs             map[int]PopJob         `clausewitz:"pop_jobs"`
-	Leaders             map[int]Leader         `clausewitz:"leaders"`
-	War                 map[int]War            `clausewitz:"war"`
-	Federation          map[int]Federation     `clausewitz:"federation"`
+	Bypasses            ConnectionRecordTable[SavedBypass]          `clausewitz:"bypasses"`
+	NaturalWormholes    ConnectionRecordTable[SavedNaturalWormhole] `clausewitz:"natural_wormholes"`
+	CouncilPositions    CouncilPositionTable                        `clausewitz:"council_positions"`
+	FleetTemplates      FleetTemplates                              `clausewitz:"fleet_template"`
+	Sectors             Sectors                                     `clausewitz:"sectors"`
+	MarketOrders        MarketOrders                                `clausewitz:"market"`
+	Starbases           Starbases                                   `clausewitz:"starbase_mgr"`
+	FirstContacts       FirstContacts                               `clausewitz:"first_contacts"`
+	ArchaeologySites    ArchaeologySites                            `clausewitz:"archaeological_sites"`
+	EspionageOperations EspionageOperations                         `clausewitz:"espionage_operations"`
+	Armies              Armies                                      `clausewitz:"army"`
+	Construction        Construction                                `clausewitz:"construction"`
+	Colonies            map[int]Colony                              `clausewitz:"colony"`
+	PopGroups           map[int]PopGroup                            `clausewitz:"pop_groups"`
+	Species             map[int]Species                             `clausewitz:"species_db"`
+	PopFactions         map[int]PopFaction                          `clausewitz:"pop_factions"`
+	Agreements          AgreementStore                              `clausewitz:"agreements"`
+	Situations          SituationStore                              `clausewitz:"situations"`
+	Megastructures      map[int]Megastructure                       `clausewitz:"megastructures"`
+	Systems             map[int]GalacticSystem                      `clausewitz:"galactic_object"`
+	Community           *GalacticCommunity                          `clausewitz:"galactic_community"`
+	Resolutions         map[int]Resolution                          `clausewitz:"resolution"`
+	Version             string                                      `clausewitz:"version"`
+	Name                string                                      `clausewitz:"name"`
+	Date                string                                      `clausewitz:"date"`
+	Player              []Player                                    `clausewitz:"player"`
+	Country             map[int]Country                             `clausewitz:"country"`
+	Fleet               map[int]Fleet                               `clausewitz:"fleet"`
+	Ships               map[int]Ship                                `clausewitz:"ships"`
+	ShipDesign          map[int]ShipDesign                          `clausewitz:"ship_design"`
+	Planets             PlanetsWrapper                              `clausewitz:"planets"`
+	Buildings           map[int]Building                            `clausewitz:"buildings"`
+	Districts           map[int]District                            `clausewitz:"districts"`
+	Zones               map[int]Zone                                `clausewitz:"zones"`
+	Deposit             map[int]Deposit                             `clausewitz:"deposit"`
+	SpyNetworks         map[int]SpyNetwork                          `clausewitz:"spy_networks"`
+	PopJobs             map[int]PopJob                              `clausewitz:"pop_jobs"`
+	Leaders             map[int]Leader                              `clausewitz:"leaders"`
+	War                 map[int]War                                 `clausewitz:"war"`
+	Federation          map[int]Federation                          `clausewitz:"federation"`
 }
 
 type Building struct {
@@ -136,8 +138,19 @@ func LoadFromZip(path string) (*GameState, error) {
 // Load parses raw gamestate bytes into a GameState.
 func Load(data []byte) (*GameState, error) {
 	var gs GameState
-	if err := clausewitz.Unmarshal(data, &gs); err != nil {
+	root, err := clausewitz.Parse(data)
+	if err != nil {
 		return nil, fmt.Errorf("parse gamestate: %w", err)
+	}
+	value := clausewitz.Value{Object: root}
+	if err := clausewitz.DecodeValue(value, &gs); err != nil {
+		return nil, fmt.Errorf("parse gamestate: %w", err)
+	}
+	if uniqueSavedFields(value, "bypasses") != nil {
+		gs.Bypasses = ConnectionRecordTable[SavedBypass]{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "natural_wormholes") != nil {
+		gs.NaturalWormholes = ConnectionRecordTable[SavedNaturalWormhole]{Recorded: true, TableIssue: true}
 	}
 	gs.resolveColonies()
 	return &gs, nil

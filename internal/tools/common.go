@@ -97,10 +97,7 @@ func formatResources(r map[string]float64) string {
 }
 
 func formatNavalCapacity(c *gamestate.Country) string {
-	if c.NavalCap == nil {
-		return fmt.Sprintf("%.0f used; maximum unavailable", c.UsedNavalCap)
-	}
-	return fmt.Sprintf("%.0f / %.0f", c.UsedNavalCap, *c.NavalCap)
+	return fmt.Sprintf("%s used / %s maximum", armyFloat(c.UsedNavalCapRaw), armyFloat(c.NavalCap))
 }
 
 func toolError(err error) *mcp.CallToolResult {

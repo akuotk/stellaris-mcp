@@ -4,6 +4,8 @@ This fork adds preliminary support for Stellaris 4.5 colony and population recor
 
 `get_neighbors` reports saved contact and strength values, with a derived military ratio where both inputs permit it. It does not assign Stellaris UI strength categories. Missing country and fleet references are reported rather than treated as ID zero.
 
+`get_empire_overview` distinguishes missing population, fleet size, naval capacity, starbase capacity and empire size from zero. Its planet count covers decoded owned planet records with colony indicators; non-planet carriers are excluded.
+
 The military-class total only includes fleets whose `ship_class` is `shipclass_military`. Ship designs can have multiple sections and growth stages; fleet detail lists each saved design stage without claiming which stage the ship currently uses. Missing fleet and ship references are reported, and military-class totals are labeled incomplete when fleet records are missing. Spy network power is reported as a raw save value; infiltration conversion and operation availability are not established.
 
 The `get_empire_assets` tool lists saved agreements, situations and megastructures matching the selected country. Agreement records are included when either saved owner or target matches the selected country; missing and unresolved counterpart references are explicit. Discrete and resource terms, selected subject-specialization fields, and situation progress are shown as stored without inferring their in-game meaning. A megastructure coordinate matching a system ID is a candidate, not a validated reverse link. It does not reconstruct all diplomacy, situation mechanics, or unrecorded game state.
@@ -21,6 +23,8 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 `get_casus_belli` reports saved country diplomacy-module records and country ID references; type, timing and roles remain raw and do not establish an available declaration of war.
 
 `get_economy_breakdown` separates saved balance categories from a computed income-minus-expenses net, for the saved current or last month. Missing tables are flagged; values and keys retain their saved precision.
+
+`get_system_connections` exposes saved hyperlane, bypass and natural wormhole records with available reverse-ID checks. Duplicate root connection tables or system reference fields are flagged as unsupported rather than silently choosing one. Visibility, travel eligibility, value units and route costs remain unverified.
 
 `get_sectors` reports saved sector ownership, systems and capital references, checks available back-references, and flags incomplete or conflicting data. An ID match without a verified reverse link remains a candidate.
 

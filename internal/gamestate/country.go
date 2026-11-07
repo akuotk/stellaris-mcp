@@ -8,6 +8,11 @@ import (
 )
 
 type Country struct {
+	FleetSizeRaw         *float64                    `clausewitz:"fleet_size"`
+	UsedNavalCapRaw      *float64                    `clausewitz:"used_naval_capacity"`
+	StarbaseCapRaw       *int                        `clausewitz:"starbase_capacity"`
+	NumPopsRaw           *int                        `clausewitz:"num_sapient_pops"`
+	EmpireSizeRaw        *int                        `clausewitz:"empire_size"`
 	CouncilGovernment    CouncilGovernment           `clausewitz:"government"`
 	Relics               OptionalStringList          `clausewitz:"relics"`
 	LastActivatedRelic   OptionalString              `clausewitz:"last_activated_relic"`
