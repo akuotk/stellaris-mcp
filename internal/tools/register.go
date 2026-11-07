@@ -11,6 +11,7 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
 	registerPing(s)
 	registerEmpireOverview(s)
 	registerResearchStatus(s)
+	registerSpecialProjects(s)
 	registerResearchPotential(s)
 	registerNeighbors(s)
 	registerCasusBelli(s)

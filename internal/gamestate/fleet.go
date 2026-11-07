@@ -21,12 +21,12 @@ type Ship struct {
 	Name                     LocalizedName      `clausewitz:"name"`
 	ShipDesignImplementation ShipDesignImpl     `clausewitz:"ship_design_implementation"`
 	Section                  ShipSection        `clausewitz:"section"`
-	Hitpoints                float64            `clausewitz:"hitpoints"`
-	ShieldHitpoints          float64            `clausewitz:"shield_hitpoints"`
-	ArmorHitpoints           float64            `clausewitz:"armor_hitpoints"`
-	MaxHitpoints             float64            `clausewitz:"max_hitpoints"`
-	MaxShieldHitpoints       float64            `clausewitz:"max_shield_hitpoints"`
-	MaxArmorHitpoints        float64            `clausewitz:"max_armor_hitpoints"`
+	Hitpoints                *float64           `clausewitz:"hitpoints"`
+	ShieldHitpoints          *float64           `clausewitz:"shield_hitpoints"`
+	ArmorHitpoints           *float64           `clausewitz:"armor_hitpoints"`
+	MaxHitpoints             *float64           `clausewitz:"max_hitpoints"`
+	MaxShieldHitpoints       *float64           `clausewitz:"max_shield_hitpoints"`
+	MaxArmorHitpoints        *float64           `clausewitz:"max_armor_hitpoints"`
 }
 
 type ShipDesignImpl struct {

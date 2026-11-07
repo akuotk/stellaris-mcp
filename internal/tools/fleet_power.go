@@ -164,9 +164,9 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 			fmt.Fprintf(&b, "  Saved design implementation upgrade: %d\n", *upgrade)
 		}
 		fmt.Fprintf(&b, "  Design: %s (%s)\n", designName, l(shipSize))
-		fmt.Fprintf(&b, "  Hull:   %.0f / %.0f\n", ship.Hitpoints, ship.MaxHitpoints)
-		fmt.Fprintf(&b, "  Shield: %.0f / %.0f\n", ship.ShieldHitpoints, ship.MaxShieldHitpoints)
-		fmt.Fprintf(&b, "  Armor:  %.0f / %.0f\n", ship.ArmorHitpoints, ship.MaxArmorHitpoints)
+		fmt.Fprintf(&b, "  Hull:   %s / %s\n", armyFloat(ship.Hitpoints), armyFloat(ship.MaxHitpoints))
+		fmt.Fprintf(&b, "  Shield: %s / %s\n", armyFloat(ship.ShieldHitpoints), armyFloat(ship.MaxShieldHitpoints))
+		fmt.Fprintf(&b, "  Armor:  %s / %s\n", armyFloat(ship.ArmorHitpoints), armyFloat(ship.MaxArmorHitpoints))
 
 		// Components from design (weapons, utilities, aux, required)
 		if design != nil {

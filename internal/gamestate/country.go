@@ -8,57 +8,59 @@ import (
 )
 
 type Country struct {
-	FleetSizeRaw         *float64                    `clausewitz:"fleet_size"`
-	UsedNavalCapRaw      *float64                    `clausewitz:"used_naval_capacity"`
-	StarbaseCapRaw       *int                        `clausewitz:"starbase_capacity"`
-	NumPopsRaw           *int                        `clausewitz:"num_sapient_pops"`
-	EmpireSizeRaw        *int                        `clausewitz:"empire_size"`
-	CouncilGovernment    CouncilGovernment           `clausewitz:"government"`
-	Relics               OptionalStringList          `clausewitz:"relics"`
-	LastActivatedRelic   OptionalString              `clausewitz:"last_activated_relic"`
-	LastReceivedRelic    OptionalString              `clausewitz:"last_received_relic"`
-	GrandArchiveModules  CountryGrandArchiveModules  `clausewitz:"modules"`
-	SpeciesRightsModules CountrySpeciesRightsModules `clausewitz:"modules"`
-	FleetTemplateRefs    FleetTemplateManagerRefs    `clausewitz:"fleet_template_manager"`
-	DiplomaticModules    CountryDiplomaticModules    `clausewitz:"modules"`
-	SectorRefs           CountrySectorRefs           `clausewitz:"sectors"`
-	VictoryRankRaw       *int                        `clausewitz:"victory_rank"`
-	EconomyModules       CountryEconomyModules       `clausewitz:"modules"`
-	ActivePolicies       ActivePolicyList            `clausewitz:"active_policies"`
-	Edicts               EdictList                   `clausewitz:"edicts"`
-	PolicyFlags          OptionalStringList          `clausewitz:"policy_flags"`
-	MilitaryPowerRaw     *float64                    `clausewitz:"military_power"`
-	EconomyPowerRaw      *float64                    `clausewitz:"economy_power"`
-	TechPowerRaw         *float64                    `clausewitz:"tech_power"`
-	Name                 LocalizedName               `clausewitz:"name"`
-	Adjective            LocalizedName               `clausewitz:"adjective"`
-	Ethos                Ethos                       `clausewitz:"ethos"`
-	Government           Government                  `clausewitz:"government"`
-	TechStatus           TechStatus                  `clausewitz:"tech_status"`
-	Budget               Budget                      `clausewitz:"budget"`
-	RelationsManager     RelationsManager            `clausewitz:"relations_manager"`
-	FleetsManager        FleetsManager               `clausewitz:"fleets_manager"`
-	Capital              int                         `clausewitz:"capital"`
-	MilitaryPower        float64                     `clausewitz:"military_power"`
-	EconomyPower         float64                     `clausewitz:"economy_power"`
-	TechPower            float64                     `clausewitz:"tech_power"`
-	FleetSize            float64                     `clausewitz:"fleet_size"`
-	UsedNavalCap         float64                     `clausewitz:"used_naval_capacity"`
-	NavalCap             *float64                    `clausewitz:"naval_capacity"`
-	StarbaseCap          int                         `clausewitz:"starbase_capacity"`
-	NumPops              int                         `clausewitz:"num_sapient_pops"`
-	EmpireSize           int                         `clausewitz:"empire_size"`
-	VictoryRank          int                         `clausewitz:"victory_rank"`
-	OwnedPlanets         []int                       `clausewitz:"owned_planets"`
-	OwnedLeaders         []int                       `clausewitz:"owned_leaders"`
-	OwnedArmies          []int                       `clausewitz:"owned_armies"`
-	Traditions           OptionalStringList          `clausewitz:"traditions"`
-	AscensionPerks       OptionalStringList          `clausewitz:"ascension_perks"`
-	TraditionCategories  OptionalStringList          `clausewitz:"tradition_categories"`
-	LastPickedTradition  OptionalString              `clausewitz:"last_picked_tradition"`
+	SpecialProjects             CountrySpecialProjects      `clausewitz:"events"`
+	LastCompletedSpecialProject OptionalString              `clausewitz:"last_completed_special_project"`
+	FleetSizeRaw                *float64                    `clausewitz:"fleet_size"`
+	UsedNavalCapRaw             *float64                    `clausewitz:"used_naval_capacity"`
+	StarbaseCapRaw              *int                        `clausewitz:"starbase_capacity"`
+	NumPopsRaw                  *int                        `clausewitz:"num_sapient_pops"`
+	EmpireSizeRaw               *int                        `clausewitz:"empire_size"`
+	CouncilGovernment           CouncilGovernment           `clausewitz:"government"`
+	Relics                      OptionalStringList          `clausewitz:"relics"`
+	LastActivatedRelic          OptionalString              `clausewitz:"last_activated_relic"`
+	LastReceivedRelic           OptionalString              `clausewitz:"last_received_relic"`
+	GrandArchiveModules         CountryGrandArchiveModules  `clausewitz:"modules"`
+	SpeciesRightsModules        CountrySpeciesRightsModules `clausewitz:"modules"`
+	FleetTemplateRefs           FleetTemplateManagerRefs    `clausewitz:"fleet_template_manager"`
+	DiplomaticModules           CountryDiplomaticModules    `clausewitz:"modules"`
+	SectorRefs                  CountrySectorRefs           `clausewitz:"sectors"`
+	VictoryRankRaw              *int                        `clausewitz:"victory_rank"`
+	EconomyModules              CountryEconomyModules       `clausewitz:"modules"`
+	ActivePolicies              ActivePolicyList            `clausewitz:"active_policies"`
+	Edicts                      EdictList                   `clausewitz:"edicts"`
+	PolicyFlags                 OptionalStringList          `clausewitz:"policy_flags"`
+	MilitaryPowerRaw            *float64                    `clausewitz:"military_power"`
+	EconomyPowerRaw             *float64                    `clausewitz:"economy_power"`
+	TechPowerRaw                *float64                    `clausewitz:"tech_power"`
+	Name                        LocalizedName               `clausewitz:"name"`
+	Adjective                   LocalizedName               `clausewitz:"adjective"`
+	Ethos                       Ethos                       `clausewitz:"ethos"`
+	Government                  Government                  `clausewitz:"government"`
+	TechStatus                  TechStatus                  `clausewitz:"tech_status"`
+	Budget                      Budget                      `clausewitz:"budget"`
+	RelationsManager            RelationsManager            `clausewitz:"relations_manager"`
+	FleetsManager               FleetsManager               `clausewitz:"fleets_manager"`
+	Capital                     int                         `clausewitz:"capital"`
+	MilitaryPower               float64                     `clausewitz:"military_power"`
+	EconomyPower                float64                     `clausewitz:"economy_power"`
+	TechPower                   float64                     `clausewitz:"tech_power"`
+	FleetSize                   float64                     `clausewitz:"fleet_size"`
+	UsedNavalCap                float64                     `clausewitz:"used_naval_capacity"`
+	NavalCap                    *float64                    `clausewitz:"naval_capacity"`
+	StarbaseCap                 int                         `clausewitz:"starbase_capacity"`
+	NumPops                     int                         `clausewitz:"num_sapient_pops"`
+	EmpireSize                  int                         `clausewitz:"empire_size"`
+	VictoryRank                 int                         `clausewitz:"victory_rank"`
+	OwnedPlanets                []int                       `clausewitz:"owned_planets"`
+	OwnedLeaders                []int                       `clausewitz:"owned_leaders"`
+	OwnedArmies                 []int                       `clausewitz:"owned_armies"`
+	Traditions                  OptionalStringList          `clausewitz:"traditions"`
+	AscensionPerks              OptionalStringList          `clausewitz:"ascension_perks"`
+	TraditionCategories         OptionalStringList          `clausewitz:"tradition_categories"`
+	LastPickedTradition         OptionalString              `clausewitz:"last_picked_tradition"`
 }
 
-// Duplicate relic fields cannot be treated as one authoritative saved value.
+// Duplicate saved fields cannot be treated as one authoritative value.
 func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	type fields Country
 	var decoded fields
@@ -66,6 +68,12 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 		return err
 	}
 	*c = Country(decoded)
+	if uniqueSavedFields(value, "events") != nil {
+		c.SpecialProjects = CountrySpecialProjects{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "last_completed_special_project") != nil {
+		c.LastCompletedSpecialProject = OptionalString{Recorded: true, Unsupported: true}
+	}
 	if uniqueSavedFields(value, "government") != nil {
 		c.CouncilGovernment = CouncilGovernment{Recorded: true, Unsupported: true}
 	}
@@ -200,12 +208,27 @@ func (t *TechStatus) UnmarshalClausewitz(v clausewitz.Value) error {
 }
 
 type ResearchItem struct {
-	TechnologyRaw *string  `clausewitz:"technology"`
-	ProgressRaw   *float64 `clausewitz:"progress"`
-	DateRaw       *string  `clausewitz:"date"`
-	Technology    string   `clausewitz:"technology"`
-	Progress      float64  `clausewitz:"progress"`
-	Date          string   `clausewitz:"date"`
+	SpecialProjectRef OptionalIntRef `clausewitz:"special_project"`
+	TechnologyRaw     *string        `clausewitz:"technology"`
+	ProgressRaw       *float64       `clausewitz:"progress"`
+	DateRaw           *string        `clausewitz:"date"`
+	Technology        string         `clausewitz:"technology"`
+	Progress          float64        `clausewitz:"progress"`
+	Date              string         `clausewitz:"date"`
+}
+
+// A duplicate project reference is not a unique saved link.
+func (r *ResearchItem) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields ResearchItem
+	var decoded fields
+	if err := clausewitz.DecodeValue(value, &decoded); err != nil {
+		return err
+	}
+	*r = ResearchItem(decoded)
+	if uniqueSavedFields(value, "special_project") != nil {
+		r.SpecialProjectRef = OptionalIntRef{Recorded: true, Unsupported: true}
+	}
+	return nil
 }
 
 type TechAlternatives struct {

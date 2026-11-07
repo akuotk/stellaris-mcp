@@ -10,6 +10,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 |---|---|
 | `get_empire_overview` | Ethics, civics, government, power ratings, naval/starbase capacity, resources |
 | `get_research_status` | Current research + progress, available options, completed techs |
+| `get_special_projects` | Saved special project records and research queue ID candidates |
 | `get_research_potential` | Paginated saved research-potential records with snapshot revision |
 | `get_economy_breakdown` | Current or last month saved budget categories and calculated net |
 | `get_planets` | Colonized planets with districts, buildings, jobs, modifiers, production |

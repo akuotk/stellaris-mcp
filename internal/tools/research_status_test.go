@@ -28,3 +28,19 @@ func TestResearchQueuePreservesPresenceAndPrecision(t *testing.T) {
 		}
 	}
 }
+
+func TestResearchQueueShowsSavedSpecialProjectReferences(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`country={0={tech_status={physics_queue={{technology=tech_a special_project=0} {technology=tech_b special_project=1 special_project=2} {technology=tech_c}}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	writeQueue(&b, "Physics", gs.Country[0].TechStatus.PhysicsQueue)
+	text := b.String()
+	if !strings.Contains(text, "special_project reference=0 (use get_special_projects") || !strings.Contains(text, "special_project reference unsupported or duplicate") || strings.Count(text, "special_project reference=") != 1 {
+		t.Fatal(text)
+	}
+}

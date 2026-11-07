@@ -90,3 +90,23 @@ func TestFleetPowerMissingIsNotZero(t *testing.T) {
 		t.Fatal(resultText(detail))
 	}
 }
+
+func TestFleetDetailShipDurabilityDistinguishesMissingZeroAndPrecision(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`fleet={0={ships={0 1}}} ships={0={hitpoints=0 max_hitpoints=1.23456789 shield_hitpoints=0 armor_hitpoints=2.5 max_armor_hitpoints=0} 1={}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := fleetDetail(gs, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := resultText(result)
+	for _, want := range []string{"Hull:   0 / 1.23456789", "Shield: 0 / not recorded", "Armor:  2.5 / 0", "Hull:   not recorded / not recorded", "Shield: not recorded / not recorded", "Armor:  not recorded / not recorded"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in %s", want, text)
+		}
+	}
+}

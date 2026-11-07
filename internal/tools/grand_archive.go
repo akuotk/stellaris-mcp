@@ -59,13 +59,13 @@ func renderGrandArchive(countryID int, country *gamestate.Country) *mcp.CallTool
 				fmt.Fprintf(&b, "%s: not recorded\n", section.key)
 				continue
 			}
-			writeArchiveValue(&b, section.key, section.value.Value, 0)
+			writeSavedValue(&b, section.key, section.value.Value, 0)
 		}
 	}
 	return mcp.NewToolResultText(b.String())
 }
 
-func writeArchiveValue(b *strings.Builder, label string, value clausewitz.Value, depth int) {
+func writeSavedValue(b *strings.Builder, label string, value clausewitz.Value, depth int) {
 	fmt.Fprintf(b, "%s%s: ", strings.Repeat("  ", depth), label)
 	switch {
 	case value.IsScalar():
@@ -88,7 +88,7 @@ func writeArchiveValue(b *strings.Builder, label string, value clausewitz.Value,
 				child += " [duplicate saved key]"
 			}
 			seen[pair.Key] = true
-			writeArchiveValue(b, child, pair.Value, depth+1)
+			writeSavedValue(b, child, pair.Value, depth+1)
 		}
 	case value.IsList():
 		allEmptyObjects := true
@@ -104,7 +104,7 @@ func writeArchiveValue(b *strings.Builder, label string, value clausewitz.Value,
 		}
 		fmt.Fprintf(b, "list with %d saved entries\n", len(value.List))
 		for index, item := range value.List {
-			writeArchiveValue(b, fmt.Sprintf("Item %d", index), item, depth+1)
+			writeSavedValue(b, fmt.Sprintf("Item %d", index), item, depth+1)
 		}
 	}
 }
