@@ -8,6 +8,9 @@ import (
 )
 
 type Country struct {
+	Relics               OptionalStringList          `clausewitz:"relics"`
+	LastActivatedRelic   OptionalString              `clausewitz:"last_activated_relic"`
+	LastReceivedRelic    OptionalString              `clausewitz:"last_received_relic"`
 	GrandArchiveModules  CountryGrandArchiveModules  `clausewitz:"modules"`
 	SpeciesRightsModules CountrySpeciesRightsModules `clausewitz:"modules"`
 	FleetTemplateRefs    FleetTemplateManagerRefs    `clausewitz:"fleet_template_manager"`
@@ -47,6 +50,26 @@ type Country struct {
 	AscensionPerks       OptionalStringList          `clausewitz:"ascension_perks"`
 	TraditionCategories  OptionalStringList          `clausewitz:"tradition_categories"`
 	LastPickedTradition  OptionalString              `clausewitz:"last_picked_tradition"`
+}
+
+// Duplicate relic fields cannot be treated as one authoritative saved value.
+func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields Country
+	var decoded fields
+	if err := clausewitz.DecodeValue(value, &decoded); err != nil {
+		return err
+	}
+	*c = Country(decoded)
+	if uniqueSavedFields(value, "relics") != nil {
+		c.Relics = OptionalStringList{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "last_activated_relic") != nil {
+		c.LastActivatedRelic = OptionalString{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "last_received_relic") != nil {
+		c.LastReceivedRelic = OptionalString{Recorded: true, Unsupported: true}
+	}
+	return nil
 }
 
 // Optional fields isolate unsupported shapes instead of preventing other save data from loading.

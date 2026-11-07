@@ -2,8 +2,10 @@ package gamestate
 
 import (
 	"archive/zip"
+	"bytes"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
 )
@@ -147,21 +149,38 @@ func FindLatestSave(dir string) (string, error) {
 }
 
 func extractGamestate(zipPath string) ([]byte, error) {
-	r, err := zip.OpenReader(zipPath)
+	data, err := os.ReadFile(zipPath)
 	if err != nil {
-		return nil, fmt.Errorf("open zip %q: %w", zipPath, err)
+		return nil, fmt.Errorf("read save archive: %w", err)
 	}
-	defer r.Close()
-
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("open save archive: %w", err)
+	}
+	var selected *zip.File
 	for _, f := range r.File {
-		if f.Name == "gamestate" {
-			rc, err := f.Open()
-			if err != nil {
-				return nil, fmt.Errorf("open gamestate in zip: %w", err)
-			}
-			defer rc.Close()
-			return io.ReadAll(rc)
+		if f.Name != "gamestate" {
+			continue
 		}
+		if selected != nil {
+			return nil, fmt.Errorf("multiple gamestate entries; typed analysis cannot select one safely")
+		}
+		selected = f
 	}
-	return nil, fmt.Errorf("no 'gamestate' file found in %q", zipPath)
+	if selected == nil {
+		return nil, fmt.Errorf("no gamestate entry found")
+	}
+	if selected.FileInfo().IsDir() {
+		return nil, fmt.Errorf("gamestate entry is a directory")
+	}
+	rc, err := selected.Open()
+	if err != nil {
+		return nil, fmt.Errorf("open gamestate in zip: %w", err)
+	}
+	defer rc.Close()
+	contents, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, fmt.Errorf("read gamestate in zip: %w", err)
+	}
+	return contents, nil
 }

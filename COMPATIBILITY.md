@@ -48,6 +48,10 @@ Planet population, stability, crime, amenities and housing distinguish missing v
 
 `get_construction` connects saved queues and their ordered items, reporting missing or inconsistent references. Saved progress, resources and numeric location types are not converted to UI values; a matching colony ID is only a candidate. Unsupported construction shapes are flagged and remain accessible through the raw tools.
 
+`get_relics` exposes saved relic keys and last-activation/receipt fields in stored form. Their units, relic association and current activation eligibility remain unverified.
+
+Typed ZIP analysis reads archive bytes into memory first and rejects missing or duplicate gamestate entries and CRC errors. This is not an atomic filesystem snapshot if another process writes concurrently.
+
 `get_grand_archive` exposes saved exhibit and management-setting structures. Empty entries are not interpreted as specimen counts; specimen identity, ownership and setting effects are unverified. Deep or mixed structures remain available via raw tools.
 
 `get_species_rights` exposes saved default, primary, built-species and species-specific records. Species ID matches are candidates; effective rights, inheritance and date meanings remain unverified.
