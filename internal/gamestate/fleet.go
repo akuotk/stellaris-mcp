@@ -1,13 +1,16 @@
 package gamestate
 
+import "github.com/bmassemin/stellaris-mcp/internal/clausewitz"
+
 type Fleet struct {
-	MilitaryPowerRaw *float64      `clausewitz:"military_power"`
-	Name             LocalizedName `clausewitz:"name"`
-	Ships            []int         `clausewitz:"ships"`
-	MilitaryPower    float64       `clausewitz:"military_power"`
-	ShipClass        string        `clausewitz:"ship_class"`
-	Station          bool          `clausewitz:"station"`
-	Civilian         bool          `clausewitz:"civilian"`
+	TemplateRef      OptionalIntRef `clausewitz:"fleet_template"`
+	MilitaryPowerRaw *float64       `clausewitz:"military_power"`
+	Name             LocalizedName  `clausewitz:"name"`
+	Ships            []int          `clausewitz:"ships"`
+	MilitaryPower    float64        `clausewitz:"military_power"`
+	ShipClass        string         `clausewitz:"ship_class"`
+	Station          bool           `clausewitz:"station"`
+	Civilian         bool           `clausewitz:"civilian"`
 }
 
 type Ship struct {
@@ -63,4 +66,18 @@ type DesignSection struct {
 type DesignComponent struct {
 	Slot     string `clausewitz:"slot"`
 	Template string `clausewitz:"template"`
+}
+
+// Do not treat duplicate saved template references as a unique link.
+func (f *Fleet) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields Fleet
+	var decoded fields
+	if err := clausewitz.DecodeValue(value, &decoded); err != nil {
+		return err
+	}
+	*f = Fleet(decoded)
+	if uniqueSavedFields(value, "fleet_template") != nil {
+		f.TemplateRef = OptionalIntRef{Recorded: true, Unsupported: true}
+	}
+	return nil
 }

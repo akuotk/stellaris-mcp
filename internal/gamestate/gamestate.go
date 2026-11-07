@@ -9,6 +9,7 @@ import (
 )
 
 type GameState struct {
+	FleetTemplates      FleetTemplates         `clausewitz:"fleet_template"`
 	Sectors             Sectors                `clausewitz:"sectors"`
 	MarketOrders        MarketOrders           `clausewitz:"market"`
 	Starbases           Starbases              `clausewitz:"starbase_mgr"`

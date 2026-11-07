@@ -14,6 +14,8 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 
 `list_save_games` lists local saves and their path-based IDs. Pass a `save_id` to an analysis or raw exploration tool to select a listed save, or omit it for the newest. For country-specific tools, an omitted `country_id` selects the sole recorded player; multiplayer or absent player data requires an explicit ID. `inspect_save_archive`, `read_save_tree`, `search_save_tree` and `read_save_scalar` navigate entries using positional paths and a required archive revision. Directory symlinks are not traversed. The semantic tree preserves ordered mixed and duplicate entries plus original byte offsets, but normalizes token text and may not represent every possible Clausewitz syntax. `read_save_bytes` returns bounded base64-encoded raw bytes from ZIP entries or the ZIP container itself, including syntax the parser does not understand. These tools read locally and do not make network requests; clients receive requested data and may have their own data-handling behavior. Do not upload saves to external services.
 
+`get_fleet_templates` reports saved fleet template references, design/count entries and candidate queue and home-base links. Counts and reinforcement semantics, queue-array alignment and completion are unverified.
+
 `get_casus_belli` reports saved country diplomacy-module records and country ID references; type, timing and roles remain raw and do not establish an available declaration of war.
 
 `get_economy_breakdown` separates saved balance categories from a computed income-minus-expenses net, for the saved current or last month. Missing tables are flagged; values and keys retain their saved precision.
@@ -46,7 +48,7 @@ Planet population, stability, crime, amenities and housing distinguish missing v
 
 `get_construction` connects saved queues and their ordered items, reporting missing or inconsistent references. Saved progress, resources and numeric location types are not converted to UI values; a matching colony ID is only a candidate. Unsupported construction shapes are flagged and remain accessible through the raw tools.
 
-`get_species` links species records to owned planets' population groups and displays traits and saved group-size totals. Incomplete or duplicate references are reported; non-planet carriers are not included. `get_colonies` exposes owned colony records and raw carrier types and references without inventing a carrier identity. Non-planet carrier serialization has not yet been checked against a real Arkship save.
+`get_species` links species records to owned planets' population groups and displays traits and saved group-size totals. Incomplete or duplicate references are reported; groups referenced by multiple owned planets are counted once and their location is marked ambiguous. Non-planet carriers are not included. `get_colonies` exposes owned colony records and raw carrier types and references without inventing a carrier identity. Non-planet carrier serialization has not yet been checked against a real Arkship save.
 
 Limitations: non-planet carriers such as Nomad Arkships are not yet resolved as colonies; complex name templates, agreement terms and espionage require further work. Political faction support and approval are shown as saved, without unit conversion. A missing naval capacity is reported as unavailable. Do not assume every value is complete or that this covers all versions, DLCs, or modded saves.
 

@@ -43,44 +43,55 @@ func handleSpecies(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 
 func renderSpecies(gs *gamestate.GameState, countryID int, c *gamestate.Country, selected *int) *mcp.CallToolResult {
 	type summary struct {
-		groups, missingSize, rawPopulation int
-		planets                            map[int]bool
+		groups, missingSize, rawPopulation, ambiguousGroups int
+		planets                                             map[int]bool
 	}
 	all := map[int]*summary{}
-	seen := map[int]bool{}
-	missingGroups, missingSpecies, duplicateRefs := 0, 0, 0
+	groupPlanets := map[int]map[int]bool{}
+	missingGroups, missingSpecies, duplicateRefs, ambiguousGroups := 0, 0, 0, 0
 	for planetID, p := range gs.Planets.Planet {
 		if p.OwnerID == nil || *p.OwnerID != countryID {
 			continue
 		}
 		for _, groupID := range p.PopGroups {
-			if seen[groupID] {
-				duplicateRefs++
-				continue
-			}
-			seen[groupID] = true
-			g, ok := gs.PopGroups[groupID]
-			if !ok {
-				missingGroups++
-				continue
-			}
-			if g.Key.SpeciesID == nil {
-				missingSpecies++
-				continue
-			}
-			sid := *g.Key.SpeciesID
-			item := all[sid]
-			if item == nil {
-				item = &summary{planets: map[int]bool{}}
-				all[sid] = item
-			}
-			item.groups++
-			item.planets[planetID] = true
-			if g.SizeRaw == nil {
-				item.missingSize++
+			if groupPlanets[groupID] == nil {
+				groupPlanets[groupID] = map[int]bool{}
 			} else {
-				item.rawPopulation += *g.SizeRaw
+				duplicateRefs++
 			}
+			groupPlanets[groupID][planetID] = true
+		}
+	}
+	for groupID, planets := range groupPlanets {
+		g, ok := gs.PopGroups[groupID]
+		if !ok {
+			missingGroups++
+			continue
+		}
+		if len(planets) > 1 {
+			ambiguousGroups++
+		}
+		if g.Key.SpeciesID == nil {
+			missingSpecies++
+			continue
+		}
+		sid := *g.Key.SpeciesID
+		item := all[sid]
+		if item == nil {
+			item = &summary{planets: map[int]bool{}}
+			all[sid] = item
+		}
+		item.groups++
+		for planetID := range planets {
+			item.planets[planetID] = true
+		}
+		if len(planets) > 1 {
+			item.ambiguousGroups++
+		}
+		if g.SizeRaw == nil {
+			item.missingSize++
+		} else {
+			item.rawPopulation += *g.SizeRaw
 		}
 	}
 	var ids []int
@@ -112,18 +123,21 @@ func renderSpecies(gs *gamestate.GameState, countryID int, c *gamestate.Country,
 			fmt.Fprintln(&b, "  Traits: none recorded")
 		}
 		if v := all[id]; v != nil {
-			fmt.Fprintf(&b, "  Owned planets: %d; groups: %d; population sum (raw save units): %d", len(v.planets), v.groups, v.rawPopulation)
+			fmt.Fprintf(&b, "  Owned planets referencing groups: %d; groups: %d; population sum (raw save units): %d", len(v.planets), v.groups, v.rawPopulation)
 			if v.missingSize > 0 {
 				fmt.Fprintf(&b, " (incomplete: %d group sizes missing)", v.missingSize)
+			}
+			if v.ambiguousGroups > 0 {
+				fmt.Fprintf(&b, " (location ambiguous for %d groups)", v.ambiguousGroups)
 			}
 			fmt.Fprintln(&b)
 		} else if selected != nil {
 			fmt.Fprintln(&b, "  No matching population groups found on selected country's planets.")
 		}
 	}
-	if missingGroups > 0 || missingSpecies > 0 || duplicateRefs > 0 {
-		fmt.Fprintf(&b, "\nIncomplete references: missing groups=%d, groups without species ID=%d, duplicate group references=%d.\n", missingGroups, missingSpecies, duplicateRefs)
+	if missingGroups > 0 || missingSpecies > 0 || duplicateRefs > 0 || ambiguousGroups > 0 {
+		fmt.Fprintf(&b, "\nIncomplete references: missing groups=%d, groups without species ID=%d, duplicate group references=%d, groups referenced by multiple owned planets=%d.\n", missingGroups, missingSpecies, duplicateRefs, ambiguousGroups)
 	}
-	fmt.Fprintln(&b, "Population values are saved raw group sizes, not validated game UI POP counts; non-planet carriers are not included.")
+	fmt.Fprintln(&b, "Population values are saved raw group sizes, not validated game UI POP counts. Each group is counted once; multiple planet references do not establish a location. Non-planet carriers are not included.")
 	return mcp.NewToolResultText(b.String())
 }

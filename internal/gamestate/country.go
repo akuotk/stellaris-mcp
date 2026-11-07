@@ -8,6 +8,7 @@ import (
 )
 
 type Country struct {
+	FleetTemplateRefs   FleetTemplateManagerRefs `clausewitz:"fleet_template_manager"`
 	DiplomaticModules   CountryDiplomaticModules `clausewitz:"modules"`
 	SectorRefs          CountrySectorRefs        `clausewitz:"sectors"`
 	VictoryRankRaw      *int                     `clausewitz:"victory_rank"`

@@ -25,6 +25,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_archaeology` | Saved archaeological sites, event and completion records |
 | `get_armies` | Ground armies, country, colony, ship, fleet, leader and species references |
 | `get_planets available=true` | Surveyed uncolonized habitable planets with features |
+| `get_fleet_templates` | Saved fleet templates, design/count entries and reference links |
 | `get_fleet_power` | Fleets with power, ship-level detail (design, HP, weapons) |
 | `get_leaders` | Leaders with class, traits, council position, assignment |
 | `get_species` | Species identities, traits and saved population references on owned planets |
