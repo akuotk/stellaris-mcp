@@ -62,7 +62,7 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	fmt.Fprintf(&b, "  Military: %s\n", armyFloat(c.MilitaryPowerRaw))
 	fmt.Fprintf(&b, "  Economy:  %s\n", armyFloat(c.EconomyPowerRaw))
 	fmt.Fprintf(&b, "  Tech:     %s\n", armyFloat(c.TechPowerRaw))
-	fmt.Fprintf(&b, "  Victory Rank: %d\n", c.VictoryRank)
+	fmt.Fprintf(&b, "  Victory Rank: %s\n", armyInt(c.VictoryRankRaw))
 	fmt.Fprintf(&b, "\nEmpire Stats:\n")
 	fmt.Fprintf(&b, "  Population (raw save units): %d\n", c.NumPops)
 	fmt.Fprintf(&b, "  Planets: %d\n", planetCount)

@@ -14,7 +14,7 @@ import (
 func registerNotifications(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("get_notifications", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-			mcp.WithDescription("Get active wars, federations, and game status"),
+			mcp.WithDescription("Get saved war records, federations, and game status; war activity is not inferred from missing dates"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 		),
 		handleNotifications,
@@ -31,21 +31,28 @@ func handleNotifications(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 		return toolError(err), nil
 	}
 
+	return renderNotifications(gs, c), nil
+}
+
+func renderNotifications(gs *gamestate.GameState, c *gamestate.Country) *mcp.CallToolResult {
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Game Status (%s — %s) ===\n", name(c.Adjective), gs.Date)
-
-	// Players
-	fmt.Fprintf(&b, "\nPlayers:\n")
-	if len(gs.Player) == 0 {
-		fmt.Fprintf(&b, "  (none)\n")
+	fmt.Fprintln(&b, "\nPlayers:")
+	if gs.Player == nil {
+		fmt.Fprintln(&b, "  not recorded")
+	} else if len(gs.Player) == 0 {
+		fmt.Fprintln(&b, "  empty")
 	}
 	for _, p := range gs.Player {
-		fmt.Fprintf(&b, "  - %s (Country %d)\n", p.Name, p.Country)
+		fmt.Fprintf(&b, "  - %s (country reference: %s)\n", p.Name, armyInt(p.CountryID))
 	}
 
-	// Wars (only show wars without an end_date)
-	fmt.Fprintf(&b, "\nActive Wars:\n")
-	activeWars := 0
+	fmt.Fprintln(&b, "\nSaved War Records (activity not inferred from dates):")
+	if gs.War == nil {
+		fmt.Fprintln(&b, "  not recorded")
+	} else if len(gs.War) == 0 {
+		fmt.Fprintln(&b, "  empty")
+	}
 	warIDs := make([]int, 0, len(gs.War))
 	for id := range gs.War {
 		warIDs = append(warIDs, id)
@@ -53,42 +60,43 @@ func handleNotifications(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	sort.Ints(warIDs)
 	for _, id := range warIDs {
 		w := gs.War[id]
-		if w.EndDate != "" {
-			continue
-		}
-		activeWars++
-		fmt.Fprintf(&b, "  - ID %d: %s (started %s)\n", id, name(w.Name), w.StartDate)
+		fmt.Fprintf(&b, "  - ID %d: %s (saved start=%s, saved end=%s)\n", id, name(w.Name), governanceValue(w.StartDateRaw), governanceValue(w.EndDateRaw))
 		for _, side := range []struct {
 			label   string
 			parties []gamestate.WarParty
 		}{{"Attackers", w.Attackers}, {"Defenders", w.Defenders}} {
+			if side.parties == nil {
+				fmt.Fprintf(&b, "    %s: not recorded\n", side.label)
+				continue
+			}
 			if len(side.parties) == 0 {
+				fmt.Fprintf(&b, "    %s: empty\n", side.label)
 				continue
 			}
 			var names []string
-			for _, p := range side.parties {
-				names = append(names, fmt.Sprintf("%s (ID %d)", countryName(gs, p.Country), p.Country))
+			for _, party := range side.parties {
+				if party.CountryID == nil {
+					names = append(names, "country reference not recorded")
+					continue
+				}
+				if _, ok := gs.Country[*party.CountryID]; !ok {
+					names = append(names, fmt.Sprintf("Country %d (record unavailable)", *party.CountryID))
+				} else {
+					names = append(names, fmt.Sprintf("%s (ID %d)", countryName(gs, *party.CountryID), *party.CountryID))
+				}
 			}
 			fmt.Fprintf(&b, "    %s: %s\n", side.label, strings.Join(names, ", "))
 		}
 	}
-	if activeWars == 0 {
-		fmt.Fprintf(&b, "  No active wars.\n")
-	}
-
-	// Federations
 	writeFederations(&b, gs)
-
-	// Known contacts count
-	contacts := 0
+	contacts, unknown := 0, 0
 	for _, rel := range c.RelationsManager.Relation {
-		if rel.Contact {
+		if rel.ContactRaw == nil || (*rel.ContactRaw != "yes" && *rel.ContactRaw != "no") {
+			unknown++
+		} else if *rel.ContactRaw == "yes" {
 			contacts++
 		}
 	}
-	fmt.Fprintf(&b, "\nDiplomacy:\n")
-	fmt.Fprintf(&b, "  Known empires: %d\n", contacts)
-	fmt.Fprintf(&b, "  Victory rank: %d\n", c.VictoryRank)
-
-	return mcp.NewToolResultText(b.String()), nil
+	fmt.Fprintf(&b, "\nDiplomacy:\n  Saved contact=yes relations: %d\n  Contact status not established: %d\n  Victory rank: %s\n", contacts, unknown, armyInt(c.VictoryRankRaw))
+	return mcp.NewToolResultText(b.String())
 }

@@ -1,5 +1,7 @@
 package gamestate
 
+import "github.com/bmassemin/stellaris-mcp/internal/clausewitz"
+
 type AgreementStore struct {
 	Items map[int]Agreement `clausewitz:"agreements"`
 }
@@ -56,7 +58,22 @@ type Megastructure struct {
 	} `clausewitz:"coordinate"`
 }
 type GalacticSystem struct {
+	SectorRef    OptionalIntRef  `clausewitz:"sector"`
 	StarbaseRefs OptionalIntList `clausewitz:"starbases"`
 	Name         LocalizedName   `clausewitz:"name"`
 	Planets      []int           `clausewitz:"planet"`
+}
+
+// Keep duplicate sector references from being mistaken for a unique link.
+func (s *GalacticSystem) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields GalacticSystem
+	var decoded fields
+	if err := clausewitz.DecodeValue(value, &decoded); err != nil {
+		return err
+	}
+	*s = GalacticSystem(decoded)
+	if uniqueSavedFields(value, "sector") != nil {
+		s.SectorRef = OptionalIntRef{Recorded: true, Unsupported: true}
+	}
+	return nil
 }

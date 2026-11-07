@@ -8,6 +8,8 @@ import (
 )
 
 type Country struct {
+	SectorRefs          CountrySectorRefs     `clausewitz:"sectors"`
+	VictoryRankRaw      *int                  `clausewitz:"victory_rank"`
 	EconomyModules      CountryEconomyModules `clausewitz:"modules"`
 	ActivePolicies      ActivePolicyList      `clausewitz:"active_policies"`
 	Edicts              EdictList             `clausewitz:"edicts"`

@@ -9,6 +9,7 @@ import (
 )
 
 type GameState struct {
+	Sectors             Sectors                `clausewitz:"sectors"`
 	MarketOrders        MarketOrders           `clausewitz:"market"`
 	Starbases           Starbases              `clausewitz:"starbase_mgr"`
 	FirstContacts       FirstContacts          `clausewitz:"first_contacts"`
@@ -95,15 +96,18 @@ type PlanetsWrapper struct {
 }
 
 type War struct {
-	Name      LocalizedName `clausewitz:"name"`
-	Attackers []WarParty    `clausewitz:"attackers"`
-	Defenders []WarParty    `clausewitz:"defenders"`
-	StartDate string        `clausewitz:"start_date"`
-	EndDate   string        `clausewitz:"end_date"`
+	StartDateRaw *string       `clausewitz:"start_date"`
+	EndDateRaw   *string       `clausewitz:"end_date"`
+	Name         LocalizedName `clausewitz:"name"`
+	Attackers    []WarParty    `clausewitz:"attackers"`
+	Defenders    []WarParty    `clausewitz:"defenders"`
+	StartDate    string        `clausewitz:"start_date"`
+	EndDate      string        `clausewitz:"end_date"`
 }
 
 type WarParty struct {
-	Country int `clausewitz:"country"`
+	CountryID *int `clausewitz:"country"`
+	Country   int  `clausewitz:"country"`
 }
 
 // LoadFromDir finds the most recent .sav file in dir,

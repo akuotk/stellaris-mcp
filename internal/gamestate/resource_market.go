@@ -17,7 +17,7 @@ type CountryEconomyModule struct {
 }
 
 func (v *CountryEconomyModule) UnmarshalClausewitz(value clausewitz.Value) error {
-	if err := resourceMarketUniqueFields(value, "resources"); err != nil {
+	if err := uniqueSavedFields(value, "resources"); err != nil {
 		return err
 	}
 	type fields CountryEconomyModule
@@ -25,7 +25,7 @@ func (v *CountryEconomyModule) UnmarshalClausewitz(value clausewitz.Value) error
 }
 
 func (v *CountryEconomyModules) UnmarshalClausewitz(value clausewitz.Value) error {
-	if resourceMarketUniqueFields(value, "standard_economy_module") != nil {
+	if uniqueSavedFields(value, "standard_economy_module") != nil {
 		*v = CountryEconomyModules{Recorded: true, Unsupported: true}
 		return nil
 	}
@@ -75,7 +75,7 @@ type MarketOrders struct {
 }
 
 func (v *MarketOrders) UnmarshalClausewitz(value clausewitz.Value) error {
-	if resourceMarketUniqueFields(value, "monthly_trades") != nil {
+	if uniqueSavedFields(value, "monthly_trades") != nil {
 		*v = MarketOrders{Recorded: true, Unsupported: true}
 		return nil
 	}
@@ -111,7 +111,7 @@ type MonthlyMarketTradeData struct {
 }
 
 func (v *MonthlyMarketTrade) UnmarshalClausewitz(value clausewitz.Value) error {
-	if err := resourceMarketUniqueFields(value, "id", "amount", "price", "trade_data"); err != nil {
+	if err := uniqueSavedFields(value, "id", "amount", "price", "trade_data"); err != nil {
 		return err
 	}
 	type fields MonthlyMarketTrade
@@ -119,7 +119,7 @@ func (v *MonthlyMarketTrade) UnmarshalClausewitz(value clausewitz.Value) error {
 }
 
 func (v *MonthlyMarketTradeData) UnmarshalClausewitz(value clausewitz.Value) error {
-	if err := resourceMarketUniqueFields(value, "country", "resource", "trade_type"); err != nil {
+	if err := uniqueSavedFields(value, "country", "resource", "trade_type"); err != nil {
 		return err
 	}
 	type fields MonthlyMarketTradeData
@@ -139,7 +139,7 @@ func (v *MonthlyMarketTradeList) UnmarshalClausewitz(value clausewitz.Value) err
 	return nil
 }
 
-func resourceMarketUniqueFields(value clausewitz.Value, keys ...string) error {
+func uniqueSavedFields(value clausewitz.Value, keys ...string) error {
 	if !value.IsObject() {
 		return nil
 	}
