@@ -39,11 +39,11 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 	count := 0
 	for _, k := range ids {
 		a := gs.Agreements.Items[k]
-		if a.Owner == nil || a.Target == nil || (*a.Owner != id && *a.Target != id) {
+		if (a.Owner == nil || *a.Owner != id) && (a.Target == nil || *a.Target != id) {
 			continue
 		}
 		count++
-		fmt.Fprintf(&b, "  ID %d: owner %s (%d), target %s (%d); status=%s, preset=%s, added=%s\n", k, countryName(gs, *a.Owner), *a.Owner, countryName(gs, *a.Target), *a.Target, a.Status, a.Terms.Preset, a.DateAdded)
+		fmt.Fprintf(&b, "  ID %d: owner %s, target %s; status=%s, preset=%s, added=%s\n", k, assetCountryReference(gs, a.Owner), assetCountryReference(gs, a.Target), a.Status, a.Terms.Preset, a.DateAdded)
 		if a.DateChanged != "" {
 			fmt.Fprintf(&b, "    date_changed=%s\n", a.DateChanged)
 		}
@@ -81,7 +81,7 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 			continue
 		}
 		count++
-		fmt.Fprintf(&b, "  ID %d: %s [%s]; progress=%.2f, last month=%.2f, approach=%s\n", k, l(v.Type), v.Type, v.Progress, v.LastMonthProgress, v.Approach)
+		fmt.Fprintf(&b, "  ID %d: %s [%s]; progress=%s, last month=%s, approach=%s\n", k, l(v.Type), v.Type, armyFloat(v.ProgressRaw), armyFloat(v.LastMonthProgressRaw), v.Approach)
 	}
 	if count == 0 {
 		fmt.Fprintln(&b, "  No matching records.")
@@ -103,7 +103,7 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 		if v.Coordinate.Origin != nil {
 			system = fmt.Sprintf("system ID %d", *v.Coordinate.Origin)
 			if s, ok := gs.Systems[*v.Coordinate.Origin]; ok {
-				system = fmt.Sprintf("%s (system ID %d)", name(s.Name), *v.Coordinate.Origin)
+				system = fmt.Sprintf("possible system ID match %s (system ID %d; reverse link unverified)", name(s.Name), *v.Coordinate.Origin)
 			}
 		}
 		fmt.Fprintf(&b, "  ID %d: %s [%s], %s\n", k, l(v.Type), v.Type, system)
@@ -112,4 +112,14 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 		fmt.Fprintln(&b, "  No matching records.")
 	}
 	return mcp.NewToolResultText(b.String())
+}
+
+func assetCountryReference(gs *gamestate.GameState, id *int) string {
+	if id == nil {
+		return "not recorded"
+	}
+	if _, ok := gs.Country[*id]; !ok {
+		return fmt.Sprintf("%d (country record unavailable)", *id)
+	}
+	return fmt.Sprintf("%s (%d)", countryName(gs, *id), *id)
 }

@@ -1,6 +1,7 @@
 package gamestate
 
 type Leader struct {
+	CountryID       *int           `clausewitz:"country"`
 	Name            LeaderName     `clausewitz:"name"`
 	Species         int            `clausewitz:"species"`
 	Gender          string         `clausewitz:"gender"`

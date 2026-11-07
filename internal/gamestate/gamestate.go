@@ -11,6 +11,7 @@ import (
 )
 
 type GameState struct {
+	CouncilPositions    CouncilPositionTable   `clausewitz:"council_positions"`
 	FleetTemplates      FleetTemplates         `clausewitz:"fleet_template"`
 	Sectors             Sectors                `clausewitz:"sectors"`
 	MarketOrders        MarketOrders           `clausewitz:"market"`

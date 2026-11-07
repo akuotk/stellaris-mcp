@@ -44,11 +44,13 @@ type SituationStore struct {
 	Items map[int]Situation `clausewitz:"situations"`
 }
 type Situation struct {
-	Country           *int    `clausewitz:"country"`
-	Type              string  `clausewitz:"type"`
-	Progress          float64 `clausewitz:"progress"`
-	LastMonthProgress float64 `clausewitz:"last_month_progress"`
-	Approach          string  `clausewitz:"approach"`
+	ProgressRaw          *float64 `clausewitz:"progress"`
+	LastMonthProgressRaw *float64 `clausewitz:"last_month_progress"`
+	Country              *int     `clausewitz:"country"`
+	Type                 string   `clausewitz:"type"`
+	Progress             float64  `clausewitz:"progress"`
+	LastMonthProgress    float64  `clausewitz:"last_month_progress"`
+	Approach             string   `clausewitz:"approach"`
 }
 type Megastructure struct {
 	Owner      *int   `clausewitz:"owner"`

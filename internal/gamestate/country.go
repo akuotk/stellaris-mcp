@@ -8,6 +8,7 @@ import (
 )
 
 type Country struct {
+	CouncilGovernment    CouncilGovernment           `clausewitz:"government"`
 	Relics               OptionalStringList          `clausewitz:"relics"`
 	LastActivatedRelic   OptionalString              `clausewitz:"last_activated_relic"`
 	LastReceivedRelic    OptionalString              `clausewitz:"last_received_relic"`
@@ -60,6 +61,9 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 		return err
 	}
 	*c = Country(decoded)
+	if uniqueSavedFields(value, "government") != nil {
+		c.CouncilGovernment = CouncilGovernment{Recorded: true, Unsupported: true}
+	}
 	if uniqueSavedFields(value, "relics") != nil {
 		c.Relics = OptionalStringList{Recorded: true, Unsupported: true}
 	}
