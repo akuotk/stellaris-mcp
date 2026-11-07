@@ -23,6 +23,9 @@ type Country struct {
 	SpeciesRightsModules        CountrySpeciesRightsModules `clausewitz:"modules"`
 	FleetTemplateRefs           FleetTemplateManagerRefs    `clausewitz:"fleet_template_manager"`
 	DiplomaticModules           CountryDiplomaticModules    `clausewitz:"modules"`
+	OverlordRef                 OptionalIntRef              `clausewitz:"overlord"`
+	SubjectRefs                 OptionalIntList             `clausewitz:"subjects"`
+	SubjectDate                 OptionalString              `clausewitz:"subject_date"`
 	SectorRefs                  CountrySectorRefs           `clausewitz:"sectors"`
 	VictoryRankRaw              *int                        `clausewitz:"victory_rank"`
 	EconomyModules              CountryEconomyModules       `clausewitz:"modules"`
@@ -71,6 +74,9 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	if uniqueSavedFields(value, "events") != nil {
 		c.SpecialProjects = CountrySpecialProjects{Recorded: true, Unsupported: true}
 	}
+	if uniqueSavedFields(value, "fleets_manager") != nil {
+		c.FleetsManager.OwnershipAmbiguous = true
+	}
 	if uniqueSavedFields(value, "last_completed_special_project") != nil {
 		c.LastCompletedSpecialProject = OptionalString{Recorded: true, Unsupported: true}
 	}
@@ -85,6 +91,15 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	if uniqueSavedFields(value, "last_received_relic") != nil {
 		c.LastReceivedRelic = OptionalString{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "overlord") != nil {
+		c.OverlordRef = OptionalIntRef{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "subjects") != nil {
+		c.SubjectRefs = OptionalIntList{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "subject_date") != nil {
+		c.SubjectDate = OptionalString{Recorded: true, Unsupported: true}
 	}
 	return nil
 }
@@ -278,10 +293,48 @@ type Relation struct {
 }
 
 type FleetsManager struct {
-	OwnedFleets []OwnedFleet `clausewitz:"owned_fleets"`
+	OwnedFleets        []OwnedFleet `clausewitz:"owned_fleets"`
+	OwnershipAmbiguous bool         `clausewitz:"-"`
+}
+
+func (m *FleetsManager) UnmarshalClausewitz(value clausewitz.Value) error {
+	*m = FleetsManager{}
+	if uniqueSavedFields(value, "owned_fleets") != nil {
+		m.OwnershipAmbiguous = true
+		for _, pair := range value.Object.Pairs {
+			if pair.Key != "owned_fleets" {
+				continue
+			}
+			var entries []OwnedFleet
+			if clausewitz.DecodeValue(pair.Value, &entries) == nil {
+				m.OwnedFleets = append(m.OwnedFleets, entries...)
+			}
+		}
+		return nil
+	}
+	type fields FleetsManager
+	if err := clausewitz.DecodeValue(value, (*fields)(m)); err != nil {
+		return err
+	}
+	for _, entry := range m.OwnedFleets {
+		if entry.ReferenceAmbiguous {
+			m.OwnershipAmbiguous = true
+		}
+	}
+	return nil
 }
 
 type OwnedFleet struct {
-	FleetID *int `clausewitz:"fleet"`
-	Fleet   int  `clausewitz:"fleet"`
+	FleetID            *int `clausewitz:"fleet"`
+	Fleet              int  `clausewitz:"fleet"`
+	ReferenceAmbiguous bool `clausewitz:"-"`
+}
+
+func (f *OwnedFleet) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields OwnedFleet
+	if err := clausewitz.DecodeValue(value, (*fields)(f)); err != nil {
+		return err
+	}
+	f.ReferenceAmbiguous = uniqueSavedFields(value, "fleet") != nil
+	return nil
 }

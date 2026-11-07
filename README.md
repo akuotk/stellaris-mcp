@@ -10,7 +10,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 |---|---|
 | `get_empire_overview` | Ethics, civics, government, power ratings, naval/starbase capacity, resources |
 | `get_research_status` | Current research + progress, available options, completed techs |
-| `get_special_projects` | Saved special project records and research queue ID candidates |
+| `get_special_projects` | Saved special project records and research queue and fleet order ID candidates |
 | `get_research_potential` | Paginated saved research-potential records with snapshot revision |
 | `get_economy_breakdown` | Current or last month saved budget categories and calculated net |
 | `get_planets` | Colonized planets with districts, buildings, jobs, modifiers, production |
@@ -24,7 +24,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_resource_market` | Saved economy-module resource amounts and country-matched monthly trade entries |
 | `get_policies_edicts` | Saved policy selections, edict records and policy flags |
 | `get_starbases` | Saved starbase records and candidate station, system, fleet and queue links |
-| `get_archaeology` | Saved archaeological sites, event and completion records |
+| `get_archaeology` | Saved archaeological sites, fleet order references, event and completion records |
 | `get_armies` | Ground armies, country, colony, ship, fleet, leader and species references |
 | `get_planets available=true` | Surveyed uncolonized habitable planets with features |
 | `get_fleet_templates` | Saved fleet templates, design/count entries and reference links |
@@ -39,7 +39,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_traditions_ascension` | Adopted traditions and ascension perks |
 | `get_espionage` | Spy networks: infiltration, spymasters, available operations |
 | `get_notifications` | Wars, federations, players, game status |
-| `get_empire_assets` | Recorded agreements, situations and megastructures |
+| `get_empire_assets` | Recorded agreements, subject references, situations and megastructures |
 | `get_galactic_community` | Members and saved proposed/passed resolutions |
 | `get_federations` | Saved federation membership, leadership, progression and laws |
 | `list_save_games` | Paginated local save catalog with stable IDs |

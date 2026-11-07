@@ -8,9 +8,10 @@ import (
 )
 
 type ArchaeologySites struct {
-	Items        map[int]ArchaeologySite
-	DecodeErrors map[int]string
-	TableIssue   bool
+	Items         map[int]ArchaeologySite
+	DecodeErrors  map[int]string
+	SitesRecorded bool
+	TableIssue    bool
 }
 
 type ArchaeologySite struct {
@@ -18,25 +19,36 @@ type ArchaeologySite struct {
 		Type *string `clausewitz:"type"`
 		ID   *int    `clausewitz:"id"`
 	} `clausewitz:"location"`
-	LastExcavatorCountry *int                    `clausewitz:"last_excavator_country"`
-	ExcavatorFleet       *int                    `clausewitz:"excavator_fleet"`
-	Type                 *string                 `clausewitz:"type"`
-	VisibleTo            []int                   `clausewitz:"visible_to"`
-	Completed            []ArchaeologyCompletion `clausewitz:"completed"`
-	Index                *int                    `clausewitz:"index"`
-	Clues                *float64                `clausewitz:"clues"`
-	LastRoll             *float64                `clausewitz:"last_roll"`
-	DaysLeft             *float64                `clausewitz:"days_left"`
-	Difficulty           *float64                `clausewitz:"difficulty"`
-	Locked               *bool                   `clausewitz:"locked"`
-	Events               []ArchaeologyEvent      `clausewitz:"events"`
-	Log                  []ArchaeologyLog        `clausewitz:"log"`
-	Flags                EspionageOperationFlags `clausewitz:"flags"`
+	LastExcavatorCountry    *int                    `clausewitz:"last_excavator_country"`
+	ExcavatorFleet          *int                    `clausewitz:"excavator_fleet"`
+	ExcavatorFleetAmbiguous bool                    `clausewitz:"-"`
+	Type                    *string                 `clausewitz:"type"`
+	VisibleTo               []int                   `clausewitz:"visible_to"`
+	Completed               []ArchaeologyCompletion `clausewitz:"completed"`
+	Index                   *int                    `clausewitz:"index"`
+	Clues                   *float64                `clausewitz:"clues"`
+	LastRoll                *float64                `clausewitz:"last_roll"`
+	DaysLeft                *float64                `clausewitz:"days_left"`
+	Difficulty              *float64                `clausewitz:"difficulty"`
+	Locked                  *bool                   `clausewitz:"locked"`
+	Events                  []ArchaeologyEvent      `clausewitz:"events"`
+	Log                     []ArchaeologyLog        `clausewitz:"log"`
+	Flags                   EspionageOperationFlags `clausewitz:"flags"`
 }
 
 type ArchaeologyCompletion struct {
 	Country *int    `clausewitz:"country"`
 	Date    *string `clausewitz:"date"`
+}
+
+func (s *ArchaeologySite) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields ArchaeologySite
+	err := clausewitz.DecodeValue(value, (*fields)(s))
+	if uniqueSavedFields(value, "excavator_fleet") != nil {
+		s.ExcavatorFleet = nil
+		s.ExcavatorFleetAmbiguous = true
+	}
+	return err
 }
 
 type ArchaeologyEvent struct {
@@ -94,15 +106,15 @@ func (s *ArchaeologySites) UnmarshalClausewitz(value clausewitz.Value) error {
 		s.TableIssue = true
 		return nil
 	}
-	found := false
+	seen := map[int]bool{}
 	for _, wrapper := range value.Object.Pairs {
 		if wrapper.Key != "sites" {
 			continue
 		}
-		if found {
+		if s.SitesRecorded {
 			s.TableIssue = true
 		}
-		found = true
+		s.SitesRecorded = true
 		if !wrapper.Value.IsObject() {
 			s.TableIssue = true
 			continue
@@ -113,21 +125,23 @@ func (s *ArchaeologySites) UnmarshalClausewitz(value clausewitz.Value) error {
 				s.TableIssue = true
 				continue
 			}
+			duplicate := seen[id]
+			seen[id] = true
+			if duplicate {
+				s.DecodeErrors[id] = "duplicate archaeology site ID"
+			}
 			if pair.Value.IsScalar() && pair.Value.Scalar == "none" {
 				continue
 			}
 			var site ArchaeologySite
 			err = clausewitz.DecodeValue(pair.Value, &site)
-			if _, duplicate := s.Items[id]; duplicate {
-				err = fmt.Errorf("duplicate archaeology site ID")
-			}
 			s.Items[id] = site
-			if err != nil {
+			if err != nil && !duplicate {
 				s.DecodeErrors[id] = err.Error()
 			}
 		}
 	}
-	if !found && len(value.Object.Pairs) > 0 {
+	if !s.SitesRecorded && len(value.Object.Pairs) > 0 {
 		s.TableIssue = true
 	}
 	return nil

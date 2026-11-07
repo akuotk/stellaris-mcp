@@ -72,6 +72,7 @@ func TestSpecialProjectsLocalCatalogIntegration(t *testing.T) {
 	}
 	var decoded, records, ids, duplicateIDs, planetRefs, planetCandidates, lastMarkers, unsupported int
 	var queueRefs, queueCandidates, ambiguousQueueRefs, queueProgress, queueDates int
+	var fleetDirectRefs, fleetAutomatedRefs, fleetCandidates, fleetUnsupported int
 	fields := map[string]int{}
 	for index, file := range files {
 		gs, err := LoadFromZip(file.Path)
@@ -138,9 +139,31 @@ func TestSpecialProjectsLocalCatalogIntegration(t *testing.T) {
 					}
 				}
 			}
+			for _, entry := range c.FleetsManager.OwnedFleets {
+				if entry.FleetID == nil {
+					continue
+				}
+				order := gs.Fleet[*entry.FleetID].CurrentOrderRefs
+				if order.Unsupported || order.SpecialProject.Unsupported || order.AutomatedSpecialProject.Unsupported {
+					fleetUnsupported++
+				}
+				if ref := order.SpecialProject.Value; ref != nil {
+					fleetDirectRefs++
+					if counts[*ref] == 1 {
+						fleetCandidates++
+					}
+				}
+				if ref := order.AutomatedSpecialProject.Value; ref != nil {
+					fleetAutomatedRefs++
+					if counts[*ref] == 1 {
+						fleetCandidates++
+					}
+				}
+			}
 		}
 	}
 	t.Logf("local special project coverage: saves=%d decoded=%d project_records=%d saved_ids=%d duplicate_ids=%d last_markers=%d planet_refs=%d planet_id_candidates=%d queue_refs=%d unique_same_country_id_candidates=%d ambiguous_queue_refs=%d queue_progress_fields=%d queue_date_fields=%d status_fields=%d days_left_fields=%d carrier_fields=%d debris_fields=%d scope_fields=%d unsupported_shapes=%d", len(files), decoded, records, ids, duplicateIDs, lastMarkers, planetRefs, planetCandidates, queueRefs, queueCandidates, ambiguousQueueRefs, queueProgress, queueDates, fields["status"], fields["days_left"], fields["carrier"], fields["debris"], fields["scope"], unsupported)
+	t.Logf("fleet special project coverage: direct=%d automated=%d unique_same_country_id_candidates=%d unsupported_orders=%d", fleetDirectRefs, fleetAutomatedRefs, fleetCandidates, fleetUnsupported)
 	if unsupported > 0 {
 		t.Fatal("local special project shapes need additional support")
 	}

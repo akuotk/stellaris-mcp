@@ -152,6 +152,14 @@ func Load(data []byte) (*GameState, error) {
 	if uniqueSavedFields(value, "natural_wormholes") != nil {
 		gs.NaturalWormholes = ConnectionRecordTable[SavedNaturalWormhole]{Recorded: true, TableIssue: true}
 	}
+	if uniqueSavedFields(value, "agreements") != nil {
+		gs.Agreements = AgreementStore{}
+		gs.Agreements.TableIssue = true
+	}
+	gs.markAmbiguousFleetOrders(value)
+	if uniqueSavedFields(value, "archaeological_sites") != nil {
+		gs.ArchaeologySites.TableIssue = true
+	}
 	gs.resolveColonies()
 	return &gs, nil
 }

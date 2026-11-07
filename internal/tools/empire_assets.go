@@ -12,7 +12,7 @@ import (
 )
 
 func registerEmpireAssets(s *server.MCPServer) {
-	s.AddTool(mcp.NewTool("get_empire_assets", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("List this country's saved agreements, situations and megastructures; values not interpreted are labeled raw"), mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save"))), handleEmpireAssets)
+	s.AddTool(mcp.NewTool("get_empire_assets", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("List this country's saved agreements, subject links, situations and megastructures. Checks agreement owner/target against the saved country.subjects and country.overlord references. Uninterpreted values are labeled raw."), mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save"))), handleEmpireAssets)
 }
 
 func handleEmpireAssets(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -36,6 +36,12 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 	}
 	sort.Ints(ids)
 	fmt.Fprintln(&b, "\nAgreements (owner/target as recorded; roles not inferred):")
+	incomplete := gs.Agreements.TableIssue || len(gs.Agreements.DecodeErrors) != 0
+	if incomplete {
+		fmt.Fprintln(&b, "  Agreement table has unsupported or duplicate data; use raw tree/byte tools for omitted entries.")
+	} else if !gs.Agreements.Recorded {
+		fmt.Fprintln(&b, "  Agreement table not recorded.")
+	}
 	count := 0
 	for _, k := range ids {
 		a := gs.Agreements.Items[k]
@@ -44,6 +50,7 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 		}
 		count++
 		fmt.Fprintf(&b, "  ID %d: owner %s, target %s; status=%s, preset=%s, added=%s\n", k, assetCountryReference(gs, a.Owner), assetCountryReference(gs, a.Target), a.Status, a.Terms.Preset, a.DateAdded)
+		fmt.Fprintf(&b, "    Saved cross-check: owner country.subjects=%s; target country.overlord=%s\n", agreementSubjectMembership(gs, a), agreementOverlordMatch(gs, a))
 		if a.DateChanged != "" {
 			fmt.Fprintf(&b, "    date_changed=%s\n", a.DateChanged)
 		}
@@ -64,10 +71,23 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 		for _, term := range a.Terms.Resources {
 			fmt.Fprintf(&b, "    resource_term %s=%s (raw save value)\n", term.Key, term.Value)
 		}
+		for _, field := range []struct {
+			key   string
+			value *string
+		}{
+			{"forced_initial_loyalty", a.Terms.ForcedInitialLoyalty},
+			{"has_cooldown_on_first_renegotiation", a.Terms.FirstRenegotiationHasCooldown},
+			{"subject_conversion_process.ignore", a.Specialization.Conversion.Ignore},
+		} {
+			if field.value != nil {
+				fmt.Fprintf(&b, "    %s=%s (raw save value)\n", field.key, *field.value)
+			}
+		}
 	}
-	if count == 0 {
+	if count == 0 && gs.Agreements.Recorded && !incomplete {
 		fmt.Fprintln(&b, "  No matching records.")
 	}
+	writeCountrySubjectLinks(&b, gs, c)
 	ids = ids[:0]
 	for k := range gs.Situations.Items {
 		ids = append(ids, k)
@@ -112,6 +132,63 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 		fmt.Fprintln(&b, "  No matching records.")
 	}
 	return mcp.NewToolResultText(b.String())
+}
+
+func writeCountrySubjectLinks(b *strings.Builder, gs *gamestate.GameState, c *gamestate.Country) {
+	fmt.Fprintln(b, "\nCountry subject links (direct saved fields):")
+	overlord := assetCountryReference(gs, c.OverlordRef.Value)
+	if c.OverlordRef.Unsupported {
+		overlord = "unsupported or duplicate (use raw tools)"
+	}
+	fmt.Fprintf(b, "  country.overlord=%s\n", overlord)
+	fmt.Fprintf(b, "  country.subject_date=%s\n", councilSavedString(c.SubjectDate))
+	switch {
+	case c.SubjectRefs.Unsupported:
+		fmt.Fprintln(b, "  country.subjects=unsupported or duplicate (use raw tools)")
+	case !c.SubjectRefs.Recorded:
+		fmt.Fprintln(b, "  country.subjects=not recorded")
+	case len(c.SubjectRefs.Values) == 0:
+		fmt.Fprintln(b, "  country.subjects=empty")
+	default:
+		fmt.Fprintln(b, "  country.subjects (saved order):")
+		for _, id := range c.SubjectRefs.Values {
+			fmt.Fprintf(b, "    %s\n", assetCountryReference(gs, &id))
+		}
+	}
+}
+
+func agreementSubjectMembership(gs *gamestate.GameState, a gamestate.Agreement) string {
+	if a.Owner == nil || a.Target == nil {
+		return "agreement owner or target not recorded"
+	}
+	owner, ok := gs.Country[*a.Owner]
+	if !ok {
+		return "owner country record unavailable"
+	}
+	if owner.SubjectRefs.Unsupported {
+		return "unsupported or duplicate (use raw tools)"
+	}
+	return armyMembership(owner.SubjectRefs.Values, *a.Target)
+}
+
+func agreementOverlordMatch(gs *gamestate.GameState, a gamestate.Agreement) string {
+	if a.Owner == nil || a.Target == nil {
+		return "agreement owner or target not recorded"
+	}
+	target, ok := gs.Country[*a.Target]
+	if !ok {
+		return "target country record unavailable"
+	}
+	switch ref := target.OverlordRef; {
+	case ref.Unsupported:
+		return "unsupported or duplicate (use raw tools)"
+	case ref.Value == nil:
+		return "not recorded"
+	case *ref.Value == *a.Owner:
+		return fmt.Sprintf("matches owner (%d)", *ref.Value)
+	default:
+		return fmt.Sprintf("saved %d differs from owner", *ref.Value)
+	}
 }
 
 func assetCountryReference(gs *gamestate.GameState, id *int) string {

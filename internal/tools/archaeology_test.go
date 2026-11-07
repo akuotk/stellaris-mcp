@@ -66,3 +66,92 @@ func TestArchaeologyMissingValuesAndUnsupportedWarning(t *testing.T) {
 		}
 	}
 }
+
+func TestArchaeologyChecksReciprocalCurrentOrder(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`fleet={
+	 0={name={key="Matching fleet"} current_order={excavate_archaeological_site_fleet_order={archaeological_site=0}}}
+	 1={name={key="Different fleet"} current_order={excavate_archaeological_site_fleet_order={archaeological_site=2}}}
+	 2={name={key="Duplicate site fleet"} current_order={excavate_archaeological_site_fleet_order={archaeological_site=2}}}
+	 4={name={key="Duplicate order fleet"} current_order={excavate_archaeological_site_fleet_order={archaeological_site=4 archaeological_site=1}}}
+	 } archaeological_sites={sites={
+	 0={visible_to={0} excavator_fleet=0}
+	 1={visible_to={0} excavator_fleet=1}
+	 2=none 2={visible_to={0} excavator_fleet=2}
+	 3={visible_to={0} excavator_fleet=0 excavator_fleet=1}
+	 4={visible_to={0} excavator_fleet=4}
+	 }}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := resultText(renderArchaeology(gs, 0, &gamestate.Country{}, nil))
+	for _, want := range []string{
+		"Matching fleet; current_order.excavate_archaeological_site_fleet_order.archaeological_site=0 (reciprocal saved IDs agree)",
+		"Different fleet; current_order.excavate_archaeological_site_fleet_order.archaeological_site=2 (saved ID differs)",
+		"Duplicate site fleet; site or fleet order unsupported or duplicate",
+		"Duplicate order fleet; site or fleet order unsupported or duplicate",
+		"Duplicate excavator_fleet fields. Fleet candidate unresolved.",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing %q in %s", want, text)
+		}
+	}
+	if strings.Count(text, "reciprocal saved IDs agree") != 1 {
+		t.Fatal("ambiguous or mismatching order formed a reciprocal site link")
+	}
+}
+
+func TestArchaeologyReportsOneWayFleetOrders(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	data := `country={0={fleets_manager={owned_fleets={{fleet=0} {fleet=1} {fleet=2} {fleet=3} {fleet=4}}}} 1={fleets_manager={owned_fleets={{fleet=9} {fleet=10}}}}}
+	 fleet={
+	 0={name={key="Visible site order"} current_order={excavate_archaeological_site_fleet_order={archaeological_site=0}}}
+	 1={name={key="Missing site order"} current_order={excavate_archaeological_site_fleet_order={archaeological_site=1}}}
+	 2={name={key="Unscoped site order"} current_order={excavate_archaeological_site_fleet_order={archaeological_site=2}}}
+	 3={current_order={excavate_archaeological_site_fleet_order={archaeological_site=0 archaeological_site=2}}}
+	 9={name={key="Foreign order"} current_order={excavate_archaeological_site_fleet_order={archaeological_site=1}}}
+	 }`
+	for _, tc := range []struct {
+		table string
+		want  []string
+	}{
+		{"", []string{"archaeological_sites.sites table not recorded", "Fleet 0 (Visible site order)", "Site record unavailable"}},
+		{` archaeological_sites={sites={0={visible_to={0}} 2={visible_to={1}}}}`, []string{
+			"Fleet 0 (Visible site order) current_order.excavate_archaeological_site_fleet_order.archaeological_site=0 (saved reference)\n    Site excavator_fleet not recorded",
+			"Fleet 1 (Missing site order) current_order.excavate_archaeological_site_fleet_order.archaeological_site=1 (saved reference)\n    Site record unavailable",
+			"Fleet 2 (Unscoped site order) current_order.excavate_archaeological_site_fleet_order.archaeological_site=2 (saved reference)\n    Site has no matching saved country references",
+			"Fleet 3 current_order.excavate_archaeological_site_fleet_order.archaeological_site unsupported or duplicate",
+		}},
+	} {
+		gs, err := gamestate.Load([]byte(data + tc.table))
+		if err != nil {
+			t.Fatal(err)
+		}
+		c := gs.Country[0]
+		text := resultText(renderArchaeology(gs, 0, &c, nil))
+		for _, want := range tc.want {
+			if !strings.Contains(text, want) {
+				t.Fatalf("missing %q in %s", want, text)
+			}
+		}
+		if !strings.Contains(text, "Fleet 4 referenced by owned_fleets has no decoded fleet record") || strings.Contains(text, "Fleet 10") {
+			t.Fatal("unavailable fleet record was omitted or reported outside the selected country")
+		}
+		if strings.Contains(text, "Foreign order") || strings.Contains(text, "reciprocal saved IDs agree") {
+			t.Fatal("foreign order leaked or a one-way order was treated as reciprocal")
+		}
+		siteID := 0
+		detail := renderArchaeology(gs, 0, &c, &siteID)
+		if tc.table == "" {
+			if !detail.IsError || !strings.Contains(resultText(detail), "archaeological_sites.sites table not recorded") {
+				t.Fatal("missing table was not reported for a specific site request")
+			}
+		} else if detail.IsError || !strings.Contains(resultText(detail), "Site excavator_fleet not recorded") || strings.Contains(resultText(detail), "Fleet 1") || strings.Contains(resultText(detail), "Fleet 4") {
+			t.Fatal("specific site request did not keep the one-way order scoped to that site")
+		}
+	}
+}

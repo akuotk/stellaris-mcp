@@ -66,6 +66,7 @@ func TestArchaeologyLocalCatalogCoverage(t *testing.T) {
 		t.Fatal("save catalog read failed")
 	}
 	records, unsupported, planetCandidates, fleetCandidates, knownLastCountries, visibleRefs, knownVisibleRefs, completionRows, eventRows, logRows := 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	var fleetOrders, reciprocalFleetOrders int
 	for index, file := range files {
 		gs, err := LoadFromZip(file.Path)
 		if err != nil {
@@ -76,6 +77,14 @@ func TestArchaeologyLocalCatalogCoverage(t *testing.T) {
 		}
 		unsupported += len(gs.ArchaeologySites.DecodeErrors)
 		records += len(gs.ArchaeologySites.Items)
+		for id, fleet := range gs.Fleet {
+			if ref := fleet.CurrentOrderRefs.ArchaeologicalSite.Value; ref != nil {
+				fleetOrders++
+				if site, ok := gs.ArchaeologySites.Items[*ref]; ok && site.ExcavatorFleet != nil && *site.ExcavatorFleet == id {
+					reciprocalFleetOrders++
+				}
+			}
+		}
 		for _, site := range gs.ArchaeologySites.Items {
 			if site.Location.ID != nil {
 				if _, ok := gs.Planets.Planet[*site.Location.ID]; ok {
@@ -104,6 +113,7 @@ func TestArchaeologyLocalCatalogCoverage(t *testing.T) {
 		}
 	}
 	t.Logf("local archaeology coverage: saves=%d records=%d unsupported=%d possible_planet_matches=%d possible_fleet_matches=%d known_last_country_refs=%d visible_country_refs=%d known_visible_country_refs=%d completed_rows=%d event_rows=%d log_rows=%d", len(files), records, unsupported, planetCandidates, fleetCandidates, knownLastCountries, visibleRefs, knownVisibleRefs, completionRows, eventRows, logRows)
+	t.Logf("archaeology fleet order coverage: orders=%d reciprocal=%d", fleetOrders, reciprocalFleetOrders)
 	if unsupported > 0 {
 		t.Fatal("local archaeology shape needs additional support")
 	}
