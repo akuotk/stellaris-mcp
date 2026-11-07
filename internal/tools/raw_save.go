@@ -32,6 +32,7 @@ func registerRawSave(s *server.MCPServer) {
 			mcp.WithDescription(description),
 			mcp.WithString("save_id", mcp.Description("ID from list_save_games; omitted selects latest")),
 			mcp.WithString("revision", mcp.Required(), mcp.Description("SHA-256 returned by inspect_save_archive; stale revisions are rejected")),
+			mcp.WithString("page_context", mcp.Description("Optional token from a previous page; detects changed operation, entry, path or search parameters. Without it, nonzero offsets are marked unverified.")),
 			mcp.WithNumber("entry_index", mcp.Description("ZIP entry index returned by inspect_save_archive; -1 selects unique gamestate (default); -2 reads the exact ZIP container bytes (read_save_bytes only)"), mcp.DefaultNumber(-1)),
 		}
 	}
@@ -148,7 +149,7 @@ func rawInteger(req mcp.CallToolRequest, key string, defaultValue, minValue, max
 }
 
 func openRawEntry(req mcp.CallToolRequest) (*rawSaveArchive, int, *zip.File, error) {
-	for _, key := range []string{"revision", "path", "query", "part", "save_id"} {
+	for _, key := range []string{"revision", "path", "query", "part", "save_id", "page_context"} {
 		if value, ok := req.GetArguments()[key]; ok {
 			if _, ok := value.(string); !ok {
 				return nil, 0, nil, fmt.Errorf("%s must be a string", key)
@@ -194,6 +195,22 @@ func openRawEntry(req mcp.CallToolRequest) (*rawSaveArchive, int, *zip.File, err
 	return archive, index, f, nil
 }
 
+// rawPageToken binds an optional continuation to the source and operation parameters.
+func rawPageToken(archive *rawSaveArchive, index int, operation string, parameters ...string) string {
+	parts := []string{archive.saveID, archive.revision, strconv.Itoa(index), operation}
+	parts = append(parts, parameters...)
+	encoded, _ := json.Marshal(parts)
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:])
+}
+func validateRawPageContext(req mcp.CallToolRequest, offset int, token string) (bool, error) {
+	provided := req.GetString("page_context", "")
+	if provided != "" && provided != token {
+		return false, fmt.Errorf("page_context does not match this source or operation; restart pagination")
+	}
+	return offset == 0 || provided != "", nil
+}
+
 func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	archive, index, f, err := openRawEntry(req)
 	if err != nil {
@@ -220,6 +237,11 @@ func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 		return toolError(err), nil
 	}
 	limit, err := rawInteger(req, "limit", 8192, 1, 65536)
+	if err != nil {
+		return toolError(err), nil
+	}
+	token := rawPageToken(archive, index, "read_save_bytes")
+	verified, err := validateRawPageContext(req, offset, token)
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -260,7 +282,7 @@ func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	if end < total {
 		next = &end
 	}
-	return rawJSON(map[string]any{"save_id": archive.saveID, "revision": archive.revision, "entry_index": index, "entry_name": entryName, "source": source, "encoding": "base64", "offset": offset, "returned_bytes": len(data), "total_bytes": total, "next_offset": next, "data": base64.StdEncoding.EncodeToString(data), "entry_crc_verified": crcVerified, "integrity_note": "ZIP CRC is verified only when a request reads through the entry end"})
+	return rawJSON(map[string]any{"save_id": archive.saveID, "revision": archive.revision, "entry_index": index, "entry_name": entryName, "source": source, "encoding": "base64", "offset": offset, "returned_bytes": len(data), "total_bytes": total, "next_offset": next, "data": base64.StdEncoding.EncodeToString(data), "entry_crc_verified": crcVerified, "integrity_note": "ZIP CRC is verified only when a request reads through the entry end", "page_context": token, "pagination_context_verified": verified})
 }
 
 func rawChildCount(v *clausewitz.RawNode) int { return len(v.Children) }
@@ -372,6 +394,11 @@ func handleReadSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Call
 	if err != nil {
 		return toolError(err), nil
 	}
+	token := rawPageToken(archive, index, "read_save_tree", path)
+	verified, err := validateRawPageContext(req, offset, token)
+	if err != nil {
+		return toolError(err), nil
+	}
 	end := offset + min(limit, total-offset)
 	children := make([]map[string]any, 0, end-offset)
 	for i := offset; i < end; i++ {
@@ -386,6 +413,7 @@ func handleReadSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Call
 	}
 	result := rawTreePage(archive, index)
 	result["node"], result["children"], result["offset"], result["next_offset"] = rawNode(path, key, v), children, offset, next
+	result["page_context"], result["pagination_context_verified"] = token, verified
 	return rawJSON(result)
 }
 
@@ -403,6 +431,11 @@ func handleSearchSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 		return toolError(err), nil
 	}
 	query := strings.ToLower(req.GetString("query", ""))
+	token := rawPageToken(archive, index, "search_save_tree", req.GetString("path", ""), query)
+	verified, err := validateRawPageContext(req, offset, token)
+	if err != nil {
+		return toolError(err), nil
+	}
 	type item struct {
 		path  string
 		key   *string
@@ -439,6 +472,7 @@ func handleSearchSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	}
 	result := rawTreePage(archive, index)
 	result["matches"], result["total_matches"], result["visited_nodes"], result["offset"], result["next_offset"] = matches, total, visited, offset, next
+	result["page_context"], result["pagination_context_verified"] = token, verified
 	return rawJSON(result)
 }
 
@@ -471,6 +505,11 @@ func handleReadSaveScalar(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	if err != nil {
 		return toolError(err), nil
 	}
+	token := rawPageToken(archive, index, "read_save_scalar", req.GetString("path", ""), part)
+	verified, err := validateRawPageContext(req, offset, token)
+	if err != nil {
+		return toolError(err), nil
+	}
 	end := offset + min(limit, len(text)-offset)
 	var next *int
 	if end < len(text) {
@@ -478,5 +517,6 @@ func handleReadSaveScalar(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	}
 	result := rawTreePage(archive, index)
 	result["path"], result["part"], result["encoding"], result["offset"], result["returned_bytes"], result["total_bytes"], result["next_offset"], result["data"] = req.GetString("path", ""), part, "base64", offset, end-offset, len(text), next, base64.StdEncoding.EncodeToString([]byte(text[offset:end]))
+	result["page_context"], result["pagination_context_verified"] = token, verified
 	return rawJSON(result)
 }

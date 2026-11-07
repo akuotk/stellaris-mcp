@@ -28,6 +28,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_fleet_templates` | Saved fleet templates, design/count entries and reference links |
 | `get_fleet_power` | Fleets with power, ship-level detail (design, HP, weapons) |
 | `get_leaders` | Leaders with class, traits, council position, assignment |
+| `get_species_rights` | Saved default and species-specific rights records |
 | `get_species` | Species identities, traits and saved population references on owned planets |
 | `get_neighbors` | Known empires: opinion, trust, relative power comparison |
 | `get_traditions_ascension` | Adopted traditions and ascension perks |
@@ -45,7 +46,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 
 Country-specific tools accept `country_id`. If omitted, they select the sole player recorded in a single-player save; if the player is ambiguous or absent, supply the ID explicitly. Use `list_save_games` and `save_id` to select a save, or omit `save_id` for the newest.
 
-Raw exploration preserves ordered duplicate keys, mixed keyed/anonymous blocks, quote/escape flags and source offsets. Normalized values may not preserve spelling or comments: use the offsets with `read_save_bytes` for exact content. Pagination requires the archive revision returned by `inspect_save_archive`; a changed save is rejected. The server does not send files to a network service, but clients receive requested data and may forward it according to their own configuration. Never upload private saves. See [COMPATIBILITY.md](COMPATIBILITY.md) for the remaining limits.
+Raw exploration preserves ordered duplicate keys, mixed keyed/anonymous blocks, quote/escape flags and source offsets. Normalized values may not preserve spelling or comments: use the offsets with `read_save_bytes` for exact content. Pagination requires the archive revision returned by `inspect_save_archive`; a changed save is rejected. For continued byte, tree, scalar or search reads, pass the returned `page_context` to detect changes in the selected source and query. A nonzero offset without the token remains supported for random access and legacy clients but is marked `pagination_context_verified=false`. The server does not send files to a network service, but clients receive requested data and may forward it according to their own configuration. Never upload private saves. See [COMPATIBILITY.md](COMPATIBILITY.md) for the remaining limits.
 
 Drill-down tools (`get_planets`, `get_fleet_power`, `get_leaders`) accept an ID for detailed view.
 
