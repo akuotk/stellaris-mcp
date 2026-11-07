@@ -3,9 +3,10 @@ package gamestate
 import "github.com/bmassemin/stellaris-mcp/internal/clausewitz"
 
 type CountrySpecialProjects struct {
-	Recorded    bool
-	Items       []SavedSpecialProject
-	Unsupported bool
+	Recorded      bool
+	Items         []SavedSpecialProject
+	SituationRefs OptionalIntList
+	Unsupported   bool
 }
 
 type SavedSpecialProject struct {
@@ -23,8 +24,15 @@ func (v *CountrySpecialProjects) UnmarshalClausewitz(value clausewitz.Value) err
 		return nil
 	}
 	for _, pair := range value.Object.Pairs {
-		if pair.Key == "special_project" {
+		switch pair.Key {
+		case "special_project":
 			v.Items = append(v.Items, decodeSavedSpecialProject(pair.Value))
+		case "situations":
+			if v.SituationRefs.Recorded {
+				v.SituationRefs = OptionalIntList{Recorded: true, Unsupported: true}
+			} else {
+				v.SituationRefs.UnmarshalClausewitz(pair.Value)
+			}
 		}
 	}
 	return nil

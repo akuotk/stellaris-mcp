@@ -50,7 +50,7 @@ type GameState struct {
 	SpyNetworks         map[int]SpyNetwork                          `clausewitz:"spy_networks"`
 	PopJobs             map[int]PopJob                              `clausewitz:"pop_jobs"`
 	Leaders             map[int]Leader                              `clausewitz:"leaders"`
-	War                 map[int]War                                 `clausewitz:"war"`
+	War                 ConnectionRecordTable[War]                  `clausewitz:"war"`
 	Federation          map[int]Federation                          `clausewitz:"federation"`
 }
 
@@ -102,21 +102,6 @@ type PlanetsWrapper struct {
 	Planet map[int]Planet `clausewitz:"planet"`
 }
 
-type War struct {
-	StartDateRaw *string       `clausewitz:"start_date"`
-	EndDateRaw   *string       `clausewitz:"end_date"`
-	Name         LocalizedName `clausewitz:"name"`
-	Attackers    []WarParty    `clausewitz:"attackers"`
-	Defenders    []WarParty    `clausewitz:"defenders"`
-	StartDate    string        `clausewitz:"start_date"`
-	EndDate      string        `clausewitz:"end_date"`
-}
-
-type WarParty struct {
-	CountryID *int `clausewitz:"country"`
-	Country   int  `clausewitz:"country"`
-}
-
 // LoadFromDir finds the most recent .sav file in dir,
 // extracts the "gamestate" file from the ZIP, and parses it.
 func LoadFromDir(dir string) (*GameState, error) {
@@ -136,6 +121,15 @@ func LoadFromZip(path string) (*GameState, error) {
 	return Load(data)
 }
 
+// LoadFromArchive parses the gamestate entry in an already opened save snapshot.
+func LoadFromArchive(archive *zip.Reader) (*GameState, error) {
+	data, err := extractGamestateEntry(archive)
+	if err != nil {
+		return nil, err
+	}
+	return Load(data)
+}
+
 // Load parses raw gamestate bytes into a GameState.
 func Load(data []byte) (*GameState, error) {
 	var gs GameState
@@ -146,6 +140,9 @@ func Load(data []byte) (*GameState, error) {
 	value := clausewitz.Value{Object: root}
 	if err := clausewitz.DecodeValue(value, &gs); err != nil {
 		return nil, fmt.Errorf("parse gamestate: %w", err)
+	}
+	if uniqueSavedFields(value, "war") != nil {
+		gs.War = ConnectionRecordTable[War]{Recorded: true, TableIssue: true}
 	}
 	if uniqueSavedFields(value, "debris") != nil {
 		gs.Debris = DebrisTable{Recorded: true, Unsupported: true}
@@ -162,6 +159,10 @@ func Load(data []byte) (*GameState, error) {
 	}
 	if uniqueSavedFields(value, "megastructures") != nil {
 		gs.Megastructures = ConnectionRecordTable[Megastructure]{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "situations") != nil {
+		gs.Situations = SituationStore{}
+		gs.Situations.TableIssue = true
 	}
 	gs.markAmbiguousFleetOrders(value)
 	if uniqueSavedFields(value, "archaeological_sites") != nil {
@@ -186,6 +187,10 @@ func extractGamestate(zipPath string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open save archive: %w", err)
 	}
+	return extractGamestateEntry(r)
+}
+
+func extractGamestateEntry(r *zip.Reader) ([]byte, error) {
 	var selected *zip.File
 	for _, f := range r.File {
 		if f.Name != "gamestate" {

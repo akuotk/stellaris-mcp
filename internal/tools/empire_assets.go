@@ -13,7 +13,7 @@ import (
 )
 
 func registerEmpireAssets(s *server.MCPServer) {
-	s.AddTool(mcp.NewTool("get_empire_assets", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("List this country's saved agreements, subject links, situations and megastructures. Cross-checks agreement participants and megastructure country/system references. Shows saved megastructure upgrades, dismantling, planet and bypass references. Uninterpreted values are labeled raw."), mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save"))), handleEmpireAssets)
+	s.AddTool(mcp.NewTool("get_empire_assets", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("List this country's saved agreements, subject links, situations and megastructures. Cross-checks saved country and system references. Shows situation stages, targets and flags, plus megastructure upgrades, dismantling, planet and bypass references. Uninterpreted values are labeled raw."), mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save"))), handleEmpireAssets)
 }
 
 func handleEmpireAssets(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -89,26 +89,118 @@ func renderEmpireAssets(gs *gamestate.GameState, id int, c *gamestate.Country) *
 		fmt.Fprintln(&b, "  No matching records.")
 	}
 	writeCountrySubjectLinks(&b, gs, c)
-	ids = ids[:0]
-	for k := range gs.Situations.Items {
-		ids = append(ids, k)
-	}
-	sort.Ints(ids)
-	count = 0
-	fmt.Fprintln(&b, "\nSituations (progress in raw save units):")
-	for _, k := range ids {
-		v := gs.Situations.Items[k]
-		if v.Country == nil || *v.Country != id {
-			continue
-		}
-		count++
-		fmt.Fprintf(&b, "  ID %d: %s [%s]; progress=%s, last month=%s, approach=%s\n", k, l(v.Type), v.Type, armyFloat(v.ProgressRaw), armyFloat(v.LastMonthProgressRaw), v.Approach)
-	}
-	if count == 0 {
-		fmt.Fprintln(&b, "  No matching records.")
-	}
+	writeSituations(&b, gs, id, c)
 	writeMegastructures(&b, gs, id, c.OwnedMegastructureRefs)
 	return mcp.NewToolResultText(b.String())
+}
+
+func writeSituations(b *strings.Builder, gs *gamestate.GameState, countryID int, country *gamestate.Country) {
+	fmt.Fprintln(b, "\nSituations (progress in raw save units):")
+	fmt.Fprintln(b, "  Scope follows situation.country and country.events.situations. Target links require saved type=planet. Stage duration units and opener_id meaning remain unverified.")
+	fmt.Fprintf(b, "  country.track_all_situations=%s (saved field)\n", councilSavedString(country.TrackAllSituations))
+	table := gs.Situations
+	switch {
+	case table.TableIssue || len(table.DecodeErrors) != 0:
+		fmt.Fprintln(b, "  Situation table has unsupported or duplicate data; use raw tree/byte tools for omitted entries.")
+	case !table.Recorded:
+		fmt.Fprintln(b, "  Situation table not recorded.")
+	}
+	events := country.SpecialProjects
+	refs := events.SituationRefs
+	switch {
+	case events.Unsupported || refs.Unsupported:
+		fmt.Fprintln(b, "  country.events.situations unsupported or duplicate; use raw tree/byte tools.")
+	case !refs.Recorded:
+		fmt.Fprintln(b, "  country.events.situations not recorded.")
+	default:
+		fmt.Fprintf(b, "  country.events.situations (saved order)=%v\n", refs.Values)
+	}
+	scoped := map[int]bool{}
+	for _, id := range refs.Values {
+		scoped[id] = true
+	}
+	for id, situation := range table.Items {
+		if situation.Country != nil && *situation.Country == countryID {
+			scoped[id] = true
+		}
+	}
+	if len(scoped) == 0 {
+		fmt.Fprintln(b, "  No matching decoded records or country references.")
+		return
+	}
+	ids := make([]int, 0, len(scoped))
+	for id := range scoped {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	foreignRefs := map[int][]int{}
+	for id, c := range gs.Country {
+		if id == countryID {
+			continue
+		}
+		for _, ref := range c.SpecialProjects.SituationRefs.Values {
+			if scoped[ref] {
+				foreignRefs[ref] = append(foreignRefs[ref], id)
+			}
+		}
+	}
+	for _, id := range ids {
+		situation, ok := table.Items[id]
+		membership := armyMembership(refs.Values, id)
+		if events.Unsupported || refs.Unsupported {
+			membership = "unsupported or duplicate"
+		}
+		if !ok {
+			status := "referenced record unavailable"
+			if _, bad := table.DecodeErrors[id]; bad {
+				status = "referenced record unsupported or duplicate; use raw tools"
+			}
+			fmt.Fprintf(b, "  ID %d: %s; country.events.situations membership=%s\n", id, status, membership)
+			continue
+		}
+		fmt.Fprintf(b, "  ID %d: %s [%s]; progress=%s, last month=%s, approach=%s\n", id, l(situation.Type), situation.Type, operationFlagText(situation.ProgressRaw), operationFlagText(situation.LastMonthProgressRaw), operationFlagText(situation.Approach))
+		fmt.Fprintf(b, "    situation.country=%s; country.events.situations membership=%s\n", assetCountryReference(gs, situation.Country), membership)
+		if situation.Country != nil && *situation.Country != countryID {
+			fmt.Fprintln(b, "    Saved situation.country differs from selected country.")
+		}
+		if others := foreignRefs[id]; len(others) != 0 {
+			sort.Ints(others)
+			fmt.Fprintf(b, "    Other countries' saved situation references (country IDs, including repeated entries)=%v\n", others)
+		}
+		writeSituationDetails(b, gs, situation)
+	}
+}
+
+func writeSituationDetails(b *strings.Builder, gs *gamestate.GameState, situation gamestate.Situation) {
+	var details strings.Builder
+	seen := map[string]bool{}
+	for _, pair := range situation.SavedDetails {
+		label := pair.Key
+		if seen[label] {
+			label += " [duplicate saved key]"
+		}
+		seen[pair.Key] = true
+		writeSavedValue(&details, label, pair.Value, 0)
+	}
+	for line := range strings.SplitSeq(details.String(), "\n") {
+		if line != "" {
+			fmt.Fprintf(b, "    %s\n", line)
+		}
+	}
+	target := situation.PlanetTarget
+	switch {
+	case target.Unsupported:
+		fmt.Fprintln(b, "    Situation target unsupported or duplicate; use raw tree/byte tools.")
+	case target.Recorded && target.Value == nil:
+		fmt.Fprintln(b, "    Planet target ID not recorded.")
+	case target.Value != nil:
+		id := *target.Value
+		if planet, ok := gs.Planets.Planet[id]; ok {
+			fmt.Fprintf(b, "    Saved planet target %d: %s\n", id, name(planet.Name))
+		} else {
+			fmt.Fprintf(b, "    Saved planet target %d: planet record unavailable.\n", id)
+		}
+	}
 }
 
 func writeMegastructures(b *strings.Builder, gs *gamestate.GameState, countryID int, countryRefs gamestate.OptionalIntList) {

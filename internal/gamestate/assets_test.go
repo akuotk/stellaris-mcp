@@ -21,6 +21,99 @@ func TestAssetsPreserveCountryZeroAndAbsentOwner(t *testing.T) {
 	}
 }
 
+func TestSituationUnsupportedDataStaysIsolated(t *testing.T) {
+	for _, input := range []string{
+		`situations=invalid`,
+		`situations={situations=invalid}`,
+		`situations={situations={} situations={0={country=0}}}`,
+		`situations={situations={0={country=0}}} situations={}`,
+	} {
+		gs, err := Load([]byte(`date=2201.01.01 ` + input))
+		if err != nil || gs.Date != "2201.01.01" || !gs.Situations.TableIssue || len(gs.Situations.Items) != 0 {
+			t.Fatalf("situation table issue affected unrelated data or was not reported: %s", input)
+		}
+	}
+	gs, err := Load([]byte(`country={0={events={situations={0} situations={1} special_project={id=0}}
+	track_all_situations=yes track_all_situations=no} 1={events=invalid} 2={events={situations={}}}}
+	situations={situations={0={country=0 target={type=planet id=0 id=1}}
+	1={country=0} 1=none
+	2={country=0 country=1}
+	3={country=0 progress={unknown=yes}}
+	4={target={type=planet id=0} target={type=planet id=1}}
+	5=none}}`))
+	if err != nil || !gs.Situations.Recorded || len(gs.Situations.Items) != 2 || len(gs.Situations.DecodeErrors) != 3 {
+		t.Fatal("unsupported situation accepted or prevented loading neighboring records")
+	}
+	for _, id := range []int{0, 4} {
+		s := gs.Situations.Items[id]
+		if !s.PlanetTarget.Unsupported || s.PlanetTarget.Value != nil || len(s.SavedDetails) == 0 {
+			t.Fatal("duplicate target produced a unique candidate or lost its saved details")
+		}
+	}
+	c := gs.Country[0]
+	if !c.SpecialProjects.SituationRefs.Unsupported || len(c.SpecialProjects.SituationRefs.Values) != 0 ||
+		len(c.SpecialProjects.Items) != 1 || !c.TrackAllSituations.Unsupported || !gs.Country[1].SpecialProjects.Unsupported ||
+		!gs.Country[2].SpecialProjects.SituationRefs.Recorded || len(gs.Country[2].SpecialProjects.SituationRefs.Values) != 0 {
+		t.Fatal("unsupported or empty country refs lost their shape or interfered with special projects")
+	}
+}
+
+func TestSituationsLocalCatalogIntegration(t *testing.T) {
+	dir := os.Getenv("STELLARIS_TEST_SAVE_DIR")
+	if dir == "" {
+		t.Skip("set STELLARIS_TEST_SAVE_DIR for read-only local situation coverage")
+	}
+	files, err := ListSaveFiles(dir)
+	if err != nil || len(files) == 0 {
+		t.Fatal("local save catalog unavailable or empty")
+	}
+	var tables, records, refs, reciprocalRefs, planetTargets, planetMatches, unsupported int
+	details := map[string]int{}
+	for _, file := range files {
+		gs, err := LoadFromZip(file.Path)
+		if err != nil {
+			t.Fatal("whole-save decoding failed")
+		}
+		if gs.Situations.Recorded {
+			tables++
+		}
+		if gs.Situations.TableIssue {
+			unsupported++
+		}
+		unsupported += len(gs.Situations.DecodeErrors)
+		for cid, c := range gs.Country {
+			if c.SpecialProjects.Unsupported || c.SpecialProjects.SituationRefs.Unsupported {
+				unsupported++
+			}
+			for _, ref := range c.SpecialProjects.SituationRefs.Values {
+				refs++
+				if s, ok := gs.Situations.Items[ref]; ok && s.Country != nil && *s.Country == cid {
+					reciprocalRefs++
+				}
+			}
+		}
+		for _, s := range gs.Situations.Items {
+			records++
+			if s.PlanetTarget.Unsupported {
+				unsupported++
+			}
+			if s.PlanetTarget.Value != nil {
+				planetTargets++
+				if _, ok := gs.Planets.Planet[*s.PlanetTarget.Value]; ok {
+					planetMatches++
+				}
+			}
+			for _, field := range s.SavedDetails {
+				details[field.Key]++
+			}
+		}
+	}
+	t.Logf("local situation coverage: saves=%d tables=%d records=%d country_refs=%d reciprocal_refs=%d planet_targets=%d matched_planet_records=%d stage=%d stage_durations=%d stage_flags=%d flags=%d unsupported=%d", len(files), tables, records, refs, reciprocalRefs, planetTargets, planetMatches, details["stage"], details["stage_durations"], details["stage_flags"], details["flags"], unsupported)
+	if unsupported != 0 {
+		t.Fatal("local situation shapes need additional support")
+	}
+}
+
 func TestMegastructureUnsupportedDataStaysIsolated(t *testing.T) {
 	for _, input := range []string{
 		`megastructures=invalid`,

@@ -105,17 +105,77 @@ func (c *AgreementConversion) UnmarshalClausewitz(value clausewitz.Value) error 
 }
 
 type SituationStore struct {
-	Items map[int]Situation `clausewitz:"situations"`
+	ConnectionRecordTable[Situation]
 }
+
+func (s *SituationStore) UnmarshalClausewitz(value clausewitz.Value) error {
+	*s = SituationStore{}
+	if !value.IsObject() || uniqueSavedFields(value, "situations") != nil {
+		s.TableIssue = true
+		return nil
+	}
+	for _, pair := range value.Object.Pairs {
+		if pair.Key == "situations" {
+			return s.ConnectionRecordTable.UnmarshalClausewitz(pair.Value)
+		}
+	}
+	return nil
+}
+
 type Situation struct {
-	ProgressRaw          *float64 `clausewitz:"progress"`
-	LastMonthProgressRaw *float64 `clausewitz:"last_month_progress"`
-	Country              *int     `clausewitz:"country"`
-	Type                 string   `clausewitz:"type"`
-	Progress             float64  `clausewitz:"progress"`
-	LastMonthProgress    float64  `clausewitz:"last_month_progress"`
-	Approach             string   `clausewitz:"approach"`
+	ProgressRaw          *string           `clausewitz:"progress"`
+	LastMonthProgressRaw *string           `clausewitz:"last_month_progress"`
+	Country              *int              `clausewitz:"country"`
+	Type                 string            `clausewitz:"type"`
+	Progress             float64           `clausewitz:"progress"`
+	LastMonthProgress    float64           `clausewitz:"last_month_progress"`
+	Approach             *string           `clausewitz:"approach"`
+	SavedDetails         []clausewitz.Pair `clausewitz:"-"`
+	PlanetTarget         OptionalIntRef    `clausewitz:"-"`
 }
+
+func (s *Situation) UnmarshalClausewitz(value clausewitz.Value) error {
+	if err := uniqueSavedFields(value, "country", "type", "progress", "last_month_progress", "approach"); err != nil {
+		return err
+	}
+	type fields Situation
+	if err := clausewitz.DecodeValue(value, (*fields)(s)); err != nil {
+		return err
+	}
+	var target *clausewitz.Value
+	for _, pair := range value.Object.Pairs {
+		switch pair.Key {
+		case "target", "stage", "stage_durations", "stage_flags", "flags":
+			s.SavedDetails = append(s.SavedDetails, pair)
+		}
+		if pair.Key == "target" {
+			if target != nil {
+				s.PlanetTarget = OptionalIntRef{Recorded: true, Unsupported: true}
+			}
+			target = &pair.Value
+		}
+	}
+	if target != nil && !s.PlanetTarget.Unsupported {
+		s.PlanetTarget = situationPlanetTarget(*target)
+	}
+	return nil
+}
+
+func situationPlanetTarget(value clausewitz.Value) OptionalIntRef {
+	var target struct {
+		Type string         `clausewitz:"type"`
+		ID   OptionalIntRef `clausewitz:"id"`
+	}
+	if uniqueSavedFields(value, "type", "id") != nil || clausewitz.DecodeValue(value, &target) != nil {
+		return OptionalIntRef{Recorded: true, Unsupported: true}
+	}
+	if target.Type != "planet" {
+		return OptionalIntRef{}
+	}
+	target.ID.Recorded = true
+	return target.ID
+}
+
 type Megastructure struct {
 	Owner               *int                    `clausewitz:"owner"`
 	Type                string                  `clausewitz:"type"`

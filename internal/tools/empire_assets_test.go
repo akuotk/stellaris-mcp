@@ -108,6 +108,68 @@ func TestEmpireAssetsReportsSavedSubjectLinksAndAgreementEvidence(t *testing.T) 
 	}
 }
 
+func TestEmpireAssetsSituationScopeStagesAndTypedPlanetTargets(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	data := []byte(`player={{country=0}}
+	country={0={adjective={key=Home} track_all_situations=no events={situations={5 2 1 0 0 4 7 9}}}
+	2={adjective={key=Foreign} events={situations={2 0 0}}}}
+	planets={planet={0={name={key="Target Body"}}}}
+	situations={situations={
+	0={country=0 type=demo progress=00.1200 last_month_progress=-0.00 approach=hold
+	target={type=planet id=0 opener_id=4294967295}
+	stage=first stage_durations={{key=first value=0.00} {key=first value=1.00}}
+	stage_flags={first_flag first_flag} flags={flag_name={flag_date=2201.01.01 flag_days=0}}}
+	1={country=0 type=demo target={type=none id=0 opener_id=4294967295}}
+	2={country=2 target={type=planet type=none id=0}}
+	3={country=0 target={type=planet}}
+	4=none
+	5={country=0} 5=none
+	6={country=0 target={type=planet id=99}}
+	7={type=orphan}
+	8={country=2 type=hidden}
+	9={country=0 target={type=planet id=0} target={type=none id=0}}
+	}}`)
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", data}})
+	result, err := handleEmpireAssets(context.Background(), mcp.CallToolRequest{})
+	if err != nil || result.IsError {
+		t.Fatalf("get_empire_assets returned an error: %v", err)
+	}
+	text := resultText(result)
+	for _, want := range []string{
+		`country.track_all_situations="no" (saved field)`,
+		"Situation table has unsupported or duplicate data",
+		"country.events.situations (saved order)=[5 2 1 0 0 4 7 9]",
+		"progress=00.1200, last month=-0.00, approach=hold",
+		"situation.country=Home (0); country.events.situations membership=2 duplicate references",
+		"Other countries' saved situation references (country IDs, including repeated entries)=[2 2]",
+		`stage: "first" (saved scalar)`,
+		"stage_durations: list with 2 saved entries",
+		`Field 1 key="value": "1.00" (saved scalar)`,
+		"stage_flags: list with 2 saved entries",
+		`Item 1: "first_flag" (saved scalar)`,
+		`Field 0 key="flag_date": "2201.01.01" (saved scalar)`,
+		`Field 2 key="opener_id": "4294967295" (saved scalar)`,
+		"Saved planet target 0: Target Body",
+		"Saved planet target 99: planet record unavailable.",
+		"Saved situation.country differs from selected country.",
+		"Situation target unsupported or duplicate",
+		"Planet target ID not recorded.",
+		"ID 4: referenced record unavailable",
+		"ID 5: referenced record unsupported or duplicate",
+		"situation.country=not recorded; country.events.situations membership=validated",
+		"target [duplicate saved key]",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in synthetic output: %s", want, text)
+		}
+	}
+	if strings.Contains(text, "ID 8:") || strings.Count(text, "Saved planet target 0:") != 1 {
+		t.Fatal("unreferenced foreign situation or ambiguous target incorrectly resolved")
+	}
+}
+
 func TestEmpireAssetsMegastructureReferencesAndRawDetails(t *testing.T) {
 	old := loc
 	loc = gamestate.NewLocalizer(t.TempDir())

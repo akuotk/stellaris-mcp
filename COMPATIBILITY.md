@@ -34,6 +34,10 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 
 `get_notifications` lists saved war records, including those with end dates; it does not infer whether a war is active from a missing date.
 
+`get_wars` exposes saved war participants, goals, exhaustion, force-peace fields and paginated battle records. Continuations bind to the save revision and war ID. Battle country and location matches remain candidates; battle type codes, loss and exhaustion units, and current war activity are unverified.
+
+Situation records in `get_empire_assets` include country references, saved stages, durations, flags and targets. Explicit planet targets are checked against planet records; other target namespaces, opener IDs and duration units remain unverified.
+
 `get_resource_market` reports saved economy-module resource values as stockpile candidates and filters monthly trade records by their saved trade_data.country reference. Resource units, stockpile identity, trade direction and whether orders are currently active are not inferred.
 
 `get_policies_edicts` displays saved policy selections, edicts and policy flags in saved order. The meaning of dates and flags, policy effects and current edict activity are not inferred.
