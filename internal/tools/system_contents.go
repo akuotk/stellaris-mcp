@@ -61,6 +61,36 @@ func renderSystemContents(data *gamestate.SystemContents, id int) *mcp.CallToolR
 	fmt.Fprintf(&b, "System name: %s\n", name(system.Name))
 	fmt.Fprintln(&b, "Locations and links describe saved fields. Coordinate units, orbital scales, visibility and resource yields remain unverified.")
 	writeSystemFields(&b, "Saved system fields", system.Value, "star_class", "coordinate", "inner_radius", "outer_radius", "initializer", "asteroid_belts", "ambient_object")
+	if system.AmbientRefs.Recorded || system.AmbientRefs.Duplicate {
+		fmt.Fprintf(&b, "\nAmbient object references: %s\n", surfaceRefText(system.AmbientRefs))
+		writeSavedTableStatus(&b, "ambient_object", data.AmbientObjects)
+		counts := map[int]int{}
+		for _, ambientID := range system.AmbientRefs.Values {
+			counts[ambientID]++
+		}
+		seen := map[int]bool{}
+		for _, ambientID := range system.AmbientRefs.Values {
+			if seen[ambientID] {
+				continue
+			}
+			seen[ambientID] = true
+			if counts[ambientID] > 1 {
+				fmt.Fprintf(&b, "  Ambient object %d: %d duplicate saved references; candidate ambiguous\n", ambientID, counts[ambientID])
+				continue
+			}
+			ambient, ok := data.AmbientObjects.Items[ambientID]
+			if !ok {
+				fmt.Fprintf(&b, "  Ambient object %d: %s\n", ambientID, diplomaticRecordIssue(data.AmbientObjects.DecodeErrors[ambientID]))
+				continue
+			}
+			fmt.Fprintf(&b, "  Ambient object %d candidate: coordinate.origin=%s", ambientID, optionalIntRefText(ambient.CoordinateOrigin))
+			if origin := ambient.CoordinateOrigin.Value; origin != nil {
+				fmt.Fprintf(&b, " (%s the saved system ID)", compareSavedIDs(*origin, id))
+			}
+			fmt.Fprintln(&b, "; location and ownership semantics unverified")
+			writeSavedValue(&b, "  Saved ambient object fields", ambient.Value, 0)
+		}
+	}
 	if data.NebulaUnresolved > 0 {
 		fmt.Fprintf(&b, "Nebula candidate coverage incomplete: %d unsupported saved record or reference fields. Use raw tools.\n", data.NebulaUnresolved)
 	}

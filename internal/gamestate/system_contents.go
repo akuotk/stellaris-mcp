@@ -12,6 +12,7 @@ type SystemContents struct {
 	Systems          ConnectionRecordTable[SavedSystemContents]
 	Planets          ConnectionRecordTable[SavedSystemPlanet]
 	Deposits         ConnectionRecordTable[Deposit]
+	AmbientObjects   ConnectionRecordTable[SavedAmbientObject]
 	NebulaCandidates []SavedNebulaCandidate
 	NebulaUnresolved int
 }
@@ -23,9 +24,23 @@ type SavedNebulaCandidate struct {
 }
 
 type SavedSystemContents struct {
-	Name   LocalizedName
-	Value  clausewitz.Value
-	Bodies []SystemBodyReference
+	Name        LocalizedName
+	Value       clausewitz.Value
+	Bodies      []SystemBodyReference
+	AmbientRefs SurfaceRefList
+}
+
+type SavedAmbientObject struct {
+	Value            clausewitz.Value
+	CoordinateOrigin OptionalIntRef
+}
+
+func (a *SavedAmbientObject) UnmarshalClausewitz(value clausewitz.Value) error {
+	if !value.IsObject() {
+		return fmt.Errorf("unsupported saved ambient object shape")
+	}
+	*a = SavedAmbientObject{Value: value, CoordinateOrigin: savedPathInt(value, "coordinate", "origin")}
+	return nil
 }
 
 type SystemBodyReference struct {
@@ -96,6 +111,11 @@ func decodeSystemContents(root clausewitz.Value, id int) *SystemContents {
 	if !found {
 		return result
 	}
+	ambientIDs := map[int]bool{}
+	for _, ambientID := range system.AmbientRefs.Values {
+		ambientIDs[ambientID] = true
+	}
+	result.AmbientObjects = systemSubsetTable[SavedAmbientObject](root, ambientIDs, "ambient_object")
 	wanted := map[int]bool{}
 	for _, body := range system.Bodies {
 		if body.ID.Value != nil {
@@ -142,7 +162,7 @@ func (s *SavedSystemContents) UnmarshalClausewitz(value clausewitz.Value) error 
 	if !value.IsObject() {
 		return fmt.Errorf("unsupported saved system shape")
 	}
-	*s = SavedSystemContents{Value: value, Name: savedLocalizedName(value, "name")}
+	*s = SavedSystemContents{Value: value, Name: savedLocalizedName(value, "name"), AmbientRefs: systemPlanetList(value, "ambient_object")}
 	var references []clausewitz.Value
 	for _, pair := range value.Object.Pairs {
 		if pair.Key == "planet" {

@@ -105,3 +105,24 @@ func TestSystemContentsNebulaCandidatesPreserveUncertainty(t *testing.T) {
 		t.Fatal("unmatched nebula included")
 	}
 }
+
+func TestSystemContentsAmbientReferences(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`galactic_object={0={ambient_object={0 1 1 2 3 4 5}} 1={ambient_object={0} ambient_object={2}}} ambient_object={0={type=synthetic coordinate={origin=0} properties={flag=yes}} 1={type=duplicate_ref} 2={coordinate={origin=9}} 3={type=first} 03={type=duplicate_record} 4=bad}`)}})
+	result, err := handleSystemContents(context.Background(), rawRequest(map[string]any{"system_id": 0}))
+	if err != nil || result.IsError {
+		t.Fatal("system contents failed")
+	}
+	got := resultText(result)
+	for _, want := range []string{"Ambient object 0 candidate: coordinate.origin=0 (agrees with the saved system ID)", "2 duplicate saved references; candidate ambiguous", "coordinate.origin=9 (differs from the saved system ID)", "Ambient object 3: duplicate", "Ambient object 4: referenced record has an unsupported saved shape", "Ambient object 5: referenced record unavailable", `key="type": "synthetic"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	result, err = handleSystemContents(context.Background(), rawRequest(map[string]any{"system_id": 1}))
+	if err != nil || result.IsError || !strings.Contains(resultText(result), "Ambient object references: duplicate saved fields") {
+		t.Fatal("duplicate list not reported")
+	}
+}
