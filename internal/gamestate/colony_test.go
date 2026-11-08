@@ -109,7 +109,7 @@ func TestLoadColonySave(t *testing.T) {
 	}
 	speciesResolved, ethicsRecorded, factionsRecorded, ethicsMismatches, factionMismatches := 0, 0, 0, 0, 0
 	for _, group := range gs.PopGroups {
-		if s, ok := gs.Species[group.Key.Species]; ok && s.Name.Key != "" {
+		if s, ok := gs.Species.Items[group.Key.Species]; ok && s.Name.Key != "" {
 			speciesResolved++
 		}
 		if len(group.Ethos.Ethics) > 0 {
@@ -125,6 +125,6 @@ func TestLoadColonySave(t *testing.T) {
 			factionMismatches++
 		}
 	}
-	t.Logf("species=%d species_resolved_groups=%d ethics_recorded_groups=%d faction_recorded_groups=%d ethics_array_mismatches=%d faction_array_mismatches=%d political_factions=%d", len(gs.Species), speciesResolved, ethicsRecorded, factionsRecorded, ethicsMismatches, factionMismatches, len(gs.PopFactions))
+	t.Logf("species=%d species_resolved_groups=%d ethics_recorded_groups=%d faction_recorded_groups=%d ethics_array_mismatches=%d faction_array_mismatches=%d political_factions=%d", len(gs.Species.Items), speciesResolved, ethicsRecorded, factionsRecorded, ethicsMismatches, factionMismatches, len(gs.PopFactions))
 	t.Logf("resolved_planet_colonies=%d colony_records=%d pop_groups=%d group_total_mismatches=%d", resolved, len(gs.Colonies), len(gs.PopGroups), mismatches)
 }

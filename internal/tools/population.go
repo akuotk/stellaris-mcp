@@ -8,7 +8,10 @@ import (
 )
 
 func populationSpecies(gs *gamestate.GameState, id int) string {
-	s, ok := gs.Species[id]
+	if issue := gs.Species.DecodeErrors[id]; issue != "" {
+		return fmt.Sprintf("%d (%s)", id, diplomaticRecordIssue(issue))
+	}
+	s, ok := gs.Species.Items[id]
 	if !ok || s.Name.Key == "" {
 		return fmt.Sprintf("%d (identity unavailable)", id)
 	}

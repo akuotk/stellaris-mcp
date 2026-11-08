@@ -18,7 +18,7 @@ func TestPopulationIdentityAndDistributions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(gs.Species[1234567890].Traits.Trait) != 2 {
+	if len(gs.Species.Items[1234567890].Traits.Trait) != 2 {
 		t.Fatal("traits not decoded")
 	}
 	if got := populationSpecies(gs, 1234567890); !strings.Contains(got, "Test species") {

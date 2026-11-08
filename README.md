@@ -16,6 +16,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_economy_breakdown` | Current or last month saved budget categories and calculated net |
 | `get_planets` | Colonized planets with districts, buildings, jobs, modifiers, production |
 | `get_colonies` | Direct saved colony records and carrier references, including non-planet types |
+| `get_pre_ftl` | Saved pre-FTL country, planet and observation fleet references |
 | `get_construction` | Construction queues and item references, saved progress and resources |
 | `get_espionage_operations` | Espionage operations, network cross-references and saved logs |
 | `get_first_contacts` | Saved first-contact records, references and event histories |

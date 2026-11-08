@@ -13,7 +13,7 @@ import (
 )
 
 func registerColonies(s *server.MCPServer) {
-	s.AddTool(mcp.NewTool("get_colonies", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("Read colony-table records directly, including non-planet carriers. Ownership follows this country's saved owned_planets colony references; carrier types/references remain raw unless a reciprocal planet link validates identity. Arkship carrier serialization has not been validated with a real Arkship save. Values are raw save units."), mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithNumber("country_id", mcp.Description("Country ID; omit for sole player")), mcp.WithNumber("colony_id", mcp.Description("Owned colony ID for full details; omit for summary"))), handleColonies)
+	s.AddTool(mcp.NewTool("get_colonies", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("Read saved colonies, species records and population/job back-references. Ownership follows country.owned_planets colony references. Planet carriers use reciprocal planet links. Non-planet carrier identity and population units remain unverified."), mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithNumber("country_id", mcp.Description("Country ID; omit for sole player")), mcp.WithNumber("colony_id", mcp.Description("Owned colony ID for full details; omit for summary"))), handleColonies)
 }
 
 func handleColonies(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -121,11 +121,18 @@ func renderColonies(gs *gamestate.GameState, countryID int, country *gamestate.C
 				fmt.Fprintf(&b, "    Building %d: unavailable\n", buildingID)
 			}
 		}
+		writeColonySpecies(&b, gs, colony)
 		fmt.Fprintln(&b, "  POP groups (raw saved sizes; no carrier-to-planet projection):")
 		if colony.PopGroups == nil {
 			fmt.Fprintln(&b, "    references not recorded")
 		}
+		groupRefs := map[int]bool{}
 		for _, groupID := range colony.PopGroups {
+			if groupRefs[groupID] {
+				fmt.Fprintf(&b, "    Duplicate POP group reference %d\n", groupID)
+				continue
+			}
+			groupRefs[groupID] = true
 			group, ok := gs.PopGroups[groupID]
 			if !ok {
 				fmt.Fprintf(&b, "    Group %d: unavailable\n", groupID)
@@ -140,13 +147,25 @@ func renderColonies(gs *gamestate.GameState, countryID int, country *gamestate.C
 				species = populationSpecies(gs, *group.Key.SpeciesID)
 			}
 			fmt.Fprintf(&b, "    Group %d: species=%s category=%s population=%s\n", groupID, species, group.Key.Category, size)
+			writeColonyPopulationLink(&b, "pop_group", id, group.PlanetRef, group.PlanetRefDuplicate)
+			growth := governanceValue(group.LastMonthGrowthRaw)
+			if group.LastMonthGrowthDuplicate {
+				growth = "duplicate saved fields"
+			}
+			fmt.Fprintf(&b, "      month_start_size=%s last_month_growth=%s (raw save values)\n", councilSavedString(group.MonthStartSize), growth)
 			writePopDistributions(&b, gs, group)
 		}
 		fmt.Fprintln(&b, "  Job references (workforce as saved, including zero/negative values):")
 		if colony.PopJobs == nil {
 			fmt.Fprintln(&b, "    references not recorded")
 		}
+		jobRefs := map[int]bool{}
 		for _, jobID := range colony.PopJobs {
+			if jobRefs[jobID] {
+				fmt.Fprintf(&b, "    Duplicate job reference %d\n", jobID)
+				continue
+			}
+			jobRefs[jobID] = true
 			job, ok := gs.PopJobs[jobID]
 			if !ok {
 				fmt.Fprintf(&b, "    Job %d: unavailable\n", jobID)
@@ -159,9 +178,63 @@ func renderColonies(gs *gamestate.GameState, countryID int, country *gamestate.C
 				fmt.Fprint(&b, " workforce=not recorded")
 			}
 			fmt.Fprintln(&b)
+			writeColonyPopulationLink(&b, "pop_job", id, job.PlanetRef, job.PlanetRefDuplicate)
 		}
 	}
 	return mcp.NewToolResultText(b.String())
+}
+
+func writeColonySpecies(b *strings.Builder, gs *gamestate.GameState, colony gamestate.Colony) {
+	fmt.Fprintf(b, "  colonizing_species: %s\n", speciesRefText(gs, colony.ColonizingSpecies))
+	writeSpeciesRefList(b, "  species_refs", colony.SpeciesRefs)
+	writeSpeciesRefList(b, "  enslaved_species_refs", colony.EnslavedSpeciesRefs)
+	info := colony.SpeciesInformation
+	switch {
+	case !info.Recorded:
+		fmt.Fprintln(b, "  species_information: not recorded")
+	case info.TableIssue:
+		fmt.Fprintln(b, "  species_information: incomplete or duplicate table. Use raw tools.")
+	case len(info.Items) == 0 && len(info.DecodeErrors) == 0:
+		fmt.Fprintln(b, "  species_information: empty")
+	}
+	ids := make([]int, 0, len(info.Items)+len(info.DecodeErrors))
+	for id := range info.Items {
+		ids = append(ids, id)
+	}
+	for id := range info.DecodeErrors {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	for _, id := range ids {
+		if issue := info.DecodeErrors[id]; issue != "" {
+			fmt.Fprintf(b, "    species_information[%d]: %s\n", id, diplomaticRecordIssue(issue))
+			continue
+		}
+		row := info.Items[id]
+		membership := armyMembership(colony.SpeciesRefs.Values, id)
+		switch {
+		case colony.SpeciesRefs.Duplicate:
+			membership = "duplicate saved fields"
+		case colony.SpeciesRefs.Unsupported:
+			membership = "unsupported saved shape"
+		}
+		fmt.Fprintf(b, "    species_information[%d]: species=%s num_pops=%s num_enslaved=%s (raw save values), species_refs membership=%s\n", id, populationSpecies(gs, id), governanceValue(row.NumPops), governanceValue(row.NumEnslaved), membership)
+	}
+}
+
+func writeColonyPopulationLink(b *strings.Builder, label string, colonyID int, ref gamestate.OptionalIntRef, duplicate bool) {
+	switch {
+	case duplicate:
+		fmt.Fprintf(b, "      %s.planet: duplicate saved reference fields\n", label)
+	case ref.Unsupported:
+		fmt.Fprintf(b, "      %s.planet: unsupported saved reference shape\n", label)
+	case ref.Value == nil:
+		fmt.Fprintf(b, "      %s.planet: not recorded\n", label)
+	case *ref.Value == colonyID:
+		fmt.Fprintf(b, "      %s.planet=%d matches colony ID\n", label, *ref.Value)
+	default:
+		fmt.Fprintf(b, "      %s.planet=%d differs from colony ID %d\n", label, *ref.Value, colonyID)
+	}
 }
 
 func colonyCarrier(gs *gamestate.GameState, colonyID int, colony gamestate.Colony) string {

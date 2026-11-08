@@ -26,7 +26,7 @@ type GameState struct {
 	Construction        Construction                                `clausewitz:"construction"`
 	Colonies            map[int]Colony                              `clausewitz:"colony"`
 	PopGroups           map[int]PopGroup                            `clausewitz:"pop_groups"`
-	Species             map[int]Species                             `clausewitz:"species_db"`
+	Species             ConnectionRecordTable[Species]              `clausewitz:"species_db"`
 	PopFactions         map[int]PopFaction                          `clausewitz:"pop_factions"`
 	Agreements          AgreementStore                              `clausewitz:"agreements"`
 	Situations          SituationStore                              `clausewitz:"situations"`
@@ -60,11 +60,29 @@ type Building struct {
 }
 
 type PopJob struct {
-	PlanetID     *int     `clausewitz:"planet"`
-	Type         string   `clausewitz:"type"`
-	Planet       int      `clausewitz:"planet"`
-	Workforce    float64  `clausewitz:"workforce"`
-	WorkforceRaw *float64 `clausewitz:"workforce"`
+	PlanetID           *int           `clausewitz:"-"`
+	PlanetRef          OptionalIntRef `clausewitz:"planet"`
+	PlanetRefDuplicate bool           `clausewitz:"-"`
+	Type               string         `clausewitz:"type"`
+	Planet             int            `clausewitz:"-"`
+	Workforce          float64        `clausewitz:"workforce"`
+	WorkforceRaw       *float64       `clausewitz:"workforce"`
+}
+
+func (j *PopJob) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields PopJob
+	if err := clausewitz.DecodeValue(value, (*fields)(j)); err != nil {
+		return err
+	}
+	j.PlanetRefDuplicate = uniqueSavedFields(value, "planet") != nil
+	if j.PlanetRefDuplicate {
+		j.PlanetRef = OptionalIntRef{Recorded: true}
+	}
+	j.PlanetID = j.PlanetRef.Value
+	if j.PlanetID != nil {
+		j.Planet = *j.PlanetID
+	}
+	return nil
 }
 
 type Deposit struct {
@@ -161,6 +179,9 @@ func Load(data []byte) (*GameState, error) {
 	if uniqueSavedFields(value, "first_contacts") != nil {
 		gs.FirstContacts = FirstContacts{}
 		gs.FirstContacts.TableIssue = true
+	}
+	if uniqueSavedFields(value, "species_db") != nil {
+		gs.Species = ConnectionRecordTable[Species]{Recorded: true, TableIssue: true}
 	}
 	gs.markAmbiguousFleetOrders(value)
 	if uniqueSavedFields(value, "archaeological_sites") != nil {

@@ -104,7 +104,7 @@ func TestSpeciesRightsLocalCatalogIntegration(t *testing.T) {
 			}
 			if record.SpeciesIndex.Value == nil {
 				missingIndex++
-			} else if _, ok := gs.Species[*record.SpeciesIndex.Value]; ok {
+			} else if _, ok := gs.Species.Items[*record.SpeciesIndex.Value]; ok {
 				candidates++
 			} else {
 				unresolved++

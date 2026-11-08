@@ -28,6 +28,10 @@ type Country struct {
 	SubjectDate                 OptionalString              `clausewitz:"subject_date"`
 	OwnedMegastructureRefs      OptionalIntList             `clausewitz:"owned_megastructures"`
 	TrackAllSituations          OptionalString              `clausewitz:"track_all_situations"`
+	FounderSpeciesRef           SpeciesRef                  `clausewitz:"founder_species_ref"`
+	BuiltSpeciesRef             SpeciesRef                  `clausewitz:"built_species_ref"`
+	OwnedSpeciesRefs            SpeciesRefList              `clausewitz:"owned_species_refs"`
+	EnslavedSpeciesRefs         SpeciesRefList              `clausewitz:"enslaved_species_refs"`
 	SpyNetworkRefs              CountrySpyNetworkRefs       `clausewitz:"espionage_manager"`
 	FirstContactRefs            CountryFirstContactRefs     `clausewitz:"first_contact"`
 	SectorRefs                  CountrySectorRefs           `clausewitz:"sectors"`
@@ -110,6 +114,18 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	if uniqueSavedFields(value, "track_all_situations") != nil {
 		c.TrackAllSituations = OptionalString{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "founder_species_ref") != nil {
+		c.FounderSpeciesRef = SpeciesRef{Duplicate: true}
+	}
+	if uniqueSavedFields(value, "built_species_ref") != nil {
+		c.BuiltSpeciesRef = SpeciesRef{Duplicate: true}
+	}
+	if uniqueSavedFields(value, "owned_species_refs") != nil {
+		c.OwnedSpeciesRefs = SpeciesRefList{Duplicate: true}
+	}
+	if uniqueSavedFields(value, "enslaved_species_refs") != nil {
+		c.EnslavedSpeciesRefs = SpeciesRefList{Duplicate: true}
 	}
 	if uniqueSavedFields(value, "espionage_manager") != nil {
 		c.SpyNetworkRefs.CountryDiplomaticRefs = duplicateCountryDiplomaticRefs()

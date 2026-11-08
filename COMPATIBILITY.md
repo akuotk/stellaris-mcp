@@ -72,7 +72,9 @@ Typed ZIP analysis reads archive bytes into memory first and rejects missing or 
 
 `get_species_rights` exposes saved default, primary, built-species and species-specific records. Species ID matches are candidates; effective rights, inheritance and date meanings remain unverified.
 
-`get_species` links species records to owned planets' population groups and displays traits and saved group-size totals. Incomplete or duplicate references are reported; groups referenced by multiple owned planets are counted once and their location is marked ambiguous. Non-planet carriers are not included. `get_colonies` exposes owned colony records and raw carrier types and references without inventing a carrier identity. Non-planet carrier serialization has not yet been checked against a real Arkship save.
+`get_species` links species records to country and owned-planet references, including saved base species and home planet candidates, and displays traits and saved group-size totals. Incomplete or duplicate references are reported; groups referenced by multiple owned planets are counted once and their location is marked ambiguous. Non-planet carriers are not included. `get_colonies` exposes owned colony records, species information and raw carrier types and checks population group and job back-references without inventing a carrier identity. Non-planet carrier serialization has not yet been checked against a real Arkship save.
+
+`get_pre_ftl` exposes countries with saved primitive type or pre-FTL age, capital candidates and observation fleet references. Planet and fleet back-references are checked when available; fleet registration and planet owner are reported separately. Age and awareness scales and present visibility remain unverified.
 
 Limitations: non-planet carriers such as Nomad Arkships are not yet resolved as colonies; complex name templates, agreement terms and espionage require further work. Political faction support and approval are shown as saved, without unit conversion. A missing naval capacity is reported as unavailable. Do not assume every value is complete or that this covers all versions, DLCs, or modded saves.
 

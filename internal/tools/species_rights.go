@@ -113,7 +113,7 @@ func writeSpeciesRightsRecord(b *strings.Builder, gs *gamestate.GameState, label
 		fmt.Fprintln(b, "  species_index not recorded")
 	default:
 		id := *record.SpeciesIndex.Value
-		if species, ok := gs.Species[id]; ok {
+		if species, ok := gs.Species.Items[id]; ok {
 			fmt.Fprintf(b, "  species_index=%d; species database ID candidate: %s\n", id, name(species.Name))
 		} else {
 			fmt.Fprintf(b, "  species_index=%d; species database ID candidate unavailable\n", id)
