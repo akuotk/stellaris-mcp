@@ -11,6 +11,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_empire_overview` | Ethics, civics, government, power ratings, naval/starbase capacity, resources |
 | `get_research_status` | Current research + progress, available options, completed techs |
 | `get_special_projects` | Saved special project records and research queue and fleet order ID candidates |
+| `get_event_chains` | Paginated saved country event-chain and completed-chain entries |
 | `get_debris` | Saved debris records, components, resources and special project references |
 | `get_research_potential` | Paginated saved research-potential records with snapshot revision |
 | `get_economy_breakdown` | Current or last month saved budget categories and calculated net |

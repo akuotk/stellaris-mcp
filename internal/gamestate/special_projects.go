@@ -6,7 +6,13 @@ type CountrySpecialProjects struct {
 	Recorded      bool
 	Items         []SavedSpecialProject
 	SituationRefs OptionalIntList
+	EventChains   []SavedEventChainEntry
 	Unsupported   bool
+}
+
+type SavedEventChainEntry struct {
+	Kind  string
+	Value clausewitz.Value
 }
 
 type SavedSpecialProject struct {
@@ -33,6 +39,8 @@ func (v *CountrySpecialProjects) UnmarshalClausewitz(value clausewitz.Value) err
 			} else {
 				v.SituationRefs.UnmarshalClausewitz(pair.Value)
 			}
+		case "event_chain", "completed_event_chain":
+			v.EventChains = append(v.EventChains, SavedEventChainEntry{Kind: pair.Key, Value: pair.Value})
 		}
 	}
 	return nil

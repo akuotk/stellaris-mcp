@@ -22,6 +22,8 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 
 `get_special_projects` exposes country event records and matching research-queue and fleet current-order ID candidates. Duplicate or unsupported records remain ambiguous; project availability, completion, time units and location namespaces are not established. Deep or mixed payloads remain accessible through the raw tools.
 
+`get_event_chains` displays saved `event_chain` and `completed_event_chain` fields in country event order, with page contexts bound to the save and country. Scope types, counters, completion semantics and current availability are unverified; deep or mixed payloads remain accessible through raw tools.
+
 `get_debris` exposes save-wide debris records and special project ID candidates, including debris without a project reference. Coordinates, components, resources and country fields are shown as saved; matching IDs do not establish ownership, visibility or availability. Deep or mixed payloads remain accessible through the raw tools.
 
 `get_federations` and `get_notifications` expose indexed federation records, including members, leadership, laws and saved progression values. Cohesion and experience are reported as saved rather than converted into UI percentages.
