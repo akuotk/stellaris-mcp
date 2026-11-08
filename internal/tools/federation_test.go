@@ -95,3 +95,29 @@ func TestFederationInvalidProgressAndDuplicateLeaderRemainVisible(t *testing.T) 
 		}
 	}
 }
+
+func TestFederationMalformedAndDuplicateRecordsAreNotReportedMissing(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`federation={0={name={key=first}} 00={name={key=duplicate}} 1=bad 2={name={key=valid}}}`)}})
+	result, err := handleFederations(context.Background(), rawRequest(map[string]any{}))
+	if err != nil || result.IsError {
+		t.Fatal("summary failed")
+	}
+	got := resultText(result)
+	for _, want := range []string{"Federation ID 0: duplicate", "Federation ID 1: referenced record has an unsupported saved shape", "ID 2: valid"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	for _, tc := range []struct {
+		id   int
+		want string
+	}{{0, "duplicate"}, {1, "unsupported"}, {3, "not found"}} {
+		result, err = handleFederations(context.Background(), rawRequest(map[string]any{"federation_id": tc.id}))
+		if err != nil || !result.IsError || !strings.Contains(resultText(result), tc.want) {
+			t.Fatalf("id %d: %s", tc.id, resultText(result))
+		}
+	}
+}

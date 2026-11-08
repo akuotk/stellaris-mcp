@@ -33,6 +33,12 @@ func handleFederations(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 		}
 		f, ok := gs.Federation[id]
 		if !ok {
+			if gs.FederationRecords.TableIssue {
+				return toolError(fmt.Errorf("federation table unsupported or duplicate; ID %d cannot be resolved; use raw tools", id)), nil
+			}
+			if issue := gs.FederationRecords.DecodeErrors[id]; issue != "" {
+				return toolError(fmt.Errorf("federation %d: %s; use raw tools", id, diplomaticRecordIssue(issue))), nil
+			}
 			return toolError(fmt.Errorf("federation %d not found", id)), nil
 		}
 		filtered := *gs
@@ -49,8 +55,20 @@ func writeFederations(b *strings.Builder, gs *gamestate.GameState) {
 	if gs.FederationRecords.TableIssue {
 		fmt.Fprintln(b, "  Federation table unsupported or duplicate. Use raw tools.")
 	}
+	issueIDs := make([]int, 0, len(gs.FederationRecords.DecodeErrors))
+	for id := range gs.FederationRecords.DecodeErrors {
+		issueIDs = append(issueIDs, id)
+	}
+	sort.Ints(issueIDs)
+	for _, id := range issueIDs {
+		fmt.Fprintf(b, "  Federation ID %d: %s. Use raw tools.\n", id, diplomaticRecordIssue(gs.FederationRecords.DecodeErrors[id]))
+	}
 	if len(gs.Federation) == 0 {
-		fmt.Fprintln(b, "  No federation records.")
+		if gs.FederationRecords.TableIssue || len(gs.FederationRecords.DecodeErrors) > 0 {
+			fmt.Fprintln(b, "  No decoded federation records.")
+		} else {
+			fmt.Fprintln(b, "  No federation records.")
+		}
 		return
 	}
 	ids := make([]int, 0, len(gs.Federation))
