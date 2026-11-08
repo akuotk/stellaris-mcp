@@ -211,7 +211,7 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 			writeExternalSurfaceBuildings(&b, gs, "colony.externally_owned_buildings", c.ExternalBuildings)
 		}
 	}
-	writePlanetDeposits(&b, gs, planetID, p.DepositRefs)
+	writePlanetDeposits(&b, gs.Deposit, planetID, p.DepositRefs)
 	var features, blockers []string
 	for _, id := range p.DepositRefs.Values {
 		if dep, ok := gs.Deposit.Items[id]; ok && dep.Type != "" {

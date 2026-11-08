@@ -87,7 +87,7 @@ func (c *PreFTLCountry) UnmarshalClausewitz(value clausewitz.Value) error {
 		return fmt.Errorf("unsupported saved country shape")
 	}
 	*c = PreFTLCountry{
-		Name: preFTLName(value, "adjective"), Type: savedFieldString(value, "type"), Age: savedFieldString(value, "preftl_age"),
+		Name: savedLocalizedName(value, "adjective"), Type: savedFieldString(value, "type"), Age: savedFieldString(value, "preftl_age"),
 		Awareness: savedFieldString(value, "awareness"), OldAwareness: savedFieldString(value, "old_awareness"), Capital: savedPathInt(value, "capital"),
 	}
 	for _, pair := range value.Object.Pairs {
@@ -109,7 +109,7 @@ func (p *PreFTLPlanet) UnmarshalClausewitz(value clausewitz.Value) error {
 		return fmt.Errorf("unsupported saved planet shape")
 	}
 	*p = PreFTLPlanet{
-		Name: preFTLName(value, "name"), Owner: savedPathInt(value, "owner"), Controller: savedPathInt(value, "controller"),
+		Name: savedLocalizedName(value, "name"), Owner: savedPathInt(value, "owner"), Controller: savedPathInt(value, "controller"),
 		OrbitalStation: savedPathInt(value, "shipclass_orbital_station"),
 	}
 	return nil
@@ -129,7 +129,7 @@ func (f *ObservationFleet) UnmarshalClausewitz(value clausewitz.Value) error {
 	if !f.Recorded {
 		return nil
 	}
-	f.Name = preFTLName(value, "name")
+	f.Name = savedLocalizedName(value, "name")
 	f.Class = savedFieldString(value, "ship_class")
 	f.Origin = savedPathInt(value, "movement_manager", "coordinate", "origin")
 	orbitable, recorded, unsupported := savedFieldPath(value, "movement_manager", "orbit", "orbitable")
@@ -157,14 +157,4 @@ func (s *ObservationShip) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	s.Fleet = savedPathInt(value, "fleet")
 	return nil
-}
-
-func preFTLName(value clausewitz.Value, key string) LocalizedName {
-	var name LocalizedName
-	if field, recorded, unsupported := savedFieldPath(value, key); recorded && !unsupported && uniqueSavedFields(field, "key", "variables") == nil {
-		if clausewitz.DecodeValue(field, &name) != nil {
-			return LocalizedName{}
-		}
-	}
-	return name
 }

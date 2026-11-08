@@ -12,7 +12,7 @@ import (
 
 func registerResourceMarket(s *server.MCPServer) {
 	s.AddTool(mcp.NewTool("get_resource_market", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-		mcp.WithDescription("Read a country's saved modules.standard_economy_module.resources and market.monthly_trades entries with matching trade_data.country. Resource amounts are stockpile candidates. Keeps raw resource, amount, price and trade_type values. Units, stockpile identity, order activity, history and transaction direction remain unverified."),
+		mcp.WithDescription("Read saved resource candidates, monthly market orders and country rows under resources_bought, resources_sold and internal_market_fluctuations. Raw values and row order are preserved. Resource-index mapping, ledger period, price conversion and order activity remain unverified."),
 		mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")),
 		mcp.WithNumber("country_id", mcp.Description("Country ID; omit for sole player"))), handleResourceMarket)
 }
@@ -66,6 +66,10 @@ func renderResourceMarket(gs *gamestate.GameState, countryID int, country *games
 	fmt.Fprintln(&b, "  Resource identity, transaction direction, amount/price units, current order activity and history remain unverified.")
 	market, trades := gs.MarketOrders, gs.MarketOrders.MonthlyTrades
 	switch {
+	case market.Duplicate:
+		fmt.Fprintln(&b, "  Duplicate market tables. Use raw tree/byte tools.")
+	case trades.Duplicate:
+		fmt.Fprintln(&b, "  Duplicate monthly_trades fields. Use raw tree/byte tools.")
 	case market.Unsupported || trades.Unsupported:
 		fmt.Fprintln(&b, "  Unsupported market/order shape or duplicate known fields; use raw tree/byte tools")
 	case !market.Recorded:
@@ -94,5 +98,72 @@ func renderResourceMarket(gs *gamestate.GameState, countryID int, country *games
 			fmt.Fprintln(&b, "  No matching decoded entries")
 		}
 	}
+	writeMarketCountryRows(&b, countryID, "market.resources_bought", market.ResourcesBought.MarketCountryRows)
+	writeMarketCountryRows(&b, countryID, "market.resources_sold", market.ResourcesSold.MarketCountryRows)
+	writeMarketCountryRows(&b, countryID, "market.internal_market_fluctuations", market.InternalFluctuations.MarketCountryRows)
+	if len(market.GlobalDetails) > 0 {
+		fmt.Fprintln(&b, "\nGlobal market fields (saved order. Array index mappings and prices remain unverified.)")
+		seen := map[string]bool{}
+		for _, pair := range market.GlobalDetails {
+			label := "market." + pair.Key
+			if seen[pair.Key] {
+				label += " [duplicate saved key]"
+			}
+			seen[pair.Key] = true
+			writeSavedValue(&b, label, pair.Value, 0)
+		}
+	}
 	return mcp.NewToolResultText(b.String())
+}
+
+func writeMarketCountryRows(b *strings.Builder, countryID int, label string, rows gamestate.MarketCountryRows) {
+	fmt.Fprintf(b, "\n%s (saved order, matching country)\n", label)
+	switch {
+	case rows.Duplicate:
+		fmt.Fprintln(b, "  Duplicate saved fields. Use raw tools.")
+	case !rows.Recorded:
+		fmt.Fprintln(b, "  Not recorded.")
+	case rows.Unsupported:
+		fmt.Fprintln(b, "  Unsupported saved shape or fields. Use raw tools for complete data.")
+	case len(rows.Items) == 0 && rows.OrphanPayloads == 0:
+		fmt.Fprintln(b, "  Empty.")
+	}
+	if rows.OrphanPayloads > 0 {
+		fmt.Fprintf(b, "  Payloads without an immediately preceding country: %d. Country unresolved.\n", rows.OrphanPayloads)
+	}
+	matched, unsupportedCountry := 0, 0
+	for index, row := range rows.Items {
+		if row.Country.Unsupported {
+			unsupportedCountry++
+		}
+		if row.Country.Value == nil || *row.Country.Value != countryID {
+			continue
+		}
+		matched++
+		fmt.Fprintf(b, "  Row %d country=%d\n", index, countryID)
+		if row.Payload == nil {
+			fmt.Fprintln(b, "    Adjacent payload not recorded.")
+			continue
+		}
+		if row.UnsupportedPayload {
+			fmt.Fprintln(b, "    Unsupported payload shape. Use raw tools for complete data.")
+		}
+		if row.Payload.IsList() && !row.UnsupportedPayload {
+			values := make([]string, 0, len(row.Payload.List))
+			for _, item := range row.Payload.List {
+				values = append(values, item.Scalar)
+			}
+			fmt.Fprintf(b, "    Amounts in saved order: %q (resource indices and accumulation period unverified)\n", values)
+		} else {
+			writeSavedValue(b, "    Saved payload", *row.Payload, 0)
+		}
+	}
+	if unsupportedCountry > 0 {
+		fmt.Fprintf(b, "  Rows with unsupported country fields: %d. Country unresolved.\n", unsupportedCountry)
+	}
+	if matched > 1 {
+		fmt.Fprintf(b, "  Duplicate saved country rows: %d. Rows are shown separately.\n", matched)
+	} else if matched == 0 && len(rows.Items) != 0 {
+		fmt.Fprintln(b, "  No matching decoded country rows.")
+	}
 }

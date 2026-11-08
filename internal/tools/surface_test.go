@@ -36,7 +36,7 @@ func TestSurfaceAmbiguousFieldsAreReported(t *testing.T) {
 		t.Fatal(err)
 	}
 	var b strings.Builder
-	writePlanetDeposits(&b, gs, 0, gs.Planets.Planet[0].DepositRefs)
+	writePlanetDeposits(&b, gs.Deposit, 0, gs.Planets.Planet[0].DepositRefs)
 	if !strings.Contains(b.String(), "duplicate saved fields") {
 		t.Fatal(b.String())
 	}

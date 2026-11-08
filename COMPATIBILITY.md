@@ -34,6 +34,8 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 
 `get_system_connections` exposes saved hyperlane, bypass and natural wormhole records with available reverse-ID checks. Duplicate root connection tables or system reference fields are flagged as unsupported rather than silently choosing one. Visibility, travel eligibility, value units and route costs remain unverified.
 
+`get_system_contents` displays saved star, body, moon and deposit records and checks available body-origin and reciprocal moon references. Orbital values, coordinate units, current visibility and resource yields are not inferred.
+
 `get_sectors` reports saved sector ownership, systems and capital references, checks available back-references, and flags incomplete or conflicting data. An ID match without a verified reverse link remains a candidate.
 
 `get_notifications` lists saved war records, including those with end dates; it does not infer whether a war is active from a missing date.
@@ -43,6 +45,8 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 Situation records in `get_empire_assets` include country references, saved stages, durations, flags and targets. Explicit planet targets are checked against planet records; other target namespaces, opener IDs and duration units remain unverified.
 
 `get_resource_market` reports saved economy-module resource values as stockpile candidates and filters monthly trade records by their saved trade_data.country reference. Resource units, stockpile identity, trade direction and whether orders are currently active are not inferred.
+
+Market purchase, sale and internal fluctuation records preserve adjacent saved country and payload entries. Their array indices, currencies and periods remain unverified. Economy breakdowns also expose saved trade, extra and income high-water fields separately from calculated net values.
 
 `get_policies_edicts` displays saved policy selections, edicts and policy flags in saved order. The meaning of dates and flags, policy effects and current edict activity are not inferred.
 

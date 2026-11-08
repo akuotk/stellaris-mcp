@@ -79,3 +79,13 @@ func savedFieldPath(value clausewitz.Value, path ...string) (clausewitz.Value, b
 	}
 	return value, true, false
 }
+
+func savedLocalizedName(value clausewitz.Value, key string) LocalizedName {
+	var name LocalizedName
+	if field, recorded, unsupported := savedFieldPath(value, key); recorded && !unsupported && uniqueSavedFields(field, "key", "variables") == nil {
+		if clausewitz.DecodeValue(field, &name) != nil {
+			return LocalizedName{}
+		}
+	}
+	return name
+}

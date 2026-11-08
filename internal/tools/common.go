@@ -103,3 +103,26 @@ func formatNavalCapacity(c *gamestate.Country) string {
 func toolError(err error) *mcp.CallToolResult {
 	return mcp.NewToolResultError(err.Error())
 }
+
+func writeSavedTableStatus[T any](b *strings.Builder, label string, table gamestate.ConnectionRecordTable[T]) {
+	if !table.Recorded {
+		fmt.Fprintf(b, "%s table not recorded\n", label)
+	}
+	if table.TableIssue || len(table.DecodeErrors) > 0 {
+		fmt.Fprintf(b, "%s table incomplete, unsupported or duplicate. Affected records=%d. Use raw tree/byte tools.\n", label, len(table.DecodeErrors))
+	}
+}
+
+func optionalIntRefText(ref gamestate.OptionalIntRef) string {
+	if ref.Unsupported {
+		return "unsupported or duplicate"
+	}
+	return armyInt(ref.Value)
+}
+
+func compareSavedIDs(a, b int) string {
+	if a == b {
+		return "agrees with"
+	}
+	return "differs from"
+}

@@ -69,24 +69,43 @@ func (v *SavedResourceAmounts) UnmarshalClausewitz(value clausewitz.Value) error
 }
 
 type MarketOrders struct {
-	Recorded      bool
-	MonthlyTrades MonthlyMarketTradeList `clausewitz:"monthly_trades"`
-	Unsupported   bool
+	Recorded             bool
+	MonthlyTrades        MonthlyMarketTradeList     `clausewitz:"monthly_trades"`
+	ResourcesBought      MarketResourceFlow         `clausewitz:"resources_bought"`
+	ResourcesSold        MarketResourceFlow         `clausewitz:"resources_sold"`
+	InternalFluctuations MarketInternalFluctuations `clausewitz:"internal_market_fluctuations"`
+	GlobalDetails        []clausewitz.Pair          `clausewitz:"-"`
+	Duplicate            bool                       `clausewitz:"-"`
+	Unsupported          bool
 }
 
 func (v *MarketOrders) UnmarshalClausewitz(value clausewitz.Value) error {
-	if uniqueSavedFields(value, "monthly_trades") != nil {
-		*v = MarketOrders{Recorded: true, Unsupported: true}
-		return nil
-	}
 	type fields MarketOrders
 	var decoded fields
 	err := clausewitz.DecodeValue(value, &decoded)
 	*v = MarketOrders(decoded)
 	v.Recorded = true
 	if err != nil {
-		v.MonthlyTrades = MonthlyMarketTradeList{}
-		v.Unsupported = true
+		*v = MarketOrders{Recorded: true, Unsupported: true}
+		return nil
+	}
+	if uniqueSavedFields(value, "monthly_trades") != nil {
+		v.MonthlyTrades = MonthlyMarketTradeList{Recorded: true, Duplicate: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "resources_bought") != nil {
+		v.ResourcesBought.MarketCountryRows = MarketCountryRows{Recorded: true, Duplicate: true}
+	}
+	if uniqueSavedFields(value, "resources_sold") != nil {
+		v.ResourcesSold.MarketCountryRows = MarketCountryRows{Recorded: true, Duplicate: true}
+	}
+	if uniqueSavedFields(value, "internal_market_fluctuations") != nil {
+		v.InternalFluctuations.MarketCountryRows = MarketCountryRows{Recorded: true, Duplicate: true}
+	}
+	for _, pair := range value.Object.Pairs {
+		switch pair.Key {
+		case "country", "enabled", "galactic_market_access", "galactic_market_resources", "fluctuations":
+			v.GlobalDetails = append(v.GlobalDetails, pair)
+		}
 	}
 	return nil
 }
@@ -95,6 +114,7 @@ type MonthlyMarketTradeList struct {
 	Recorded    bool
 	Items       []MonthlyMarketTrade
 	Unsupported bool
+	Duplicate   bool
 }
 
 type MonthlyMarketTrade struct {
@@ -137,6 +157,73 @@ func (v *MonthlyMarketTradeList) UnmarshalClausewitz(value clausewitz.Value) err
 		v.Unsupported = true
 	}
 	return nil
+}
+
+type MarketCountryRows struct {
+	Recorded       bool
+	Duplicate      bool
+	Unsupported    bool
+	OrphanPayloads int
+	Items          []MarketCountryRow
+}
+
+type MarketCountryRow struct {
+	Country            OptionalIntRef
+	Payload            *clausewitz.Value
+	UnsupportedPayload bool
+}
+
+type MarketResourceFlow struct{ MarketCountryRows }
+type MarketInternalFluctuations struct{ MarketCountryRows }
+
+func (r *MarketResourceFlow) UnmarshalClausewitz(value clausewitz.Value) error {
+	r.MarketCountryRows = decodeMarketCountryRows(value, "amount")
+	return nil
+}
+
+func (r *MarketInternalFluctuations) UnmarshalClausewitz(value clausewitz.Value) error {
+	r.MarketCountryRows = decodeMarketCountryRows(value, "resources")
+	return nil
+}
+
+func decodeMarketCountryRows(value clausewitz.Value, payloadKey string) MarketCountryRows {
+	rows := MarketCountryRows{Recorded: true}
+	if !value.IsObject() {
+		rows.Unsupported = true
+		return rows
+	}
+	pairs := value.Object.Pairs
+	for i := 0; i < len(pairs); i++ {
+		pair := pairs[i]
+		switch pair.Key {
+		case "country":
+			var row MarketCountryRow
+			row.Country.UnmarshalClausewitz(pair.Value)
+			if i+1 < len(pairs) && pairs[i+1].Key == payloadKey {
+				i++
+				row.Payload = &pairs[i].Value
+				if payloadKey == "amount" {
+					row.UnsupportedPayload = !row.Payload.IsList() && (!row.Payload.IsObject() || len(row.Payload.Object.Pairs) != 0)
+					for _, item := range row.Payload.List {
+						row.UnsupportedPayload = row.UnsupportedPayload || !item.IsScalar()
+					}
+				} else {
+					row.UnsupportedPayload = !row.Payload.IsObject()
+					if row.Payload.IsObject() {
+						for _, item := range row.Payload.Object.Pairs {
+							row.UnsupportedPayload = row.UnsupportedPayload || !item.Value.IsScalar()
+						}
+					}
+				}
+			}
+			rows.Items = append(rows.Items, row)
+		case payloadKey:
+			rows.OrphanPayloads++
+		default:
+			rows.Unsupported = true
+		}
+	}
+	return rows
 }
 
 func uniqueSavedFields(value clausewitz.Value, keys ...string) error {

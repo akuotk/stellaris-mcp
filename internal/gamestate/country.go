@@ -133,6 +133,9 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	if uniqueSavedFields(value, "first_contact") != nil {
 		c.FirstContactRefs.CountryDiplomaticRefs = duplicateCountryDiplomaticRefs()
 	}
+	if uniqueSavedFields(value, "budget") != nil {
+		c.Budget = Budget{Duplicate: true}
+	}
 	return nil
 }
 
@@ -285,15 +288,49 @@ type TechAlternatives struct {
 }
 
 type Budget struct {
-	CurrentMonth BudgetMonth `clausewitz:"current_month"`
-	LastMonth    BudgetMonth `clausewitz:"last_month"`
+	CurrentMonth           BudgetMonth         `clausewitz:"current_month"`
+	LastMonth              BudgetMonth         `clausewitz:"last_month"`
+	IncomeHighWaterMark    IncomeHighWaterMark `clausewitz:"income_high_water_mark"`
+	CurrentCommercialPacts OptionalString      `clausewitz:"current_month_commercial_pacts"`
+	LastCommercialPacts    OptionalString      `clausewitz:"last_month_commercial_pacts"`
+	Duplicate              bool                `clausewitz:"-"`
+}
+
+func (b *Budget) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields Budget
+	if err := clausewitz.DecodeValue(value, (*fields)(b)); err != nil {
+		return err
+	}
+	if uniqueSavedFields(value, "current_month") != nil {
+		b.CurrentMonth = BudgetMonth{Recorded: true, Duplicate: true}
+	}
+	if uniqueSavedFields(value, "last_month") != nil {
+		b.LastMonth = BudgetMonth{Recorded: true, Duplicate: true}
+	}
+	if uniqueSavedFields(value, "income_high_water_mark") != nil {
+		b.IncomeHighWaterMark = IncomeHighWaterMark{Recorded: true, Duplicate: true}
+	}
+	if uniqueSavedFields(value, "current_month_commercial_pacts") != nil {
+		b.CurrentCommercialPacts = OptionalString{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "last_month_commercial_pacts") != nil {
+		b.LastCommercialPacts = OptionalString{Recorded: true, Unsupported: true}
+	}
+	return nil
 }
 
 type BudgetMonth struct {
-	Recorded bool                 `clausewitz:"-"`
-	Income   map[string]Resources `clausewitz:"income"`
-	Expenses map[string]Resources `clausewitz:"expenses"`
-	Balance  map[string]Resources `clausewitz:"balance"`
+	Recorded      bool                  `clausewitz:"-"`
+	Duplicate     bool                  `clausewitz:"-"`
+	Income        map[string]Resources  `clausewitz:"income"`
+	Expenses      map[string]Resources  `clausewitz:"expenses"`
+	Balance       map[string]Resources  `clausewitz:"balance"`
+	TradeIncome   SavedBudgetCategories `clausewitz:"trade_income"`
+	TradeExpenses SavedBudgetCategories `clausewitz:"trade_expenses"`
+	TradeBalance  SavedBudgetCategories `clausewitz:"trade_balance"`
+	ExtraIncome   SavedBudgetCategories `clausewitz:"extra_income"`
+	ExtraExpenses SavedBudgetCategories `clausewitz:"extra_expenses"`
+	ExtraBalance  SavedBudgetCategories `clausewitz:"extra_balance"`
 }
 
 func (m *BudgetMonth) UnmarshalClausewitz(value clausewitz.Value) error {
@@ -304,6 +341,12 @@ func (m *BudgetMonth) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	*m = BudgetMonth(decoded)
 	m.Recorded = true
+	m.TradeIncome.rejectDuplicate(value, "trade_income")
+	m.TradeExpenses.rejectDuplicate(value, "trade_expenses")
+	m.TradeBalance.rejectDuplicate(value, "trade_balance")
+	m.ExtraIncome.rejectDuplicate(value, "extra_income")
+	m.ExtraExpenses.rejectDuplicate(value, "extra_expenses")
+	m.ExtraBalance.rejectDuplicate(value, "extra_balance")
 	return nil
 }
 

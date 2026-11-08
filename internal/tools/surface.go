@@ -114,12 +114,12 @@ func writeExternalSurfaceBuildings(b *strings.Builder, gs *gamestate.GameState, 
 	}
 }
 
-func writePlanetDeposits(b *strings.Builder, gs *gamestate.GameState, planetID int, refs gamestate.SurfaceRefList) {
+func writePlanetDeposits(b *strings.Builder, table gamestate.ConnectionRecordTable[gamestate.Deposit], planetID int, refs gamestate.SurfaceRefList) {
 	fmt.Fprintf(b, "\nDeposit references: %s\n", surfaceRefText(refs))
 	if len(refs.Values) > 0 {
 		fmt.Fprintln(b, "  Holder types retain their saved values. ID comparisons use the referencing planet ID.")
 	}
-	if gs.Deposit.TableIssue {
+	if table.TableIssue {
 		fmt.Fprintln(b, "  Deposit table decoding incomplete. Use raw tools.")
 	}
 	seen := map[int]bool{}
@@ -129,9 +129,9 @@ func writePlanetDeposits(b *strings.Builder, gs *gamestate.GameState, planetID i
 			continue
 		}
 		seen[id] = true
-		deposit, ok := gs.Deposit.Items[id]
+		deposit, ok := table.Items[id]
 		if !ok {
-			fmt.Fprintf(b, "  Deposit %d: %s\n", id, diplomaticRecordIssue(gs.Deposit.DecodeErrors[id]))
+			fmt.Fprintf(b, "  Deposit %d: %s\n", id, diplomaticRecordIssue(table.DecodeErrors[id]))
 			continue
 		}
 		swap := "not recorded"

@@ -155,6 +155,9 @@ func Load(data []byte) (*GameState, error) {
 	if uniqueSavedFields(value, "spy_networks") != nil {
 		gs.SpyNetworks = ConnectionRecordTable[SpyNetwork]{Recorded: true, TableIssue: true}
 	}
+	if uniqueSavedFields(value, "market") != nil {
+		gs.MarketOrders = MarketOrders{Recorded: true, Duplicate: true}
+	}
 	if uniqueSavedFields(value, "first_contacts") != nil {
 		gs.FirstContacts = FirstContacts{}
 		gs.FirstContacts.TableIssue = true

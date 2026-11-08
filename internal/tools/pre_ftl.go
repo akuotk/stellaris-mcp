@@ -38,10 +38,10 @@ func renderPreFTL(data *gamestate.PreFTLState) *mcp.CallToolResult {
 	var b strings.Builder
 	fmt.Fprintln(&b, "=== Saved pre-FTL markers and observation fleets (save-wide) ===")
 	fmt.Fprintln(&b, "Country scope uses type=primitive or the presence of preftl_age. The saved age marker can coexist with other country types. Awareness scale and present visibility remain unverified.")
-	writePreFTLTableStatus(&b, "country", data.Countries)
-	writePreFTLTableStatus(&b, "planets.planet", data.Planets)
-	writePreFTLTableStatus(&b, "fleet", data.Fleets)
-	writePreFTLTableStatus(&b, "ships", data.Ships)
+	writeSavedTableStatus(&b, "country", data.Countries)
+	writeSavedTableStatus(&b, "planets.planet", data.Planets)
+	writeSavedTableStatus(&b, "fleet", data.Fleets)
+	writeSavedTableStatus(&b, "ships", data.Ships)
 	var countryIDs, observationIDs []int
 	for id, country := range data.Countries.Items {
 		if country.Relevant() {
@@ -62,7 +62,7 @@ func renderPreFTL(data *gamestate.PreFTLState) *mcp.CallToolResult {
 	for _, id := range countryIDs {
 		c := data.Countries.Items[id]
 		fmt.Fprintf(&b, "  Country %d (%s) type=%s preftl_age=%s awareness=%s old_awareness=%s\n", id, name(c.Name), councilSavedString(c.Type), councilSavedString(c.Age), councilSavedString(c.Awareness), councilSavedString(c.OldAwareness))
-		fmt.Fprintf(&b, "    capital=%s (saved reference)\n", preFTLRefText(c.Capital))
+		fmt.Fprintf(&b, "    capital=%s (saved reference)\n", optionalIntRefText(c.Capital))
 		if c.Capital.Value == nil {
 			continue
 		}
@@ -75,7 +75,7 @@ func renderPreFTL(data *gamestate.PreFTLState) *mcp.CallToolResult {
 			ref  gamestate.OptionalIntRef
 		}{{"owner", planet.Owner}, {"controller", planet.Controller}} {
 			if field.ref.Value != nil {
-				fmt.Fprintf(&b, "    Planet %s numeric ID %s the country ID\n", field.name, preFTLIDComparison(*field.ref.Value, id))
+				fmt.Fprintf(&b, "    Planet %s numeric ID %s the country ID\n", field.name, compareSavedIDs(*field.ref.Value, id))
 			}
 		}
 	}
@@ -112,15 +112,6 @@ func renderPreFTL(data *gamestate.PreFTLState) *mcp.CallToolResult {
 	return mcp.NewToolResultText(b.String())
 }
 
-func writePreFTLTableStatus[T any](b *strings.Builder, label string, table gamestate.ConnectionRecordTable[T]) {
-	if !table.Recorded {
-		fmt.Fprintf(b, "%s table not recorded\n", label)
-	}
-	if table.TableIssue || len(table.DecodeErrors) > 0 {
-		fmt.Fprintf(b, "%s table incomplete, unsupported or duplicate. Affected records=%d. Use raw tree/byte tools.\n", label, len(table.DecodeErrors))
-	}
-}
-
 func writePreFTLPlanet(b *strings.Builder, data *gamestate.PreFTLState, label string, id int) (gamestate.PreFTLPlanet, bool) {
 	planet, found := data.Planets.Items[id]
 	if !found {
@@ -128,7 +119,7 @@ func writePreFTLPlanet(b *strings.Builder, data *gamestate.PreFTLState, label st
 		fmt.Fprintf(b, "    %s planet ID candidate %d (%s)\n", label, id, preFTLUnavailable(unsupported))
 		return planet, false
 	}
-	fmt.Fprintf(b, "    %s planet ID candidate %d (%s) owner=%s controller=%s shipclass_orbital_station=%s\n", label, id, name(planet.Name), preFTLRefText(planet.Owner), preFTLRefText(planet.Controller), preFTLRefText(planet.OrbitalStation))
+	fmt.Fprintf(b, "    %s planet ID candidate %d (%s) owner=%s controller=%s shipclass_orbital_station=%s\n", label, id, name(planet.Name), optionalIntRefText(planet.Owner), optionalIntRefText(planet.Controller), optionalIntRefText(planet.OrbitalStation))
 	if station := planet.OrbitalStation.Value; station != nil {
 		if _, found := data.Fleets.Items[*station]; !found {
 			_, unsupported := data.Fleets.DecodeErrors[*station]
@@ -161,7 +152,7 @@ func writeObservationFleet(b *strings.Builder, data *gamestate.PreFTLState, id i
 	if len(planetRefs) > 1 {
 		fmt.Fprintln(b, "    Ambiguous planet reverse references")
 	}
-	fmt.Fprintf(b, "    movement_manager.coordinate.origin=%s orbit.orbitable.planet=%s (saved fields)\n", preFTLRefText(fleet.Origin), preFTLRefText(fleet.OrbitPlanet))
+	fmt.Fprintf(b, "    movement_manager.coordinate.origin=%s orbit.orbitable.planet=%s (saved fields)\n", optionalIntRefText(fleet.Origin), optionalIntRefText(fleet.OrbitPlanet))
 	if fleet.OrbitPlanet.Unsupported && fleet.OrbitableSaved {
 		writeSavedValue(b, "    Saved orbitable", fleet.Orbitable, 0)
 	}
@@ -184,7 +175,7 @@ func writeObservationFleet(b *strings.Builder, data *gamestate.PreFTLState, id i
 					fmt.Fprintf(b, "    Orbit planet owner country ID candidate %d (%s)\n", ownerID, preFTLUnavailable(unsupported))
 				}
 				if len(owners) == 1 {
-					fmt.Fprintf(b, "    Planet owner ID %s the country ID with the saved owned_fleets reference\n", preFTLIDComparison(ownerID, owners[0]))
+					fmt.Fprintf(b, "    Planet owner ID %s the country ID with the saved owned_fleets reference\n", compareSavedIDs(ownerID, owners[0]))
 				}
 			}
 		}
@@ -215,18 +206,11 @@ func writeObservationShips(b *strings.Builder, data *gamestate.PreFTLState, flee
 		case !found:
 			fmt.Fprintf(b, " (%s)\n", preFTLUnavailable(unsupported))
 		case ship.Fleet.Value == nil:
-			fmt.Fprintf(b, " ship.fleet=%s\n", preFTLRefText(ship.Fleet))
+			fmt.Fprintf(b, " ship.fleet=%s\n", optionalIntRefText(ship.Fleet))
 		default:
-			fmt.Fprintf(b, " ship.fleet=%d (%s the saved fleet ID)\n", *ship.Fleet.Value, preFTLIDComparison(*ship.Fleet.Value, fleetID))
+			fmt.Fprintf(b, " ship.fleet=%d (%s the saved fleet ID)\n", *ship.Fleet.Value, compareSavedIDs(*ship.Fleet.Value, fleetID))
 		}
 	}
-}
-
-func preFTLRefText(ref gamestate.OptionalIntRef) string {
-	if ref.Unsupported {
-		return "unsupported or duplicate"
-	}
-	return armyInt(ref.Value)
 }
 
 func preFTLUnavailable(unsupported bool) string {
@@ -234,11 +218,4 @@ func preFTLUnavailable(unsupported bool) string {
 		return "record unsupported or duplicate"
 	}
 	return "record unavailable"
-}
-
-func preFTLIDComparison(a, b int) string {
-	if a == b {
-		return "agrees with"
-	}
-	return "differs from"
 }

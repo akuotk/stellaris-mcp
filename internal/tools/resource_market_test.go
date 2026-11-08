@@ -43,7 +43,7 @@ func TestResourceMarketMissingEmptyUnsupportedOutput(t *testing.T) {
 		{`country={0={modules={standard_economy_module={}}}} market={monthly_trades={}}`, "resources not recorded", "  Empty"},
 		{`country={0={modules={standard_economy_module={resources={}}}}} market={monthly_trades={{trade_data={country=1}}}}`, "  Empty", "No matching decoded entries"},
 		{`country={0={modules=none}} market=none`, "Unsupported modules shape", "Unsupported market/order shape"},
-		{`country={0={modules={standard_economy_module={resources={}} standard_economy_module={resources={}}}}} market={monthly_trades={} monthly_trades={}}`, "Unsupported modules shape", "Unsupported market/order shape"},
+		{`country={0={modules={standard_economy_module={resources={}} standard_economy_module={resources={}}}}} market={monthly_trades={} monthly_trades={}}`, "Unsupported modules shape", "Duplicate monthly_trades fields"},
 		{`country={0={modules={standard_economy_module={resources={} resources={}}}}} market={monthly_trades={{trade_data={country=0} trade_data={country=1}}}}`, "Unsupported modules shape", "Unsupported market/order shape"},
 		{`country={0={modules={standard_economy_module={resources=none}}}} market={monthly_trades={{trade_data={country=invalid}}}}`, "Unsupported resource entries", "Unsupported market/order shape"},
 	} {
@@ -55,6 +55,45 @@ func TestResourceMarketMissingEmptyUnsupportedOutput(t *testing.T) {
 		text := resultText(renderResourceMarket(gs, 0, &c))
 		if !strings.Contains(text, item.economy) || !strings.Contains(text, item.market) {
 			t.Fatalf("missing collection state in %s", text)
+		}
+	}
+}
+
+func TestResourceMarketLedgerRowsKeepAdjacencyAndRawValues(t *testing.T) {
+	oldLoc := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = oldLoc })
+	data := []byte(`player={{country=0}} country={0={} 1={}} market={
+	resources_bought={amount={orphan} country=0 unknown=yes amount={separated} country=1 amount={foreign_amount} country=0 amount={00.0 -0.000} country=0 amount={{unknown=yes}} country=unknown amount={unknown_country_amount}}
+	resources_sold={} resources_sold={country=0 amount={second_table}}
+	internal_market_fluctuations={country=0 resources={energy=0 energy=00.000}}
+	galactic_market_resources={0 9} fluctuations={00.000} fluctuations={unknown}}`)
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", data}})
+	result, err := handleResourceMarket(context.Background(), rawRequest(nil))
+	if err != nil || result.IsError {
+		t.Fatalf("get_resource_market failed: %v", err)
+	}
+	out := resultText(result)
+	for _, want := range []string{
+		"market.resources_bought (saved order, matching country)",
+		"Payloads without an immediately preceding country: 2",
+		"Row 0 country=0",
+		"Adjacent payload not recorded.",
+		`Amounts in saved order: ["00.0" "-0.000"]`,
+		"Duplicate saved country rows: 3",
+		"Unsupported payload shape",
+		"Rows with unsupported country fields: 1",
+		"market.resources_sold (saved order, matching country)\n  Duplicate saved fields",
+		`Field 1 key="energy" [duplicate saved key]: "00.000"`,
+		"market.fluctuations [duplicate saved key]",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in synthetic output: %s", want, out)
+		}
+	}
+	for _, bad := range []string{"foreign_amount", "unknown_country_amount", "second_table", `"separated"`, `"orphan"`} {
+		if strings.Contains(out, bad) {
+			t.Errorf("unscoped payload %q leaked into selected country", bad)
 		}
 	}
 }
