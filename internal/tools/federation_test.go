@@ -61,3 +61,37 @@ func TestFederationOutputEmptyTable(t *testing.T) {
 		t.Fatal(b.String())
 	}
 }
+
+func TestFederationReciprocalReferencesAndMissingRecords(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`country={0={federation=0} 1={associated_federation=9} 2={}} federation={0={members={0 0 2 99} associates={1} federation_progression={envoy={0 9}}}} leaders={0={location={type=federation id=0}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	writeFederations(&b, gs)
+	for _, want := range []string{"member country 0: reciprocal saved IDs agree", "member country 0: duplicate saved reference", "member country 2: reverse reference not recorded", "member country 99: record unavailable", "associate country 1: reverse federation ID 9 differs", "Envoy 0: reciprocal saved federation location agrees", "Envoy 9: leader record unavailable"} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("missing %q in %s", want, b.String())
+		}
+	}
+}
+
+func TestFederationInvalidProgressAndDuplicateLeaderRemainVisible(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`federation={0={name={key="Preserved"} leader=0 leader=1 federation_progression=bad}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	writeFederations(&b, gs)
+	for _, want := range []string{"ID 0: Preserved", "Leader: unsupported or duplicate", "federation_progression unsupported or duplicate"} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("missing %q in %s", want, b.String())
+		}
+	}
+}

@@ -4,6 +4,8 @@ This fork adds preliminary support for Stellaris 4.5 colony and population recor
 
 `get_neighbors` reports saved contact and strength values, with a derived military ratio where both inputs permit it. It does not assign Stellaris UI strength categories. Missing country and fleet references are reported rather than treated as ID zero.
 
+With `neighbor_id`, `get_neighbors` displays both saved directions independently, including trust, opinion modifiers and truce fields. Differences between the two records remain visible; timing and modifier semantics are not inferred.
+
 `get_empire_overview` distinguishes missing population, fleet size, naval capacity, starbase capacity and empire size from zero. Its planet count covers decoded owned planet records with colony indicators; non-planet carriers are excluded.
 
 The military-class total only includes fleets whose `ship_class` is `shipclass_military`. Ship hull, shield and armor values preserve missing versus zero and are shown in saved precision. Ship designs can have multiple sections and growth stages; fleet detail lists each saved design stage without claiming which stage the ship currently uses. Missing fleet and ship references are reported, and military-class totals are labeled incomplete when fleet records are missing. Spy network power is reported as a raw save value; infiltration conversion and operation availability are not established.
@@ -21,6 +23,8 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 `get_debris` exposes save-wide debris records and special project ID candidates, including debris without a project reference. Coordinates, components, resources and country fields are shown as saved; matching IDs do not establish ownership, visibility or availability. Deep or mixed payloads remain accessible through the raw tools.
 
 `get_federations` and `get_notifications` expose indexed federation records, including members, leadership, laws and saved progression values. Cohesion and experience are reported as saved rather than converted into UI percentages.
+
+Federation country and envoy references are checked against available reverse references. `get_galactic_community` exposes saved voting rows and resolution references; voting codes and present Senate state remain unverified.
 
 `list_save_games` lists local saves and their path-based IDs. Pass a `save_id` to an analysis or raw exploration tool to select a listed save, or omit it for the newest. For country-specific tools, an omitted `country_id` selects the sole recorded player; multiplayer or absent player data requires an explicit ID. `inspect_save_archive`, `read_save_tree`, `search_save_tree` and `read_save_scalar` navigate entries using positional paths and a required archive revision. Optional page-context tokens bind byte, tree, scalar and search continuations to their source and operation; a nonzero offset without one is flagged unverified to retain random-access and older client compatibility. Directory symlinks are not traversed. The semantic tree preserves ordered mixed and duplicate entries plus original byte offsets, but normalizes token text and may not represent every possible Clausewitz syntax. `read_save_bytes` returns bounded base64-encoded raw bytes from ZIP entries or the ZIP container itself, including syntax the parser does not understand. These tools read locally and do not make network requests; clients receive requested data and may have their own data-handling behavior. Do not upload saves to external services.
 

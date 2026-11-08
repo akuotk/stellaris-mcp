@@ -1,17 +1,55 @@
 package gamestate
 
+import "github.com/bmassemin/stellaris-mcp/internal/clausewitz"
+
 // Federations are stored as an ID-indexed table, including ID zero.
 type Federation struct {
-	Name                  LocalizedName         `clausewitz:"name"`
-	Leader                *int                  `clausewitz:"leader"`
-	Members               []int                 `clausewitz:"members"`
-	Associates            []int                 `clausewitz:"associates"`
-	StartDate             string                `clausewitz:"start_date"`
-	FederationProgression FederationProgression `clausewitz:"federation_progression"`
-	ShipDesignCollection  struct {
+	Name                   LocalizedName         `clausewitz:"name"`
+	Leader                 *int                  `clausewitz:"-"`
+	LeaderRef              OptionalIntRef        `clausewitz:"-"`
+	Members                []int                 `clausewitz:"-"`
+	MemberRefs             OptionalIntList       `clausewitz:"-"`
+	Associates             []int                 `clausewitz:"-"`
+	AssociateRefs          OptionalIntList       `clausewitz:"-"`
+	StartDate              string                `clausewitz:"start_date"`
+	FederationProgression  FederationProgression `clausewitz:"federation_progression"`
+	ProgressionUnsupported bool                  `clausewitz:"-"`
+	ShipDesignCollection   struct {
 		ShipDesign []int `clausewitz:"ship_design"`
 	} `clausewitz:"ship_design_collection"`
 	ProposedLawVotesCooldowns []FederationLawCooldown `clausewitz:"proposed_law_votes_cooldowns"`
+}
+
+func (f *Federation) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields Federation
+	var decoded fields
+	if !value.IsObject() {
+		return clausewitz.DecodeValue(value, &decoded)
+	}
+	var rest clausewitz.Object
+	for _, pair := range value.Object.Pairs {
+		if pair.Key != "federation_progression" {
+			rest.Pairs = append(rest.Pairs, pair)
+		}
+	}
+	if err := clausewitz.DecodeValue(clausewitz.Value{Object: &rest}, &decoded); err != nil {
+		return err
+	}
+	*f = Federation(decoded)
+	f.LeaderRef = savedPathInt(value, "leader")
+	f.Leader = f.LeaderRef.Value
+	f.MemberRefs, f.AssociateRefs = communityIntList(value, "members"), communityIntList(value, "associates")
+	f.Members, f.Associates = f.MemberRefs.Values, f.AssociateRefs.Values
+	progression, recorded, unsupported := savedFieldPath(value, "federation_progression")
+	if unsupported || (recorded && clausewitz.DecodeValue(progression, &f.FederationProgression) != nil) {
+		f.FederationProgression = FederationProgression{}
+		f.ProgressionUnsupported = true
+	} else {
+		p := &f.FederationProgression
+		p.EnvoyRefs = communityIntList(value, "federation_progression", "envoy")
+		p.Envoy = p.EnvoyRefs.Values
+	}
+	return nil
 }
 
 type FederationProgression struct {
@@ -22,7 +60,8 @@ type FederationProgression struct {
 	Levels         *int                               `clausewitz:"levels"`
 	Laws           map[string]string                  `clausewitz:"laws"`
 	ActionSettings map[string]FederationActionSetting `clausewitz:"action_settings"`
-	Envoy          []int                              `clausewitz:"envoy"`
+	Envoy          []int                              `clausewitz:"-"`
+	EnvoyRefs      OptionalIntList                    `clausewitz:"-"`
 	Perks          []FederationPerk                   `clausewitz:"perks"`
 	TimedModifier  struct {
 		Items []FederationModifier `clausewitz:"items"`

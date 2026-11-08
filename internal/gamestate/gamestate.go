@@ -34,7 +34,7 @@ type GameState struct {
 	Megastructures      ConnectionRecordTable[Megastructure]        `clausewitz:"megastructures"`
 	Systems             map[int]GalacticSystem                      `clausewitz:"galactic_object"`
 	Community           *GalacticCommunity                          `clausewitz:"galactic_community"`
-	Resolutions         map[int]Resolution                          `clausewitz:"resolution"`
+	Resolutions         ConnectionRecordTable[Resolution]           `clausewitz:"resolution"`
 	Version             string                                      `clausewitz:"version"`
 	Name                string                                      `clausewitz:"name"`
 	Date                string                                      `clausewitz:"date"`
@@ -53,7 +53,8 @@ type GameState struct {
 	Leaders             map[int]Leader                              `clausewitz:"-"`
 	LeaderRecords       ConnectionRecordTable[Leader]               `clausewitz:"leaders"`
 	War                 ConnectionRecordTable[War]                  `clausewitz:"war"`
-	Federation          map[int]Federation                          `clausewitz:"federation"`
+	Federation          map[int]Federation                          `clausewitz:"-"`
+	FederationRecords   ConnectionRecordTable[Federation]           `clausewitz:"federation"`
 }
 
 type PopJob struct {
@@ -131,6 +132,16 @@ func Load(data []byte) (*GameState, error) {
 	if err := clausewitz.DecodeValue(value, &gs); err != nil {
 		return nil, fmt.Errorf("parse gamestate: %w", err)
 	}
+	if uniqueSavedFields(value, "galactic_community") != nil {
+		gs.Community = &GalacticCommunity{Unsupported: true}
+	}
+	if uniqueSavedFields(value, "resolution") != nil {
+		gs.Resolutions = ConnectionRecordTable[Resolution]{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "federation") != nil {
+		gs.FederationRecords = ConnectionRecordTable[Federation]{Recorded: true, TableIssue: true}
+	}
+	gs.Federation = gs.FederationRecords.Items
 	if uniqueSavedFields(value, "leaders") != nil {
 		gs.LeaderRecords = ConnectionRecordTable[Leader]{Recorded: true, TableIssue: true}
 	}

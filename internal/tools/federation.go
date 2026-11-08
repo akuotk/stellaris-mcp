@@ -46,6 +46,9 @@ func handleFederations(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 
 func writeFederations(b *strings.Builder, gs *gamestate.GameState) {
 	fmt.Fprint(b, "\nFederations:\n")
+	if gs.FederationRecords.TableIssue {
+		fmt.Fprintln(b, "  Federation table unsupported or duplicate. Use raw tools.")
+	}
 	if len(gs.Federation) == 0 {
 		fmt.Fprintln(b, "  No federation records.")
 		return
@@ -59,12 +62,70 @@ func writeFederations(b *strings.Builder, gs *gamestate.GameState) {
 		f := gs.Federation[id]
 		p := f.FederationProgression
 		fmt.Fprintf(b, "  - ID %d: %s, type=%s\n", id, name(f.Name), p.FederationType)
-		if f.Leader == nil {
+		if f.LeaderRef.Unsupported {
+			fmt.Fprintln(b, "    Leader: unsupported or duplicate saved reference. Use raw tools.")
+		} else if f.Leader == nil {
 			fmt.Fprintln(b, "    Leader: not recorded")
 		} else {
 			fmt.Fprintf(b, "    Leader: %s (ID %d)\n", countryName(gs, *f.Leader), *f.Leader)
 		}
 		fmt.Fprintf(b, "    Members: %s\n    Associates: %s\n", federationCountries(gs, f.Members), federationCountries(gs, f.Associates))
+		for _, group := range []struct {
+			label     string
+			refs      gamestate.OptionalIntList
+			associate bool
+		}{{"member", f.MemberRefs, false}, {"associate", f.AssociateRefs, true}} {
+			if group.refs.Unsupported {
+				fmt.Fprintf(b, "    %s references unsupported or duplicate. Use raw tools.\n", group.label)
+				continue
+			}
+			seen := map[int]bool{}
+			for _, cid := range group.refs.Values {
+				if seen[cid] {
+					fmt.Fprintf(b, "    %s country %d: duplicate saved reference\n", group.label, cid)
+					continue
+				}
+				seen[cid] = true
+				c, ok := gs.Country[cid]
+				if !ok {
+					fmt.Fprintf(b, "    %s country %d: record unavailable\n", group.label, cid)
+					continue
+				}
+				ref := c.FederationRef
+				if group.associate {
+					ref = c.AssociatedFederationRef
+				}
+				switch {
+				case ref.Unsupported:
+					fmt.Fprintf(b, "    %s country %d: reverse reference unsupported or duplicate\n", group.label, cid)
+				case ref.Value == nil:
+					fmt.Fprintf(b, "    %s country %d: reverse reference not recorded\n", group.label, cid)
+				case *ref.Value == id:
+					fmt.Fprintf(b, "    %s country %d: reciprocal saved IDs agree\n", group.label, cid)
+				default:
+					fmt.Fprintf(b, "    %s country %d: reverse federation ID %d differs\n", group.label, cid, *ref.Value)
+				}
+			}
+		}
+		if f.ProgressionUnsupported {
+			fmt.Fprintln(b, "    federation_progression unsupported or duplicate. Use raw tools.")
+		}
+		if p.EnvoyRefs.Unsupported {
+			fmt.Fprintln(b, "    envoy references unsupported or duplicate. Use raw tools.")
+		}
+		for _, envoyID := range p.EnvoyRefs.Values {
+			leader, ok := gs.Leaders[envoyID]
+			switch {
+			case !ok:
+				fmt.Fprintf(b, "    Envoy %d: leader record unavailable\n", envoyID)
+			case leader.LocationAmbiguous || leader.Location.IDRaw == nil:
+				fmt.Fprintf(b, "    Envoy %d: location reference unresolved\n", envoyID)
+			case leader.Location.Type == "federation" && *leader.Location.IDRaw == id:
+				fmt.Fprintf(b, "    Envoy %d: reciprocal saved federation location agrees\n", envoyID)
+			default:
+				fmt.Fprintf(b, "    Envoy %d: saved location differs\n", envoyID)
+			}
+		}
 		if f.StartDate != "" {
 			fmt.Fprintf(b, "    Started: %s\n", f.StartDate)
 		}

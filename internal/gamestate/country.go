@@ -26,6 +26,8 @@ type Country struct {
 	OverlordRef                 OptionalIntRef              `clausewitz:"overlord"`
 	SubjectRefs                 OptionalIntList             `clausewitz:"subjects"`
 	SubjectDate                 OptionalString              `clausewitz:"subject_date"`
+	FederationRef               OptionalIntRef              `clausewitz:"federation"`
+	AssociatedFederationRef     OptionalIntRef              `clausewitz:"associated_federation"`
 	OwnedMegastructureRefs      OptionalIntList             `clausewitz:"owned_megastructures"`
 	TrackAllSituations          OptionalString              `clausewitz:"track_all_situations"`
 	FounderSpeciesRef           SpeciesRef                  `clausewitz:"founder_species_ref"`
@@ -123,6 +125,12 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	if uniqueSavedFields(value, "subject_date") != nil {
 		c.SubjectDate = OptionalString{Recorded: true, Unsupported: true}
 	}
+	if uniqueSavedFields(value, "federation") != nil {
+		c.FederationRef = OptionalIntRef{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "associated_federation") != nil {
+		c.AssociatedFederationRef = OptionalIntRef{Recorded: true, Unsupported: true}
+	}
 	if uniqueSavedFields(value, "owned_megastructures") != nil {
 		c.OwnedMegastructureRefs = OptionalIntList{Recorded: true, Unsupported: true}
 	}
@@ -152,6 +160,9 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	if uniqueSavedFields(value, "modules") != nil {
 		c.FactionModules = CountryFactionModules{Recorded: true, Duplicate: true}
+	}
+	if uniqueSavedFields(value, "relations_manager") != nil {
+		c.RelationsManager = RelationsManager{Recorded: true, Duplicate: true}
 	}
 	return nil
 }
@@ -368,21 +379,6 @@ func (m *BudgetMonth) UnmarshalClausewitz(value clausewitz.Value) error {
 }
 
 type Resources = map[string]float64
-
-type RelationsManager struct {
-	Relation []Relation `clausewitz:"relation"`
-}
-
-type Relation struct {
-	CountryID          *int     `clausewitz:"country"`
-	ContactRaw         *string  `clausewitz:"contact"`
-	TrustRaw           *float64 `clausewitz:"trust"`
-	RelationCurrentRaw *float64 `clausewitz:"relation_current"`
-	Country            int      `clausewitz:"country"`
-	Contact            bool     `clausewitz:"contact"`
-	Trust              float64  `clausewitz:"trust"`
-	RelationCurrent    float64  `clausewitz:"relation_current"`
-}
 
 type FleetsManager struct {
 	OwnedFleets        []OwnedFleet `clausewitz:"owned_fleets"`
