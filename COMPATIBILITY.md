@@ -105,3 +105,5 @@ Duplicate or malformed colony carrier records are reported as unsupported and ar
 Limitations: non-planet carriers such as Nomad Arkships are not yet resolved as colonies; complex name templates, agreement terms and espionage require further work. Political faction support and approval are shown as saved, without unit conversion. A missing naval capacity is reported as unavailable. Do not assume every value is complete or that this covers all versions, DLCs, or modded saves.
 
 Run `go test ./...` for synthetic tests. To additionally test a local save without modifying it, set `STELLARIS_TEST_SAVE` to an absolute `.sav` path before running `go test -v ./internal/gamestate`. Never commit or upload save files or personal save data.
+
+`get_player_events` displays saved root player-event and selection-history records in order, with page contexts bound to the save revision. Country ID matches are candidates; current UI state, event availability, ownership and selection semantics remain unverified. Deep or mixed data requires raw tools.
