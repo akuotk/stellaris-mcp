@@ -44,6 +44,8 @@ Federation country and envoy references are checked against available reverse re
 
 `get_system_contents` displays saved star, body, moon and deposit records and checks available body-origin and reciprocal moon references. It also displays nebula records with matching saved `galactic_object` values as candidates; nebula membership and visibility are unverified. Orbital values, coordinate units, current visibility and resource yields are not inferred.
 
+`get_galaxy_metadata` displays root `galaxy` records and duplicate fields in saved order. Their status as configuration or current state, units and applicability are not inferred. Deep or mixed data remains available through the raw tools.
+
 `get_sectors` reports saved sector ownership, systems and capital references, checks available back-references, and flags incomplete or conflicting data. An ID match without a verified reverse link remains a candidate.
 
 `get_notifications` lists saved war records, including those with end dates; it does not infer whether a war is active from a missing date.
