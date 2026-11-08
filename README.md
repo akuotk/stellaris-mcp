@@ -38,7 +38,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_species` | Species identities, traits and saved population references on owned planets |
 | `get_neighbors` | Known empires: opinion, trust, relative power comparison |
 | `get_traditions_ascension` | Adopted traditions and ascension perks |
-| `get_espionage` | Spy networks: infiltration, spymasters, available operations |
+| `get_espionage` | Saved spy networks, country and leader references, and timed modifiers |
 | `get_notifications` | Wars, federations, players, game status |
 | `get_wars` | Saved war records and paginated battle history |
 | `get_empire_assets` | Recorded agreements, subject references, situations and megastructures |

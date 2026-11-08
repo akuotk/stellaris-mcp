@@ -67,6 +67,7 @@ func TestArchaeologyLocalCatalogCoverage(t *testing.T) {
 	}
 	records, unsupported, planetCandidates, fleetCandidates, knownLastCountries, visibleRefs, knownVisibleRefs, completionRows, eventRows, logRows := 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	var fleetOrders, reciprocalFleetOrders int
+	eventRefs := map[string]int{}
 	for index, file := range files {
 		gs, err := LoadFromZip(file.Path)
 		if err != nil {
@@ -85,7 +86,7 @@ func TestArchaeologyLocalCatalogCoverage(t *testing.T) {
 				}
 			}
 		}
-		for _, site := range gs.ArchaeologySites.Items {
+		for siteID, site := range gs.ArchaeologySites.Items {
 			if site.Location.ID != nil {
 				if _, ok := gs.Planets.Planet[*site.Location.ID]; ok {
 					planetCandidates++
@@ -110,10 +111,39 @@ func TestArchaeologyLocalCatalogCoverage(t *testing.T) {
 			completionRows += len(site.Completed)
 			eventRows += len(site.Events)
 			logRows += len(site.Log)
+			for _, event := range site.Events {
+				if event.Owner != nil {
+					id := *event.Owner
+					eventRefs["owner_refs"]++
+					if _, ok := gs.Country[id]; ok {
+						eventRefs["owner_id_candidates"]++
+					}
+					if site.LastExcavatorCountry != nil && *site.LastExcavatorCountry == id {
+						eventRefs["owner_agrees_with_last_excavator"]++
+					}
+				}
+				if event.Fleet != nil {
+					id := *event.Fleet
+					eventRefs["fleet_refs"]++
+					if _, ok := gs.Fleet[id]; ok {
+						eventRefs["fleet_id_candidates"]++
+					}
+				}
+				if scope := event.Scope; scope != nil && !scope.Unsupported {
+					eventRefs["scopes"]++
+					if scope.ID.Value != nil && event.Fleet != nil && *scope.ID.Value == *event.Fleet {
+						eventRefs["scope_id_agrees_with_fleet"]++
+					}
+					if scope.FromID.Value != nil && *scope.FromID.Value == siteID {
+						eventRefs["scope_from_id_agrees_with_site"]++
+					}
+				}
+			}
 		}
 	}
 	t.Logf("local archaeology coverage: saves=%d records=%d unsupported=%d possible_planet_matches=%d possible_fleet_matches=%d known_last_country_refs=%d visible_country_refs=%d known_visible_country_refs=%d completed_rows=%d event_rows=%d log_rows=%d", len(files), records, unsupported, planetCandidates, fleetCandidates, knownLastCountries, visibleRefs, knownVisibleRefs, completionRows, eventRows, logRows)
 	t.Logf("archaeology fleet order coverage: orders=%d reciprocal=%d", fleetOrders, reciprocalFleetOrders)
+	t.Logf("archaeology event reference coverage: %v", eventRefs)
 	if unsupported > 0 {
 		t.Fatal("local archaeology shape needs additional support")
 	}

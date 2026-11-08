@@ -1,11 +1,65 @@
 package tools
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 )
+
+func TestArchaeologyEventReferencesKeepRawScopeAndSavedOrder(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`player={{country=0}} country={0={adjective={key="Selected country"}} 1={adjective={key="Other country"}}}
+	 fleet={0={name={key="Saved fleet"}}}
+	 archaeological_sites={sites={
+	 0={visible_to={0} last_excavator_country=0 events={
+	 {event_id=one owner=1 fleet=99 scope={id=98 type=123 from={id=1 type=234} random=0}}
+	 {event_id=two owner=0 owner=1 fleet=0 fleet=99 scope={id=0 id=99 from={id=0} from={id=1}}}
+	 {event_id=three owner=5 fleet=0 scope={id=0 from={id=0} nested={key=yes anonymous}}}
+	 {event_id=four owner=0 fleet=0 scope={id=0 type=9 from={id=0 type=8}}}
+	 {event_id=five}
+	 } log={{title=retained}}}
+	 1=none 01={visible_to={0} events={{owner=0 fleet=0 scope={id=0 from={id=1}}}}}
+	 2={last_excavator_country=0 last_excavator_country=1 visible_to={1}}
+	 3={visible_to={0} events={{owner=0}} events={{owner=1}} log={{title=kept}}}
+	 }}`)}})
+	for _, tc := range []struct {
+		id    int
+		want  []string
+		avoid string
+	}{
+		{0, []string{
+			"Event owner country ID candidate 1 (Other country)", "Event owner ID differs from the selected country ID", "Event owner ID differs from saved last_excavator_country", "Event fleet ID candidate 99 (record unavailable)",
+			`key="type": "123"`, `key="type": "234"`, `key="random": "0"`, "scope.id numeric ID differs from saved event fleet ID", "scope.from.id numeric ID differs from saved site ID",
+			"owner=unsupported or duplicate fleet=unsupported or duplicate", "scope.id=unsupported or duplicate scope.from.id=unsupported or duplicate", "scope: unsupported or duplicate. Use raw tree/byte tools.", "Event owner country ID candidate 5 (record unavailable)",
+			"Event owner country ID candidate 0 (Selected country)", "Event owner ID agrees with saved last_excavator_country", "Event fleet ID candidate 0 (Saved fleet)", "scope.id numeric ID agrees with saved event fleet ID", "scope.from.id numeric ID agrees with saved site ID",
+			"scope: not recorded", "title=retained",
+		}, "Event fleet ID candidate 98"},
+		{1, []string{"Event references unresolved because the saved site table or ID is incomplete or ambiguous", "Saved event payload"}, "Event fleet ID candidate"},
+		{3, []string{"events: unsupported or duplicate", "title=kept"}, "Event owner country ID candidate"},
+	} {
+		result, err := handleArchaeology(context.Background(), rawRequest(map[string]any{"site_id": tc.id}))
+		if err != nil || result.IsError {
+			t.Fatal("normal archaeology handler failed")
+		}
+		text := resultText(result)
+		for _, want := range tc.want {
+			if !strings.Contains(text, want) {
+				t.Fatalf("missing %q in %s", want, text)
+			}
+		}
+		if strings.Contains(text, tc.avoid) {
+			t.Fatalf("unexpected %q in %s", tc.avoid, text)
+		}
+	}
+	result, err := handleArchaeology(context.Background(), rawRequest(map[string]any{"site_id": 2}))
+	if err != nil || !result.IsError {
+		t.Fatal("duplicate last-excavator fields widened the selected country scope")
+	}
+}
 
 func TestArchaeologyScopeCandidatesAndRawHistory(t *testing.T) {
 	old := loc

@@ -76,7 +76,7 @@ func TestEspionageOperationsLocalCatalogCoverage(t *testing.T) {
 				continue
 			}
 			networkRefs++
-			network, ok := gs.SpyNetworks[*op.SpyNetwork]
+			network, ok := gs.SpyNetworks.Items[*op.SpyNetwork]
 			if !ok {
 				continue
 			}

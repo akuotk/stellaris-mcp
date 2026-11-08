@@ -28,6 +28,8 @@ type Country struct {
 	SubjectDate                 OptionalString              `clausewitz:"subject_date"`
 	OwnedMegastructureRefs      OptionalIntList             `clausewitz:"owned_megastructures"`
 	TrackAllSituations          OptionalString              `clausewitz:"track_all_situations"`
+	SpyNetworkRefs              CountrySpyNetworkRefs       `clausewitz:"espionage_manager"`
+	FirstContactRefs            CountryFirstContactRefs     `clausewitz:"first_contact"`
 	SectorRefs                  CountrySectorRefs           `clausewitz:"sectors"`
 	VictoryRankRaw              *int                        `clausewitz:"victory_rank"`
 	EconomyModules              CountryEconomyModules       `clausewitz:"modules"`
@@ -108,6 +110,12 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	if uniqueSavedFields(value, "track_all_situations") != nil {
 		c.TrackAllSituations = OptionalString{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "espionage_manager") != nil {
+		c.SpyNetworkRefs.CountryDiplomaticRefs = duplicateCountryDiplomaticRefs()
+	}
+	if uniqueSavedFields(value, "first_contact") != nil {
+		c.FirstContactRefs.CountryDiplomaticRefs = duplicateCountryDiplomaticRefs()
 	}
 	return nil
 }

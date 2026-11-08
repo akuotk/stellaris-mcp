@@ -1,16 +1,9 @@
 package gamestate
 
-import (
-	"fmt"
-	"strconv"
-
-	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
-)
+import "github.com/bmassemin/stellaris-mcp/internal/clausewitz"
 
 type FirstContacts struct {
-	Items        map[int]FirstContact
-	DecodeErrors map[int]string
-	TableIssue   bool
+	ConnectionRecordTable[FirstContact]
 }
 
 type FirstContact struct {
@@ -38,46 +31,24 @@ type FirstContactCompletion struct {
 }
 
 func (c *FirstContacts) UnmarshalClausewitz(value clausewitz.Value) error {
-	*c = FirstContacts{Items: map[int]FirstContact{}, DecodeErrors: map[int]string{}}
-	if !value.IsObject() {
+	*c = FirstContacts{}
+	if !value.IsObject() || uniqueSavedFields(value, "contacts") != nil {
 		c.TableIssue = true
 		return nil
 	}
-	found := false
-	for _, wrapper := range value.Object.Pairs {
-		if wrapper.Key != "contacts" {
-			continue
-		}
-		if found {
-			c.TableIssue = true
-		}
-		found = true
-		if !wrapper.Value.IsObject() {
-			c.TableIssue = true
-			continue
-		}
-		for _, pair := range wrapper.Value.Object.Pairs {
-			id, err := strconv.Atoi(pair.Key)
-			if err != nil {
-				c.TableIssue = true
-				continue
-			}
-			if pair.Value.IsScalar() && pair.Value.Scalar == "none" {
-				continue
-			}
-			var contact FirstContact
-			err = clausewitz.DecodeValue(pair.Value, &contact)
-			if _, duplicate := c.Items[id]; duplicate {
-				err = fmt.Errorf("duplicate first contact ID")
-			}
-			c.Items[id] = contact
-			if err != nil {
-				c.DecodeErrors[id] = err.Error()
-			}
+	for _, pair := range value.Object.Pairs {
+		if pair.Key == "contacts" {
+			return c.ConnectionRecordTable.UnmarshalClausewitz(pair.Value)
 		}
 	}
-	if !found && len(value.Object.Pairs) > 0 {
-		c.TableIssue = true
-	}
+	c.TableIssue = len(value.Object.Pairs) != 0
 	return nil
+}
+
+func (c *FirstContact) UnmarshalClausewitz(value clausewitz.Value) error {
+	if err := uniqueSavedFields(value, "owner", "country", "name", "location", "leader", "date", "last_roll", "days_left", "difficulty", "clues", "stage", "status", "event", "flags"); err != nil {
+		return err
+	}
+	type fields FirstContact
+	return clausewitz.DecodeValue(value, (*fields)(c))
 }

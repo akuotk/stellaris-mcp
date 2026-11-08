@@ -48,10 +48,13 @@ func renderEspionageOperations(gs *gamestate.GameState, countryID int, country *
 	if gs.EspionageOperations.TableIssue || len(gs.EspionageOperations.DecodeErrors) > 0 {
 		fmt.Fprintln(&b, "Operation decoding incomplete for some saved records; use raw tree/byte tools for complete data.")
 	}
+	if gs.SpyNetworks.TableIssue || len(gs.SpyNetworks.DecodeErrors) != 0 {
+		fmt.Fprintln(&b, "Spy network decoding incomplete. Use raw tree/byte tools for omitted network records.")
+	}
 	networks := map[int]bool{}
 	refs := map[int][]int{}
 	scoped := map[int]bool{}
-	for id, network := range gs.SpyNetworks {
+	for id, network := range gs.SpyNetworks.Items {
 		if (network.Owner != nil && *network.Owner == countryID) || (network.Target != nil && *network.Target == countryID) {
 			networks[id] = true
 			for _, operationID := range network.ActiveOperations {
@@ -103,7 +106,7 @@ func renderEspionageOperations(gs *gamestate.GameState, countryID int, country *
 		}
 		if operation.SpyNetwork == nil {
 			fmt.Fprintln(&b, "  Network reference: not recorded")
-		} else if network, exists := gs.SpyNetworks[*operation.SpyNetwork]; exists {
+		} else if network, exists := gs.SpyNetworks.Items[*operation.SpyNetwork]; exists {
 			fmt.Fprintf(&b, "  Network %d: owner=%s target=%s; active_operations membership: %s\n", *operation.SpyNetwork, armyInt(network.Owner), armyInt(network.Target), armyMembership(network.ActiveOperations, id))
 			if operation.Target.Type == "country" && operation.Target.ID != nil && network.Target != nil {
 				if *operation.Target.ID == *network.Target {

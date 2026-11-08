@@ -73,3 +73,38 @@ func TestFirstContactMissingValuesUnsupportedAndLeaderMismatch(t *testing.T) {
 		t.Fatal("unknown location namespace treated as verified")
 	}
 }
+
+func TestFirstContactCountryManagerRefsPreserveMissingAndDuplicate(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`country={0={first_contact={contacts={0 0 2 3 4 9}}} 1={first_contact={contacts={1 2}}} 2={first_contact={contacts={} contacts={0}}}}
+	first_contacts={contacts={0={owner=0} 1={owner=1 country=0} 2={owner=1 country=1} 3={owner=0} 3=none 4=unsupported 9=none}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := gs.Country[0]
+	text := resultText(renderFirstContacts(gs, 0, &c, nil))
+	for _, want := range []string{
+		"country.first_contact.contacts (saved order): [0 0 2 3 4 9]",
+		"Selected country.first_contact.contacts membership: 2 duplicate references",
+		"Saved owner country.first_contact.contacts membership: validated",
+		"Selected country's saved reference disagrees with first_contact.owner.",
+		"First contact 3: duplicate saved record ID or fields",
+		"First contact 4: referenced record has an unsupported saved shape",
+		"First contact 9: referenced record unavailable",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing %q in synthetic output: %s", want, text)
+		}
+	}
+	id := 9
+	result := renderFirstContacts(gs, 0, &c, &id)
+	if result.IsError || !strings.Contains(resultText(result), "First contact 9: referenced record unavailable") {
+		t.Fatal("a scoped but unavailable contact could not be inspected")
+	}
+	duplicate := gs.Country[2]
+	if text := resultText(renderFirstContacts(gs, 2, &duplicate, nil)); !strings.Contains(text, "country.first_contact.contacts has duplicate saved fields") {
+		t.Fatal("duplicate country contact list not reported")
+	}
+}

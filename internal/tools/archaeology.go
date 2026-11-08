@@ -13,7 +13,7 @@ import (
 )
 
 func registerArchaeology(s *server.MCPServer) {
-	s.AddTool(mcp.NewTool("get_archaeology", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("Read archaeological sites matching visible_to, last_excavator_country or saved completed-country entries. Shows raw location and fleet references, checks reciprocal excavation order IDs and lists remaining orders from the selected country's saved owned_fleets. site_id selects saved event/log details. Progress units, numeric location enums, phase and completion status are not inferred."), mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithNumber("country_id", mcp.Description("Country ID; omit for sole player")), mcp.WithNumber("site_id", mcp.Description("Matching archaeological site ID for full details; omit for summary"))), handleArchaeology)
+	s.AddTool(mcp.NewTool("get_archaeology", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false), mcp.WithDescription("Read archaeological sites matching visible_to, last_excavator_country or saved completed-country entries. Shows raw location and fleet references, checks reciprocal excavation order IDs and lists remaining orders from the selected country's saved owned_fleets. site_id selects saved event/log details, including event country and fleet ID candidates and raw scope fields. Progress units, numeric enums, phase and completion status remain unverified."), mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithNumber("country_id", mcp.Description("Country ID; omit for sole player")), mcp.WithNumber("site_id", mcp.Description("Matching archaeological site ID for full details; omit for summary"))), handleArchaeology)
 }
 
 func handleArchaeology(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -86,7 +86,8 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 	for _, id := range ids {
 		site := gs.ArchaeologySites.Items[id]
 		fmt.Fprintf(&b, "\nSite %d: type=%s index=%s days_left=%s; country references=%v\n", id, operationFlagText(site.Type), armyInt(site.Index), armyFloat(site.DaysLeft), reasons[id])
-		if _, bad := gs.ArchaeologySites.DecodeErrors[id]; bad {
+		_, siteDecodeError := gs.ArchaeologySites.DecodeErrors[id]
+		if siteDecodeError {
 			fmt.Fprintln(&b, "  Record decoding incomplete; displayed fields may be partial")
 		}
 		fmt.Fprintf(&b, "  Location (raw): type=%s id=%s\n", operationFlagText(site.Location.Type), armyInt(site.Location.ID))
@@ -97,7 +98,7 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 				fmt.Fprintln(&b, "    No planet ID match; numeric location type remains unclassified")
 			}
 		}
-		fmt.Fprintf(&b, "  last_excavator_country=%s excavator_fleet=%s\n", armyInt(site.LastExcavatorCountry), armyInt(site.ExcavatorFleet))
+		fmt.Fprintf(&b, "  last_excavator_country=%s excavator_fleet=%s\n", archaeologyRefText(gamestate.OptionalIntRef{Value: site.LastExcavatorCountry, Unsupported: site.LastExcavatorUnsupported}), armyInt(site.ExcavatorFleet))
 		if site.LastExcavatorCountry != nil {
 			if _, ok := gs.Country[*site.LastExcavatorCountry]; !ok {
 				fmt.Fprintln(&b, "    Last excavator country reference unresolved (sentinel/deleted-state meaning not inferred)")
@@ -107,7 +108,6 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 			fmt.Fprintln(&b, "    Duplicate excavator_fleet fields. Fleet candidate unresolved. Use raw tree/byte tools.")
 		} else if site.ExcavatorFleet != nil {
 			if fleet, ok := gs.Fleet[*site.ExcavatorFleet]; ok {
-				_, siteDecodeError := gs.ArchaeologySites.DecodeErrors[id]
 				writeExcavationOrderCandidate(&b, id, fleet, gs.ArchaeologySites.TableIssue || siteDecodeError)
 			} else {
 				fmt.Fprintln(&b, "    Excavator fleet reference unresolved (sentinel/deleted-state meaning not inferred)")
@@ -131,19 +131,15 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 		for index, entry := range site.Completed {
 			fmt.Fprintf(&b, "  completed entry %d: country=%s date=%s (saved record; global site completion not inferred)\n", index, armyInt(entry.Country), operationFlagText(entry.Date))
 		}
-		if site.Events == nil {
+		if site.EventsUnsupported {
+			fmt.Fprintln(&b, "  events: unsupported or duplicate. Use raw tree/byte tools.")
+		} else if site.Events == nil {
 			fmt.Fprintln(&b, "  events: not recorded")
 		} else if len(site.Events) == 0 {
 			fmt.Fprintln(&b, "  events: empty")
 		}
 		for index, event := range site.Events {
-			fmt.Fprintf(&b, "  event entry %d: event_id=%s expired=%s owner=%s fleet=%s index=%s player_event=%s\n", index, operationFlagText(event.EventID), operationFlagText(event.Expired), armyInt(event.Owner), armyInt(event.Fleet), armyInt(event.Index), operationFlagText(event.PlayerEvent))
-			fmt.Fprintf(&b, "    effect=%s picture=%s\n", operationFlagText(event.Effect), operationFlagText(event.Picture))
-			if event.Scope == nil {
-				fmt.Fprintln(&b, "    scope: not recorded")
-			} else {
-				fmt.Fprintf(&b, "    scope: preserved opaque object (%d ordered fields); use raw tree tools for scope data/meaning\n", len(event.Scope.Value.Object.Pairs))
-			}
+			writeArchaeologyEvent(&b, gs, id, countryID, index, site, event, gs.ArchaeologySites.HasAmbiguousID(id))
 		}
 		if site.Log == nil {
 			fmt.Fprintln(&b, "  log: not recorded")
@@ -164,6 +160,77 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 	}
 	writeRemainingExcavationOrders(&b, gs, country, reasons, selected)
 	return mcp.NewToolResultText(b.String())
+}
+
+func archaeologyRefText(ref gamestate.OptionalIntRef) string {
+	if ref.Unsupported {
+		return "unsupported or duplicate"
+	}
+	return armyInt(ref.Value)
+}
+
+func writeArchaeologyEvent(b *strings.Builder, gs *gamestate.GameState, siteID, countryID, position int, site gamestate.ArchaeologySite, event gamestate.SavedArchaeologyEvent, siteUnsupported bool) {
+	fmt.Fprintf(b, "  event entry %d: event_id=%s expired=%s owner=%s fleet=%s index=%s player_event=%s\n", position, operationFlagText(event.EventID), operationFlagText(event.Expired), archaeologyRefText(event.OwnerRef), archaeologyRefText(event.FleetRef), armyInt(event.Index), operationFlagText(event.PlayerEvent))
+	if event.Unsupported {
+		fmt.Fprintln(b, "    Event record shape unsupported. Use raw tree/byte tools.")
+		writeSavedValue(b, "Saved event payload", event.Value, 0)
+		return
+	}
+	if siteUnsupported {
+		fmt.Fprintln(b, "    Event references unresolved because the saved site table or ID is incomplete or ambiguous.")
+		writeSavedValue(b, "Saved event payload", event.Value, 0)
+		return
+	}
+	fmt.Fprintf(b, "    effect=%s picture=%s\n", operationFlagText(event.Effect), operationFlagText(event.Picture))
+	if event.Owner != nil {
+		id := *event.Owner
+		if _, ok := gs.Country[id]; ok {
+			fmt.Fprintf(b, "    Event owner country ID candidate %d (%s)\n", id, countryName(gs, id))
+		} else {
+			fmt.Fprintf(b, "    Event owner country ID candidate %d (record unavailable)\n", id)
+		}
+		if id != countryID {
+			fmt.Fprintln(b, "    Event owner ID differs from the selected country ID")
+		}
+		if site.LastExcavatorCountry != nil {
+			fmt.Fprintf(b, "    Event owner ID %s saved last_excavator_country\n", archaeologyIDComparison(id, *site.LastExcavatorCountry))
+		}
+	}
+	if event.Fleet != nil {
+		id := *event.Fleet
+		if fleet, ok := gs.Fleet[id]; ok {
+			fmt.Fprintf(b, "    Event fleet ID candidate %d (%s)\n", id, name(fleet.Name))
+		} else {
+			fmt.Fprintf(b, "    Event fleet ID candidate %d (record unavailable)\n", id)
+		}
+	}
+	scope := event.Scope
+	switch {
+	case scope == nil:
+		fmt.Fprintln(b, "    scope: not recorded")
+	case scope.Unsupported:
+		fmt.Fprintln(b, "    scope: unsupported or duplicate. Use raw tree/byte tools.")
+		writeSavedValue(b, "Saved event payload", event.Value, 0)
+	default:
+		fmt.Fprintf(b, "    scope: preserved opaque object (%d ordered fields). Scope type codes remain unclassified.\n", len(scope.Value.Object.Pairs))
+		writeSavedValue(b, "Saved event scope fields", scope.Value, 0)
+		if scope.ID.Unsupported || scope.FromID.Unsupported {
+			fmt.Fprintf(b, "    scope.id=%s scope.from.id=%s (saved references)\n", archaeologyRefText(scope.ID), archaeologyRefText(scope.FromID))
+		}
+		if scope.ID.Value != nil && event.Fleet != nil {
+			fmt.Fprintf(b, "    scope.id numeric ID %s saved event fleet ID\n", archaeologyIDComparison(*scope.ID.Value, *event.Fleet))
+		}
+		if scope.FromID.Value != nil {
+			fmt.Fprintf(b, "    scope.from.id numeric ID %s saved site ID\n", archaeologyIDComparison(*scope.FromID.Value, siteID))
+		}
+	}
+}
+
+func archaeologyIDComparison(a, b int) string {
+	if a == b {
+		return "agrees with"
+	}
+	return "differs from"
 }
 
 func writeRemainingExcavationOrders(b *strings.Builder, gs *gamestate.GameState, country *gamestate.Country, reasons map[int][]string, selected *int) {

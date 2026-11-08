@@ -46,15 +46,17 @@ Situation records in `get_empire_assets` include country references, saved stage
 
 `get_starbases` displays saved starbase slots and candidate station, system, fleet and construction queue references. Matching IDs and queue ownership do not alone prove base ownership; unsupported shapes and unresolved links are reported.
 
-`get_first_contacts` exposes saved country, location and leader references, events and completed-history entries. Object ID matches remain candidates; stage, status and timing are reported without inferring current completion or activity.
+`get_first_contacts` exposes saved country, location and leader references, events and completed-history entries, including country-side references checked against recorded owners. Object ID matches remain candidates; stage, status and timing are reported without inferring current completion or activity.
 
 `get_traditions_ascension` retains saved tradition, perk and category keys and the last-picked tradition. Categories are not assumed to be completed trees. Unsupported field shapes are flagged, while other country data remain available.
 
-`get_archaeology` exposes saved site, visibility, completion-history, event and log records. Fleet references are checked against the saved excavation order when available, and selected-country fleet orders without a reciprocal site reference are also reported; matching IDs alone do not establish current game activity. Location enums and site completion semantics remain unverified. Event scopes remain opaque and can be explored through the raw tools.
+`get_archaeology` exposes saved site, visibility, completion-history, event and log records. Fleet references are checked against the saved excavation order when available, and selected-country fleet orders without a reciprocal site reference are also reported; matching IDs alone do not establish current game activity. Event scope IDs are compared with saved fleet and site IDs; scope type codes, location enums and site completion semantics remain unverified. Raw tools provide deeper event data.
 
 The typed parser identifies mixed keyed and anonymous blocks without treating them as ordinary lists or objects. Unknown mixed fields do not block unrelated known fields. A mixed known field may still cause its containing typed parse to fail; selected optional records support partial decoding with explicit warnings. Raw tree and byte tools remain available.
 
 `get_espionage_operations` reports saved operations, network links and ordered logs. Operation index, timing, rolls and opener IDs remain raw values; their in-game meaning is not inferred. Unsupported records are flagged and remain accessible using raw tools.
+
+`get_espionage` checks country-side network references and available leader location back-references, and exposes saved timed modifiers. Modifier durations and the gameplay meaning of saved values remain unverified.
 
 Planet population, stability, crime, amenities and housing distinguish missing values from zero. Modern colony jobs are counted only when the planet/colony and colony/job references agree; missing or inconsistent references are reported. Positive workforce totals omit zero and negative values; direct colony output retains the raw values.
 
