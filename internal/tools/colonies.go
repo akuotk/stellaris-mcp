@@ -225,6 +225,9 @@ func writeColonyPopulationLink(b *strings.Builder, label string, colonyID int, r
 }
 
 func colonyCarrier(gs *gamestate.GameState, colonyID int, colony gamestate.Colony) string {
+	if colony.Carrier.Unsupported {
+		return "carrier unsupported or duplicate (identity unvalidated; use raw tools)"
+	}
 	carrierType := colony.Carrier.Type
 	if carrierType == "" {
 		carrierType = "not recorded"

@@ -92,6 +92,8 @@ Typed ZIP analysis reads archive bytes into memory first and rejects missing or 
 
 `get_pre_ftl` exposes countries with saved primitive type or pre-FTL age, capital candidates and observation fleet references. Planet and fleet back-references are checked when available; fleet registration and planet owner are reported separately. Age and awareness scales and present visibility remain unverified.
 
+Duplicate or malformed colony carrier records are reported as unsupported and are not projected onto a planet. The meaning of non-planet carrier types and references remains unverified.
+
 Limitations: non-planet carriers such as Nomad Arkships are not yet resolved as colonies; complex name templates, agreement terms and espionage require further work. Political faction support and approval are shown as saved, without unit conversion. A missing naval capacity is reported as unavailable. Do not assume every value is complete or that this covers all versions, DLCs, or modded saves.
 
 Run `go test ./...` for synthetic tests. To additionally test a local save without modifying it, set `STELLARIS_TEST_SAVE` to an absolute `.sav` path before running `go test -v ./internal/gamestate`. Never commit or upload save files or personal save data.

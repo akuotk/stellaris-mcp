@@ -42,17 +42,34 @@ type Colony struct {
 	EnslavedSpeciesRefs SpeciesRefList                                  `clausewitz:"enslaved_species_refs"`
 	ColonizingSpecies   SpeciesRef                                      `clausewitz:"colonizing_species"`
 	SpeciesInformation  ConnectionRecordTable[ColonySpeciesInformation] `clausewitz:"species_information"`
-	Carrier             struct {
-		Type        string `clausewitz:"type"`
-		Reference   int    `clausewitz:"reference"`
-		ReferenceID *int   `clausewitz:"reference"`
-	} `clausewitz:"carrier"`
+	Carrier             ColonyCarrier                                   `clausewitz:"carrier"`
+}
+
+type ColonyCarrier struct {
+	Type        string `clausewitz:"type"`
+	Reference   int    `clausewitz:"reference"`
+	ReferenceID *int   `clausewitz:"reference"`
+	Unsupported bool   `clausewitz:"-"`
+}
+
+func (c *ColonyCarrier) UnmarshalClausewitz(value clausewitz.Value) error {
+	type fields ColonyCarrier
+	var decoded fields
+	if uniqueSavedFields(value, "type", "reference") != nil || clausewitz.DecodeValue(value, &decoded) != nil {
+		*c = ColonyCarrier{Unsupported: true}
+		return nil
+	}
+	*c = ColonyCarrier(decoded)
+	return nil
 }
 
 func (c *Colony) UnmarshalClausewitz(value clausewitz.Value) error {
 	type fields Colony
 	if err := clausewitz.DecodeValue(value, (*fields)(c)); err != nil {
 		return err
+	}
+	if uniqueSavedFields(value, "carrier") != nil {
+		c.Carrier = ColonyCarrier{Unsupported: true}
 	}
 	c.DistrictRefs.rejectDuplicate(value, "districts")
 	c.BuildingCacheRefs.rejectDuplicate(value, "buildings_cache")
