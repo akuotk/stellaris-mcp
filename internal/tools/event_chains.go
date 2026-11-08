@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -68,10 +69,12 @@ func handleEventChains(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 		fmt.Fprintln(&b, "country.events not recorded")
 	}
 	fmt.Fprintf(&b, "saved_entries=%d offset=%d\n", len(events.EventChains), offset)
+	rootCounts := indexRootEventTargets(&b, gs.RootEventTargets)
 	end := offset + min(eventChainPageSize, len(events.EventChains)-offset)
 	for i := offset; i < end; i++ {
 		entry := events.EventChains[i]
 		writeSavedValue(&b, fmt.Sprintf("entry[%d] key=%q (saved order)", i, entry.Kind), entry.Value, 0)
+		writeNestedEventTargets(&b, entry.Value, rootCounts)
 	}
 	if end < len(events.EventChains) {
 		fmt.Fprintf(&b, "next_offset=%d\n", end)
@@ -79,4 +82,47 @@ func handleEventChains(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 		fmt.Fprintln(&b, "next_offset=none")
 	}
 	return mcp.NewToolResultText(b.String()), nil
+}
+
+type eventTargetKey struct {
+	name, kind string
+	id         int
+}
+
+func indexRootEventTargets(b *strings.Builder, targets []gamestate.SavedEventTarget) map[eventTargetKey]int {
+	counts := map[eventTargetKey]int{}
+	unresolved := 0
+	for _, target := range targets {
+		if key, ok := eventTargetMatchKey(target); ok {
+			counts[key]++
+		} else {
+			unresolved++
+		}
+	}
+	if unresolved > 0 {
+		fmt.Fprintf(b, "Root target comparison incomplete: %d unsupported or incomplete records. Use raw tools.\n", unresolved)
+	}
+	return counts
+}
+
+func writeNestedEventTargets(b *strings.Builder, value clausewitz.Value, rootCounts map[eventTargetKey]int) {
+	targets, incomplete := gamestate.NestedEventTargets(value)
+	if incomplete {
+		fmt.Fprintln(b, "  Nested target scan incomplete for mixed data. Use raw tools.")
+	}
+	for _, nested := range targets {
+		writeSavedValue(b, "  Nested saved_event_target "+nested.Path, nested.Target.Value, 0)
+		if key, ok := eventTargetMatchKey(nested.Target); ok {
+			fmt.Fprintf(b, "    %d root candidate(s) match saved name/type/id; opener and identity unverified.\n", rootCounts[key])
+		} else {
+			fmt.Fprintln(b, "    Root candidate comparison unresolved: name/type/id missing, unsupported or duplicate.")
+		}
+	}
+}
+
+func eventTargetMatchKey(target gamestate.SavedEventTarget) (eventTargetKey, bool) {
+	if target.ID.Value == nil || target.ID.Unsupported || !target.Type.Recorded || target.Type.Unsupported || !target.Name.Recorded || target.Name.Unsupported {
+		return eventTargetKey{}, false
+	}
+	return eventTargetKey{name: target.Name.Value, kind: target.Type.Value, id: *target.ID.Value}, true
 }

@@ -47,6 +47,26 @@ func TestSpecialProjectsRawRecordsAndSameCountryCandidates(t *testing.T) {
 	}
 }
 
+func TestSpecialProjectsNestedEventTargets(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`saved_event_target={name=sample type=1 id=0} country={0={events={special_project={id=0 scope={from={saved_event_target={name=sample type=1 id=0} saved_event_target={name=other type=1 id=0}}}}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	country := gs.Country[0]
+	got := resultText(renderSpecialProjects(gs, 0, &country))
+	for _, want := range []string{"1 root candidate(s) match saved name/type/id", "0 root candidate(s) match saved name/type/id", "opener and identity unverified"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Count(got, "Nested saved_event_target") != 2 {
+		t.Fatal("nested project targets missing or duplicated")
+	}
+}
+
 func TestSpecialProjectsRegisteredHandlerAndEmptyStates(t *testing.T) {
 	oldLoc := loc
 	loc = gamestate.NewLocalizer(t.TempDir())

@@ -34,6 +34,7 @@ func renderSpecialProjects(gs *gamestate.GameState, countryID int, country *game
 	fmt.Fprintf(&b, "=== Saved special projects (%s, country %d) ===\n", name(country.Adjective), countryID)
 	fmt.Fprintln(&b, "Scope follows the selected country's saved events, research queues and owned_fleets. Current availability, completion, timing units and location namespaces remain unverified.")
 	fmt.Fprintf(&b, "last_completed_special_project=%s (saved field)\n", councilSavedString(country.LastCompletedSpecialProject))
+	rootCounts := indexRootEventTargets(&b, gs.RootEventTargets)
 	projects := country.SpecialProjects
 	switch {
 	case projects.Unsupported:
@@ -53,6 +54,7 @@ func renderSpecialProjects(gs *gamestate.GameState, countryID int, country *game
 	for index, project := range projects.Items {
 		label := fmt.Sprintf("\ncountry.events.special_project[%d] (saved order)", index)
 		writeSavedValue(&b, label, project.Value, 0)
+		writeNestedEventTargets(&b, project.Value, rootCounts)
 		if project.Unsupported {
 			fmt.Fprintln(&b, "  Unsupported project record shape. Use raw tree/byte tools.")
 			continue

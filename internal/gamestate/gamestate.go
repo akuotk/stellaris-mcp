@@ -11,6 +11,7 @@ import (
 )
 
 type GameState struct {
+	RootEventTargets    []SavedEventTarget                          `clausewitz:"-"`
 	Debris              DebrisTable                                 `clausewitz:"debris"`
 	Bypasses            ConnectionRecordTable[SavedBypass]          `clausewitz:"bypasses"`
 	NaturalWormholes    ConnectionRecordTable[SavedNaturalWormhole] `clausewitz:"natural_wormholes"`
@@ -132,6 +133,7 @@ func Load(data []byte) (*GameState, error) {
 	if err := clausewitz.DecodeValue(value, &gs); err != nil {
 		return nil, fmt.Errorf("parse gamestate: %w", err)
 	}
+	gs.RootEventTargets = rootEventTargets(value)
 	if uniqueSavedFields(value, "galactic_community") != nil {
 		gs.Community = &GalacticCommunity{Unsupported: true}
 	}
