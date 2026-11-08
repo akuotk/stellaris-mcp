@@ -13,6 +13,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_special_projects` | Saved special project records and research queue and fleet order ID candidates |
 | `get_event_chains` | Paginated saved country event-chain and completed-chain entries |
 | `get_player_events` | Paginated saved player events and selection-history entries |
+| `get_saved_messages` | Paginated root message records in saved order, with raw fields |
 | `get_saved_event_targets` | Paginated root event targets and numeric ID candidates |
 | `get_debris` | Saved debris records, components, resources and special project references |
 | `get_research_potential` | Paginated saved research-potential records with snapshot revision |

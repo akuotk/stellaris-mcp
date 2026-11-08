@@ -106,4 +106,6 @@ Limitations: non-planet carriers such as Nomad Arkships are not yet resolved as 
 
 Run `go test ./...` for synthetic tests. To additionally test a local save without modifying it, set `STELLARIS_TEST_SAVE` to an absolute `.sav` path before running `go test -v ./internal/gamestate`. Never commit or upload save files or personal save data.
 
-`get_player_events` displays saved root player-event and selection-history records in order, with page contexts bound to the save revision. Country ID matches are candidates; current UI state, event availability, ownership and selection semantics remain unverified. Deep or mixed data requires raw tools.
+`get_saved_messages` reads root `message` records in save order and keeps repeated records and fields. Pages contain up to 20 records and continuation tokens are bound to the save revision. The tool displays saved values as recorded. The meanings of reference fields, read status and current UI visibility are unverified. Use raw tree or byte tools for deep or mixed blocks.
+
+`get_player_events` displays saved root player-event and selection-history records in order, optionally filtered by event or history, with page contexts bound to the save revision and filter. Country ID and same-save selection-to-root-event numeric matches are candidates only; identifier namespaces and current UI state, event availability, ownership and selection semantics remain unverified. Deep or mixed data requires raw tools.
