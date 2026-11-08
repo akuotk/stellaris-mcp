@@ -18,6 +18,7 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
 	registerCasusBelli(s)
 	registerFleetPower(s)
 	registerShipLoadout(s)
+	registerSpaceCombatObjects(s)
 	registerFleetTemplates(s)
 	registerEconomyBreakdown(s)
 	registerResourceMarket(s)
