@@ -14,7 +14,7 @@ import (
 func registerPlanets(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("get_planets", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-			mcp.WithDescription("List owned planets (summary). Use available=true to list uncolonized habitable planets surveyed by this empire. Pass planet_id for full details."),
+			mcp.WithDescription("List owned planets or surveyed habitable planets with available=true. Pass planet_id for saved districts, zones, buildings, deposits, holder IDs and terraforming details."),
 			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 			mcp.WithNumber("planet_id", mcp.Description("Planet ID for detailed view (omit for summary list)"), mcp.DefaultNumber(-1)),
 			mcp.WithBoolean("available", mcp.Description("Show uncolonized habitable planets instead of owned"), mcp.DefaultBool(false)),
@@ -191,83 +191,57 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 	for _, n := range counts {
 		totalUsed += n
 	}
-	if p.Districts == nil {
-		fmt.Fprintln(&b, "\nDistrict references: not recorded")
-	} else {
+	if p.Districts != nil {
 		fmt.Fprintf(&b, "\nDistrict Slots: %d used (planet size %d)\n", totalUsed, p.PlanetSize)
 	}
-	for dtype, n := range counts {
-		fmt.Fprintf(&b, "  %s: %d\n", l(dtype), n)
+	for _, dtype := range federationSortedKeys(counts) {
+		fmt.Fprintf(&b, "  %s: %d\n", l(dtype), counts[dtype])
 	}
-
-	if len(p.Districts) > 0 {
-		fmt.Fprintf(&b, "\nDistricts Detail (%d):\n", len(p.Districts))
-		for _, did := range p.Districts {
-			d, ok := gs.Districts[did]
-			if !ok {
-				continue
-			}
-			lvl := ""
-			if d.Level > 1 {
-				lvl = fmt.Sprintf(" (lvl %d)", d.Level)
-			}
-			// Resolve zone specializations
-			var specs []string
-			for _, zid := range d.Zones {
-				if z, ok := gs.Zones[zid]; ok && z.Type != "zone_default" {
-					specs = append(specs, l(z.Type))
-				}
-			}
-			if len(specs) > 0 {
-				fmt.Fprintf(&b, "  %s%s — slots: %s\n", l(d.Type), lvl, strings.Join(specs, ", "))
-			} else {
-				fmt.Fprintf(&b, "  %s%s\n", l(d.Type), lvl)
-			}
-			// Buildings inside this district's zones
-			for _, zid := range d.Zones {
-				z, ok := gs.Zones[zid]
-				if !ok {
-					continue
-				}
-				for _, bid := range z.Buildings {
-					if bld, ok := gs.Buildings[bid]; ok {
-						fmt.Fprintf(&b, "    [%s] %s\n", l(z.Type), l(bld.Type))
-					}
-				}
-			}
+	writeSurfaceLayout(&b, gs, p.DistrictRefs, p.BuildingCacheRefs)
+	for i, district := range p.LegacyDistricts {
+		writeSavedValue(&b, fmt.Sprintf("  Legacy district[%d]", i), district, 0)
+	}
+	if p.LegacyBuildingRefs.Recorded {
+		fmt.Fprintf(&b, "  Legacy planet.buildings references: %s\n", surfaceRefText(p.LegacyBuildingRefs))
+		writeSurfaceBuildings(&b, gs, "    ", p.LegacyBuildingRefs.Values, nil)
+	}
+	writeExternalSurfaceBuildings(&b, gs, "planet.externally_owned_buildings", p.ExternalBuildings)
+	if p.ColonyID != nil {
+		if c, ok := gs.Colonies[*p.ColonyID]; ok && c.Carrier.Type == "planet" && c.Carrier.ReferenceID != nil && *c.Carrier.ReferenceID == planetID {
+			writeExternalSurfaceBuildings(&b, gs, "colony.externally_owned_buildings", c.ExternalBuildings)
 		}
 	}
-
-	// Planetary deposits (features, blockers)
-	if len(p.Deposits) > 0 {
-		var features, blockers []string
-		for _, did := range p.Deposits {
-			dep, ok := gs.Deposit[did]
-			if !ok || dep.Type == "" {
-				continue
-			}
+	writePlanetDeposits(&b, gs, planetID, p.DepositRefs)
+	var features, blockers []string
+	for _, id := range p.DepositRefs.Values {
+		if dep, ok := gs.Deposit.Items[id]; ok && dep.Type != "" {
+			label := l(dep.Type)
 			if isBlocker(dep.Type) {
-				label := l(dep.Type)
 				if dep.SwapType != "" {
 					label += " -> " + l(dep.SwapType)
 				}
 				blockers = append(blockers, label)
 			} else {
-				features = append(features, l(dep.Type))
+				features = append(features, label)
 			}
 		}
-		if len(features) > 0 {
-			fmt.Fprintf(&b, "\nPlanetary Features (%d):\n", len(features))
-			for _, f := range features {
-				fmt.Fprintf(&b, "  - %s\n", f)
-			}
+	}
+	if len(features) > 0 {
+		fmt.Fprintf(&b, "\nPlanetary Features (%d):\n", len(features))
+		for _, label := range features {
+			fmt.Fprintf(&b, "  - %s\n", label)
 		}
-		if len(blockers) > 0 {
-			fmt.Fprintf(&b, "\nBlockers (%d):\n", len(blockers))
-			for _, bl := range blockers {
-				fmt.Fprintf(&b, "  - %s\n", bl)
-			}
+	}
+	if len(blockers) > 0 {
+		fmt.Fprintf(&b, "\nBlockers (%d):\n", len(blockers))
+		for _, label := range blockers {
+			fmt.Fprintf(&b, "  - %s\n", label)
 		}
+	}
+	if p.TerraformDuplicate {
+		fmt.Fprintln(&b, "terraform_process: duplicate saved fields")
+	} else if p.TerraformProcess != nil {
+		writeSavedValue(&b, "terraform_process (saved values; progress units unverified)", *p.TerraformProcess, 0)
 	}
 
 	// Timed modifiers
@@ -297,8 +271,13 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 
 func countDistrictTypes(gs *gamestate.GameState, p gamestate.Planet) map[string]int {
 	counts := make(map[string]int)
+	seen := map[int]bool{}
 	for _, did := range p.Districts {
-		if d, ok := gs.Districts[did]; ok {
+		if seen[did] {
+			continue
+		}
+		seen[did] = true
+		if d, ok := gs.Districts.Items[did]; ok {
 			level := d.Level
 			if level <= 0 {
 				level = 1
@@ -310,7 +289,13 @@ func countDistrictTypes(gs *gamestate.GameState, p gamestate.Planet) map[string]
 }
 
 func districtSummary(gs *gamestate.GameState, p gamestate.Planet) string {
+	if p.DistrictRefs.Duplicate || p.DistrictRefs.Unsupported {
+		return surfaceRefText(p.DistrictRefs)
+	}
 	if p.Districts == nil {
+		if len(p.LegacyDistricts) != 0 {
+			return fmt.Sprintf("%d saved legacy district entries", len(p.LegacyDistricts))
+		}
 		return "not recorded"
 	}
 	counts := countDistrictTypes(gs, p)
@@ -377,12 +362,15 @@ func jobBreakdown(gs *gamestate.GameState, planetID int) []jobCount {
 }
 
 func depositSummary(gs *gamestate.GameState, p gamestate.Planet) string {
+	if p.DepositRefs.Duplicate || p.DepositRefs.Unsupported {
+		return surfaceRefText(p.DepositRefs)
+	}
 	if len(p.Deposits) == 0 {
 		return "-"
 	}
 	var names []string
 	for _, did := range p.Deposits {
-		dep, ok := gs.Deposit[did]
+		dep, ok := gs.Deposit.Items[did]
 		if !ok || dep.Type == "" {
 			continue
 		}
@@ -413,25 +401,35 @@ func isColonized(p gamestate.Planet) bool {
 }
 
 func buildingSummary(gs *gamestate.GameState, p gamestate.Planet) string {
-	if p.Districts == nil {
+	if p.Districts == nil && !p.DistrictRefs.Recorded && !p.BuildingCacheRefs.Recorded && !p.LegacyBuildingRefs.Recorded {
 		return "not recorded"
 	}
 	counts := make(map[string]int)
+	seen := map[int]bool{}
+	add := func(ids []int) {
+		for _, id := range ids {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			if building, ok := gs.Buildings.Items[id]; ok {
+				counts[building.Type]++
+			}
+		}
+	}
+	add(p.LegacyBuildingRefs.Values)
+	add(p.BuildingsCache)
 	for _, did := range p.Districts {
-		d, ok := gs.Districts[did]
+		d, ok := gs.Districts.Items[did]
 		if !ok {
 			continue
 		}
-		for _, zid := range d.Zones {
-			z, ok := gs.Zones[zid]
+		for _, zid := range d.ZoneRefs.Values {
+			z, ok := gs.Zones.Items[zid]
 			if !ok {
 				continue
 			}
-			for _, bid := range z.Buildings {
-				if bld, ok := gs.Buildings[bid]; ok {
-					counts[bld.Type]++
-				}
-			}
+			add(z.BuildingRefs.Values)
 		}
 	}
 	if len(counts) == 0 {

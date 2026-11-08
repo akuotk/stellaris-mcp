@@ -72,7 +72,7 @@ func loadPreFTL(data []byte) (*PreFTLState, error) {
 }
 
 func preFTLTable[T any](value clausewitz.Value, path ...string) ConnectionRecordTable[T] {
-	field, recorded, unsupported := preFTLField(value, path...)
+	field, recorded, unsupported := savedFieldPath(value, path...)
 	var table ConnectionRecordTable[T]
 	if unsupported {
 		table.Recorded, table.TableIssue = true, true
@@ -87,8 +87,8 @@ func (c *PreFTLCountry) UnmarshalClausewitz(value clausewitz.Value) error {
 		return fmt.Errorf("unsupported saved country shape")
 	}
 	*c = PreFTLCountry{
-		Name: preFTLName(value, "adjective"), Type: preFTLString(value, "type"), Age: preFTLString(value, "preftl_age"),
-		Awareness: preFTLString(value, "awareness"), OldAwareness: preFTLString(value, "old_awareness"), Capital: preFTLInt(value, "capital"),
+		Name: preFTLName(value, "adjective"), Type: savedFieldString(value, "type"), Age: savedFieldString(value, "preftl_age"),
+		Awareness: savedFieldString(value, "awareness"), OldAwareness: savedFieldString(value, "old_awareness"), Capital: savedPathInt(value, "capital"),
 	}
 	for _, pair := range value.Object.Pairs {
 		if pair.Key == "type" && pair.Value.IsScalar() && pair.Value.Scalar == "primitive" {
@@ -96,7 +96,7 @@ func (c *PreFTLCountry) UnmarshalClausewitz(value clausewitz.Value) error {
 			break
 		}
 	}
-	if field, recorded, unsupported := preFTLField(value, "fleets_manager"); recorded {
+	if field, recorded, unsupported := savedFieldPath(value, "fleets_manager"); recorded {
 		if unsupported || clausewitz.DecodeValue(field, &c.Fleets) != nil {
 			c.Fleets.OwnershipAmbiguous = true
 		}
@@ -109,8 +109,8 @@ func (p *PreFTLPlanet) UnmarshalClausewitz(value clausewitz.Value) error {
 		return fmt.Errorf("unsupported saved planet shape")
 	}
 	*p = PreFTLPlanet{
-		Name: preFTLName(value, "name"), Owner: preFTLInt(value, "owner"), Controller: preFTLInt(value, "controller"),
-		OrbitalStation: preFTLInt(value, "shipclass_orbital_station"),
+		Name: preFTLName(value, "name"), Owner: savedPathInt(value, "owner"), Controller: savedPathInt(value, "controller"),
+		OrbitalStation: savedPathInt(value, "shipclass_orbital_station"),
 	}
 	return nil
 }
@@ -130,20 +130,20 @@ func (f *ObservationFleet) UnmarshalClausewitz(value clausewitz.Value) error {
 		return nil
 	}
 	f.Name = preFTLName(value, "name")
-	f.Class = preFTLString(value, "ship_class")
-	f.Origin = preFTLInt(value, "movement_manager", "coordinate", "origin")
-	orbitable, recorded, unsupported := preFTLField(value, "movement_manager", "orbit", "orbitable")
+	f.Class = savedFieldString(value, "ship_class")
+	f.Origin = savedPathInt(value, "movement_manager", "coordinate", "origin")
+	orbitable, recorded, unsupported := savedFieldPath(value, "movement_manager", "orbit", "orbitable")
 	f.Orbitable, f.OrbitableSaved = orbitable, recorded && !unsupported
 	switch {
 	case unsupported || recorded && (!orbitable.IsObject() || len(orbitable.Object.Pairs) != 1):
 		f.OrbitPlanet = OptionalIntRef{Recorded: true, Unsupported: true}
 	case recorded:
-		f.OrbitPlanet = preFTLInt(orbitable, "planet")
+		f.OrbitPlanet = savedPathInt(orbitable, "planet")
 		if !f.OrbitPlanet.Recorded {
 			f.OrbitPlanet = OptionalIntRef{Recorded: true, Unsupported: true}
 		}
 	}
-	ships, recorded, unsupported := preFTLField(value, "ships")
+	ships, recorded, unsupported := savedFieldPath(value, "ships")
 	f.Ships = OptionalIntList{Recorded: recorded, Unsupported: unsupported}
 	if recorded && !unsupported {
 		f.Ships.UnmarshalClausewitz(ships)
@@ -155,58 +155,16 @@ func (s *ObservationShip) UnmarshalClausewitz(value clausewitz.Value) error {
 	if !value.IsObject() {
 		return fmt.Errorf("unsupported saved ship shape")
 	}
-	s.Fleet = preFTLInt(value, "fleet")
+	s.Fleet = savedPathInt(value, "fleet")
 	return nil
-}
-
-func preFTLInt(value clausewitz.Value, path ...string) OptionalIntRef {
-	field, recorded, unsupported := preFTLField(value, path...)
-	ref := OptionalIntRef{Recorded: recorded, Unsupported: unsupported}
-	if recorded && !unsupported {
-		ref.UnmarshalClausewitz(field)
-	}
-	return ref
-}
-
-func preFTLString(value clausewitz.Value, key string) OptionalString {
-	field, recorded, unsupported := preFTLField(value, key)
-	ref := OptionalString{Recorded: recorded, Unsupported: unsupported}
-	if recorded && !unsupported {
-		ref.UnmarshalClausewitz(field)
-	}
-	return ref
 }
 
 func preFTLName(value clausewitz.Value, key string) LocalizedName {
 	var name LocalizedName
-	if field, recorded, unsupported := preFTLField(value, key); recorded && !unsupported && uniqueSavedFields(field, "key", "variables") == nil {
+	if field, recorded, unsupported := savedFieldPath(value, key); recorded && !unsupported && uniqueSavedFields(field, "key", "variables") == nil {
 		if clausewitz.DecodeValue(field, &name) != nil {
 			return LocalizedName{}
 		}
 	}
 	return name
-}
-
-func preFTLField(value clausewitz.Value, path ...string) (clausewitz.Value, bool, bool) {
-	for _, key := range path {
-		if !value.IsObject() {
-			return value, true, true
-		}
-		var next clausewitz.Value
-		found := false
-		for _, pair := range value.Object.Pairs {
-			if pair.Key != key {
-				continue
-			}
-			if found {
-				return clausewitz.Value{}, true, true
-			}
-			next, found = pair.Value, true
-		}
-		if !found {
-			return clausewitz.Value{}, false, false
-		}
-		value = next
-	}
-	return value, true, false
 }

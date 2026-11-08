@@ -124,6 +124,7 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 	fmt.Fprintf(&b, "Class: %s\n", l(fleet.ShipClass))
 	fmt.Fprintf(&b, "Military Power: %s\n", armyFloat(fleet.MilitaryPowerRaw))
 	fmt.Fprintf(&b, "Ships: %d\n", len(fleet.Ships))
+	fmt.Fprintln(&b, "Use get_ship_loadout with a ship ID for its saved sections, weapons and design comparison.")
 	if fleet.Station {
 		fmt.Fprintf(&b, "Station: yes\n")
 	}

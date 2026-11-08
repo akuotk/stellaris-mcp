@@ -29,8 +29,11 @@ type Colony struct {
 	NumPops             int                                             `clausewitz:"num_sapient_pops"`
 	FinalDesignation    string                                          `clausewitz:"final_designation"`
 	AscensionTier       int                                             `clausewitz:"ascension_tier"`
-	Districts           []int                                           `clausewitz:"districts"`
-	BuildingsCache      []int                                           `clausewitz:"buildings_cache"`
+	Districts           []int                                           `clausewitz:"-"`
+	DistrictRefs        SurfaceRefList                                  `clausewitz:"districts"`
+	BuildingsCache      []int                                           `clausewitz:"-"`
+	BuildingCacheRefs   SurfaceRefList                                  `clausewitz:"buildings_cache"`
+	ExternalBuildings   ExternalSurfaceBuildings                        `clausewitz:"externally_owned_buildings"`
 	Produces            map[string]float64                              `clausewitz:"produces"`
 	Upkeep              map[string]float64                              `clausewitz:"upkeep"`
 	Profits             map[string]float64                              `clausewitz:"profits"`
@@ -51,6 +54,10 @@ func (c *Colony) UnmarshalClausewitz(value clausewitz.Value) error {
 	if err := clausewitz.DecodeValue(value, (*fields)(c)); err != nil {
 		return err
 	}
+	c.DistrictRefs.rejectDuplicate(value, "districts")
+	c.BuildingCacheRefs.rejectDuplicate(value, "buildings_cache")
+	c.ExternalBuildings.rejectDuplicate(value)
+	c.Districts, c.BuildingsCache = c.DistrictRefs.Values, c.BuildingCacheRefs.Values
 	if uniqueSavedFields(value, "species_refs") != nil {
 		c.SpeciesRefs = SpeciesRefList{Duplicate: true}
 	}
@@ -174,11 +181,13 @@ func (gs *GameState) resolveColonies() {
 			p.AscensionTierRaw = c.AscensionTierRaw
 			p.AscensionTier = c.AscensionTier
 		}
-		if c.Districts != nil {
+		if c.DistrictRefs.Recorded {
 			p.Districts = c.Districts
+			p.DistrictRefs = c.DistrictRefs
 		}
-		if c.BuildingsCache != nil {
+		if c.BuildingCacheRefs.Recorded {
 			p.BuildingsCache = c.BuildingsCache
+			p.BuildingCacheRefs = c.BuildingCacheRefs
 		}
 		if c.Produces != nil {
 			p.Produces = c.Produces

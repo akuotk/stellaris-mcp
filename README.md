@@ -31,6 +31,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_planets available=true` | Surveyed uncolonized habitable planets with features |
 | `get_fleet_templates` | Saved fleet templates, design/count entries and reference links |
 | `get_fleet_power` | Fleets with power, ship-level detail (design, HP, weapons) |
+| `get_ship_loadout` | Saved ship sections and weapons, design stages and slot comparisons |
 | `get_council` | Saved council positions, leader references and agenda records |
 | `get_leaders` | Leaders with class, traits, council position, assignment |
 | `get_relics` | Saved relic keys and last-activation/receipt fields |

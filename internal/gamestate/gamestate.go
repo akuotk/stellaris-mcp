@@ -43,20 +43,15 @@ type GameState struct {
 	Ships               map[int]Ship                                `clausewitz:"ships"`
 	ShipDesign          map[int]ShipDesign                          `clausewitz:"ship_design"`
 	Planets             PlanetsWrapper                              `clausewitz:"planets"`
-	Buildings           map[int]Building                            `clausewitz:"buildings"`
-	Districts           map[int]District                            `clausewitz:"districts"`
-	Zones               map[int]Zone                                `clausewitz:"zones"`
-	Deposit             map[int]Deposit                             `clausewitz:"deposit"`
+	Buildings           ConnectionRecordTable[Building]             `clausewitz:"buildings"`
+	Districts           ConnectionRecordTable[District]             `clausewitz:"districts"`
+	Zones               ConnectionRecordTable[Zone]                 `clausewitz:"zones"`
+	Deposit             ConnectionRecordTable[Deposit]              `clausewitz:"deposit"`
 	SpyNetworks         ConnectionRecordTable[SpyNetwork]           `clausewitz:"spy_networks"`
 	PopJobs             map[int]PopJob                              `clausewitz:"pop_jobs"`
 	Leaders             map[int]Leader                              `clausewitz:"leaders"`
 	War                 ConnectionRecordTable[War]                  `clausewitz:"war"`
 	Federation          map[int]Federation                          `clausewitz:"federation"`
-}
-
-type Building struct {
-	Type     string `clausewitz:"type"`
-	Position int    `clausewitz:"position"`
 }
 
 type PopJob struct {
@@ -83,22 +78,6 @@ func (j *PopJob) UnmarshalClausewitz(value clausewitz.Value) error {
 		j.Planet = *j.PlanetID
 	}
 	return nil
-}
-
-type Deposit struct {
-	Type     string `clausewitz:"type"`
-	SwapType string `clausewitz:"swap_type"`
-}
-
-type District struct {
-	Type  string `clausewitz:"type"`
-	Level int    `clausewitz:"level"`
-	Zones []int  `clausewitz:"zones"`
-}
-
-type Zone struct {
-	Type      string `clausewitz:"type"`
-	Buildings []int  `clausewitz:"buildings"`
 }
 
 type Player struct {
@@ -182,6 +161,18 @@ func Load(data []byte) (*GameState, error) {
 	}
 	if uniqueSavedFields(value, "species_db") != nil {
 		gs.Species = ConnectionRecordTable[Species]{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "buildings") != nil {
+		gs.Buildings = ConnectionRecordTable[Building]{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "districts") != nil {
+		gs.Districts = ConnectionRecordTable[District]{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "zones") != nil {
+		gs.Zones = ConnectionRecordTable[Zone]{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "deposit") != nil {
+		gs.Deposit = ConnectionRecordTable[Deposit]{Recorded: true, TableIssue: true}
 	}
 	gs.markAmbiguousFleetOrders(value)
 	if uniqueSavedFields(value, "archaeological_sites") != nil {

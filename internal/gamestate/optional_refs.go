@@ -37,3 +37,45 @@ func (v *OptionalCoordinate) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	return nil
 }
+
+func savedPathInt(value clausewitz.Value, path ...string) OptionalIntRef {
+	field, recorded, unsupported := savedFieldPath(value, path...)
+	ref := OptionalIntRef{Recorded: recorded, Unsupported: unsupported}
+	if recorded && !unsupported {
+		ref.UnmarshalClausewitz(field)
+	}
+	return ref
+}
+
+func savedFieldString(value clausewitz.Value, key string) OptionalString {
+	field, recorded, unsupported := savedFieldPath(value, key)
+	ref := OptionalString{Recorded: recorded, Unsupported: unsupported}
+	if recorded && !unsupported {
+		ref.UnmarshalClausewitz(field)
+	}
+	return ref
+}
+
+func savedFieldPath(value clausewitz.Value, path ...string) (clausewitz.Value, bool, bool) {
+	for _, key := range path {
+		if !value.IsObject() {
+			return value, true, true
+		}
+		var next clausewitz.Value
+		found := false
+		for _, pair := range value.Object.Pairs {
+			if pair.Key != key {
+				continue
+			}
+			if found {
+				return clausewitz.Value{}, true, true
+			}
+			next, found = pair.Value, true
+		}
+		if !found {
+			return clausewitz.Value{}, false, false
+		}
+		value = next
+	}
+	return value, true, false
+}

@@ -101,10 +101,10 @@ func TestLoad_Fixture(t *testing.T) {
 	})
 
 	t.Run("districts_buildings", func(t *testing.T) {
-		if len(gs.Districts) == 0 {
+		if len(gs.Districts.Items) == 0 {
 			t.Fatal("no districts loaded")
 		}
-		if len(gs.Buildings) == 0 {
+		if len(gs.Buildings.Items) == 0 {
 			t.Fatal("no buildings loaded")
 		}
 	})

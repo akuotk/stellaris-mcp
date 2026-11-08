@@ -106,21 +106,8 @@ func renderColonies(gs *gamestate.GameState, countryID int, country *gamestate.C
 				fmt.Fprintf(&b, "  %s: %s\n", field.name, colonyResources(field.values))
 			}
 		}
-		fmt.Fprintf(&b, "  District references: %s\n  Building cache references: %s\n", colonyReferenceList(colony.Districts), colonyReferenceList(colony.BuildingsCache))
-		for _, districtID := range colony.Districts {
-			if district, ok := gs.Districts[districtID]; ok {
-				fmt.Fprintf(&b, "    District %d: type=%s zones=%s\n", districtID, district.Type, colonyReferenceList(district.Zones))
-			} else {
-				fmt.Fprintf(&b, "    District %d: unavailable\n", districtID)
-			}
-		}
-		for _, buildingID := range colony.BuildingsCache {
-			if building, ok := gs.Buildings[buildingID]; ok {
-				fmt.Fprintf(&b, "    Building %d: type=%s\n", buildingID, building.Type)
-			} else {
-				fmt.Fprintf(&b, "    Building %d: unavailable\n", buildingID)
-			}
-		}
+		writeSurfaceLayout(&b, gs, colony.DistrictRefs, colony.BuildingCacheRefs)
+		writeExternalSurfaceBuildings(&b, gs, "colony.externally_owned_buildings", colony.ExternalBuildings)
 		writeColonySpecies(&b, gs, colony)
 		fmt.Fprintln(&b, "  POP groups (raw saved sizes; no carrier-to-planet projection):")
 		if colony.PopGroups == nil {
