@@ -74,7 +74,7 @@ func handleEventChains(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 	for i := offset; i < end; i++ {
 		entry := events.EventChains[i]
 		writeSavedValue(&b, fmt.Sprintf("entry[%d] key=%q (saved order)", i, entry.Kind), entry.Value, 0)
-		writeNestedEventTargets(&b, entry.Value, rootCounts)
+		writeNestedEventTargets(&b, gs, entry.Value, rootCounts)
 	}
 	if end < len(events.EventChains) {
 		fmt.Fprintf(&b, "next_offset=%d\n", end)
@@ -105,7 +105,7 @@ func indexRootEventTargets(b *strings.Builder, targets []gamestate.SavedEventTar
 	return counts
 }
 
-func writeNestedEventTargets(b *strings.Builder, value clausewitz.Value, rootCounts map[eventTargetKey]int) {
+func writeNestedEventTargets(b *strings.Builder, gs *gamestate.GameState, value clausewitz.Value, rootCounts map[eventTargetKey]int) {
 	targets, incomplete := gamestate.NestedEventTargets(value)
 	if incomplete {
 		fmt.Fprintln(b, "  Nested target scan incomplete for mixed data. Use raw tools.")
@@ -116,6 +116,30 @@ func writeNestedEventTargets(b *strings.Builder, value clausewitz.Value, rootCou
 			fmt.Fprintf(b, "    %d root candidate(s) match saved name/type/id; opener and identity unverified.\n", rootCounts[key])
 		} else {
 			fmt.Fprintln(b, "    Root candidate comparison unresolved: name/type/id missing, unsupported or duplicate.")
+		}
+		if nested.Target.ID.Value != nil && !nested.Target.ID.Unsupported {
+			id := *nested.Target.ID.Value
+			var matches []string
+			if _, ok := gs.Country[id]; ok {
+				matches = append(matches, "country")
+			}
+			if _, ok := gs.Systems[id]; ok {
+				matches = append(matches, "system")
+			}
+			if _, ok := gs.Planets.Planet[id]; ok {
+				matches = append(matches, "planet")
+			}
+			if _, ok := gs.Ships[id]; ok {
+				matches = append(matches, "ship")
+			}
+			if _, ok := gs.Fleet[id]; ok {
+				matches = append(matches, "fleet")
+			}
+			if len(matches) == 0 {
+				fmt.Fprintln(b, "    No numeric candidates in decoded tables; source coverage unverified.")
+			} else {
+				fmt.Fprintf(b, "    Numeric candidates in decoded tables: %s; namespace, identity and source uniqueness unverified.\n", strings.Join(matches, ", "))
+			}
 		}
 	}
 }

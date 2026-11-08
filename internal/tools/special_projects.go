@@ -54,7 +54,7 @@ func renderSpecialProjects(gs *gamestate.GameState, countryID int, country *game
 	for index, project := range projects.Items {
 		label := fmt.Sprintf("\ncountry.events.special_project[%d] (saved order)", index)
 		writeSavedValue(&b, label, project.Value, 0)
-		writeNestedEventTargets(&b, project.Value, rootCounts)
+		writeNestedEventTargets(&b, gs, project.Value, rootCounts)
 		if project.Unsupported {
 			fmt.Fprintln(&b, "  Unsupported project record shape. Use raw tree/byte tools.")
 			continue

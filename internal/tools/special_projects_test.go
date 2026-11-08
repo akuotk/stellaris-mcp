@@ -57,7 +57,7 @@ func TestSpecialProjectsNestedEventTargets(t *testing.T) {
 	}
 	country := gs.Country[0]
 	got := resultText(renderSpecialProjects(gs, 0, &country))
-	for _, want := range []string{"1 root candidate(s) match saved name/type/id", "0 root candidate(s) match saved name/type/id", "opener and identity unverified"} {
+	for _, want := range []string{"1 root candidate(s) match saved name/type/id", "0 root candidate(s) match saved name/type/id", "opener and identity unverified", "Numeric candidates in decoded tables: country"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
