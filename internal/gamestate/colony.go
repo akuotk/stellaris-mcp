@@ -125,6 +125,9 @@ func (g *PopGroup) UnmarshalClausewitz(value clausewitz.Value) error {
 		g.LastMonthGrowthRaw = nil
 		g.LastMonthGrowthDuplicate = true
 	}
+	if uniqueSavedFields(value, "factions") != nil {
+		g.Factions = PopFactionDistribution{Duplicate: true}
+	}
 	return nil
 }
 

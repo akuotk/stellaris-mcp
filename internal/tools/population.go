@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -30,12 +31,16 @@ func writePopDistributions(b *strings.Builder, gs *gamestate.GameState, group ga
 	} else {
 		fmt.Fprintln(b, "    Ethics: no distribution recorded")
 	}
-	if len(group.Factions.Objects) != len(group.Factions.Pops) {
+	if group.Factions.Duplicate {
+		fmt.Fprintln(b, "    Factions: duplicate saved fields or group records")
+	} else if group.Factions.Unsupported {
+		fmt.Fprintln(b, "    Factions: unsupported saved shape")
+	} else if len(group.Factions.Objects) != len(group.Factions.Pops) {
 		fmt.Fprintf(b, "    Factions: unsupported mismatched arrays (ids=%v populations=%v)\n", group.Factions.Objects, group.Factions.Pops)
 	} else if len(group.Factions.Objects) > 0 {
 		fmt.Fprintln(b, "    Faction membership (raw population amounts; excludes unassigned population):")
 		for i, id := range group.Factions.Objects {
-			f, ok := gs.PopFactions[id]
+			f, ok := gs.PopFactions.Items[id]
 			if ok {
 				country := "unknown"
 				if f.Country != nil {
@@ -43,7 +48,11 @@ func writePopDistributions(b *strings.Builder, gs *gamestate.GameState, group ga
 				}
 				fmt.Fprintf(b, "      %d (%s, type=%s, country=%s): %d\n", id, name(f.Name), f.Type, country, group.Factions.Pops[i])
 			} else {
-				fmt.Fprintf(b, "      %d (identity unavailable): %d\n", id, group.Factions.Pops[i])
+				if issue := gs.PopFactions.DecodeErrors[id]; issue != "" {
+					fmt.Fprintf(b, "      %d (%s): %d\n", id, diplomaticRecordIssue(issue), group.Factions.Pops[i])
+				} else {
+					fmt.Fprintf(b, "      %d (identity unavailable): %d\n", id, group.Factions.Pops[i])
+				}
 			}
 		}
 	} else {
@@ -53,7 +62,7 @@ func writePopDistributions(b *strings.Builder, gs *gamestate.GameState, group ga
 
 func writeCountryFactions(b *strings.Builder, gs *gamestate.GameState, countryID int) {
 	ids := []int{}
-	for id, f := range gs.PopFactions {
+	for id, f := range gs.PopFactions.Items {
 		if f.Country != nil && *f.Country == countryID {
 			ids = append(ids, id)
 		}
@@ -65,7 +74,11 @@ func writeCountryFactions(b *strings.Builder, gs *gamestate.GameState, countryID
 	}
 	fmt.Fprintln(b, "\nPolitical factions (support_percent and approval as saved; population in raw save units):")
 	for _, id := range ids {
-		f := gs.PopFactions[id]
-		fmt.Fprintf(b, "  %d: %s, type=%s support_percent=%g approval=%g last_month_population=%d change=%+d\n", id, name(f.Name), f.Type, f.SupportPercent, f.Approval, f.LastMonthPops, f.PopsChange)
+		f := gs.PopFactions.Items[id]
+		change := operationFlagText(f.PopsChange)
+		if n, err := strconv.ParseInt(change, 10, 64); err == nil && n > 0 && !strings.HasPrefix(change, "+") {
+			change = "+" + change
+		}
+		fmt.Fprintf(b, "  %d: %s, type=%s support_percent=%s approval=%s last_month_population=%s change=%s\n", id, name(f.Name), f.Type, operationFlagText(f.SupportPercent), operationFlagText(f.Approval), operationFlagText(f.LastMonthPops), change)
 	}
 }

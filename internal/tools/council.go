@@ -35,6 +35,7 @@ func renderCouncil(gs *gamestate.GameState, countryID int, country *gamestate.Co
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Saved council and agenda (%s, country %d) ===\n", name(country.Adjective), countryID)
 	fmt.Fprintln(&b, "Scope uses saved position.country or government.council_positions. Current assignments, progress units, cooldown effects and type-list alignment remain unverified.")
+	writeCountryLeadershipRefs(&b, gs, countryID, country)
 	gov := country.CouncilGovernment
 	var positionRefs []int
 	var pickedTypes []string
@@ -128,13 +129,15 @@ func renderCouncil(gs *gamestate.GameState, countryID int, country *gamestate.Co
 func writeCouncilLeaderReferences(b *strings.Builder, gs *gamestate.GameState, country *gamestate.Country, positionID int, position gamestate.CouncilPosition) {
 	if position.Leader != nil {
 		leaderID := *position.Leader
-		fmt.Fprintf(b, "  Leader ID %d candidate. country.owned_leaders membership=%s\n", leaderID, armyMembership(country.OwnedLeaders, leaderID))
+		fmt.Fprintf(b, "  Leader ID %d candidate. country.owned_leaders membership=%s\n", leaderID, leaderMembership(country, leaderID))
 		if leader, ok := gs.Leaders[leaderID]; ok {
-			fmt.Fprintf(b, "    %s country=%s council_location.type=%q id=%s position=%s\n", name(leader.Name.FullNames), armyInt(leader.CountryID), leader.CouncilLocation.Type, armyInt(leader.CouncilLocation.IDRaw), armyInt(leader.CouncilLocation.PositionRaw))
+			fmt.Fprintf(b, "    %s country=%s council_location.type=%q id=%s position=%s\n", name(leader.Name.FullNames), optionalIntRefText(leader.CountryRef), leader.CouncilLocation.Type, armyInt(leader.CouncilLocation.IDRaw), armyInt(leader.CouncilLocation.PositionRaw))
 			if position.Country != nil && leader.CountryID != nil && *position.Country != *leader.CountryID {
 				fmt.Fprintln(b, "    Saved leader.country differs from position.country")
 			}
 			switch {
+			case leader.CouncilLocation.Unsupported:
+				fmt.Fprintln(b, "    Leader council reverse reference unsupported or duplicate")
 			case leader.CouncilLocation.Type == "" || leader.CouncilLocation.IDRaw == nil:
 				fmt.Fprintln(b, "    Leader council reverse reference incomplete")
 			case leader.CouncilLocation.Type != "council_position" || *leader.CouncilLocation.IDRaw != positionID:
@@ -143,7 +146,11 @@ func writeCouncilLeaderReferences(b *strings.Builder, gs *gamestate.GameState, c
 				fmt.Fprintln(b, "    Reciprocal saved position/leader IDs agree")
 			}
 		} else {
-			fmt.Fprintln(b, "    Referenced leader record unavailable")
+			if issue := gs.LeaderRecords.DecodeErrors[leaderID]; issue != "" {
+				fmt.Fprintf(b, "    Leader reference: %s\n", diplomaticRecordIssue(issue))
+			} else {
+				fmt.Fprintln(b, "    Referenced leader record unavailable")
+			}
 		}
 	}
 	reverse := []int{}

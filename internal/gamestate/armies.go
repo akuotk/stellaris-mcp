@@ -1,7 +1,6 @@
 package gamestate
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
@@ -24,6 +23,7 @@ type Army struct {
 	Planet            *int          `clausewitz:"planet"`
 	Ship              *int          `clausewitz:"ship"`
 	Leader            *int          `clausewitz:"leader"`
+	LeaderAmbiguous   bool          `clausewitz:"-"`
 	Health            *float64      `clausewitz:"health"`
 	MaxHealth         *float64      `clausewitz:"max_health"`
 	Morale            *float64      `clausewitz:"morale"`
@@ -37,22 +37,29 @@ func (a *Armies) UnmarshalClausewitz(value clausewitz.Value) error {
 		a.TableIssue = true
 		return nil
 	}
+	seen := map[int]bool{}
 	for _, pair := range value.Object.Pairs {
 		id, err := strconv.Atoi(pair.Key)
 		if err != nil {
 			a.TableIssue = true
 			continue
 		}
+		duplicate := seen[id]
+		seen[id] = true
+		if duplicate {
+			a.DecodeErrors[id] = "duplicate army ID"
+		}
 		if pair.Value.IsScalar() && pair.Value.Scalar == "none" {
 			continue
 		}
 		var army Army
 		err = clausewitz.DecodeValue(pair.Value, &army)
-		if _, duplicate := a.Items[id]; duplicate {
-			err = fmt.Errorf("duplicate army ID")
+		if uniqueSavedFields(pair.Value, "leader") != nil {
+			army.Leader = nil
+			army.LeaderAmbiguous = true
 		}
 		a.Items[id] = army
-		if err != nil {
+		if err != nil && !duplicate {
 			a.DecodeErrors[id] = err.Error()
 		}
 	}

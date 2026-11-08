@@ -27,7 +27,8 @@ type GameState struct {
 	Colonies            map[int]Colony                              `clausewitz:"colony"`
 	PopGroups           map[int]PopGroup                            `clausewitz:"pop_groups"`
 	Species             ConnectionRecordTable[Species]              `clausewitz:"species_db"`
-	PopFactions         map[int]PopFaction                          `clausewitz:"pop_factions"`
+	PopFactions         ConnectionRecordTable[PopFaction]           `clausewitz:"pop_factions"`
+	LegacyFactionPops   ConnectionRecordTable[LegacyFactionPop]     `clausewitz:"pop"`
 	Agreements          AgreementStore                              `clausewitz:"agreements"`
 	Situations          SituationStore                              `clausewitz:"situations"`
 	Megastructures      ConnectionRecordTable[Megastructure]        `clausewitz:"megastructures"`
@@ -49,7 +50,8 @@ type GameState struct {
 	Deposit             ConnectionRecordTable[Deposit]              `clausewitz:"deposit"`
 	SpyNetworks         ConnectionRecordTable[SpyNetwork]           `clausewitz:"spy_networks"`
 	PopJobs             map[int]PopJob                              `clausewitz:"pop_jobs"`
-	Leaders             map[int]Leader                              `clausewitz:"leaders"`
+	Leaders             map[int]Leader                              `clausewitz:"-"`
+	LeaderRecords       ConnectionRecordTable[Leader]               `clausewitz:"leaders"`
 	War                 ConnectionRecordTable[War]                  `clausewitz:"war"`
 	Federation          map[int]Federation                          `clausewitz:"federation"`
 }
@@ -129,6 +131,16 @@ func Load(data []byte) (*GameState, error) {
 	if err := clausewitz.DecodeValue(value, &gs); err != nil {
 		return nil, fmt.Errorf("parse gamestate: %w", err)
 	}
+	if uniqueSavedFields(value, "leaders") != nil {
+		gs.LeaderRecords = ConnectionRecordTable[Leader]{Recorded: true, TableIssue: true}
+	}
+	gs.Leaders = gs.LeaderRecords.Items
+	if uniqueSavedFields(value, "council_positions") != nil {
+		gs.CouncilPositions = CouncilPositionTable{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "army") != nil {
+		gs.Armies = Armies{TableIssue: true}
+	}
 	if uniqueSavedFields(value, "war") != nil {
 		gs.War = ConnectionRecordTable[War]{Recorded: true, TableIssue: true}
 	}
@@ -165,6 +177,13 @@ func Load(data []byte) (*GameState, error) {
 	if uniqueSavedFields(value, "species_db") != nil {
 		gs.Species = ConnectionRecordTable[Species]{Recorded: true, TableIssue: true}
 	}
+	if uniqueSavedFields(value, "pop_factions") != nil {
+		gs.PopFactions = ConnectionRecordTable[PopFaction]{Recorded: true, TableIssue: true}
+	}
+	if uniqueSavedFields(value, "pop") != nil {
+		gs.LegacyFactionPops = ConnectionRecordTable[LegacyFactionPop]{Recorded: true, TableIssue: true}
+	}
+	gs.markAmbiguousPopGroupFactions(value)
 	if uniqueSavedFields(value, "buildings") != nil {
 		gs.Buildings = ConnectionRecordTable[Building]{Recorded: true, TableIssue: true}
 	}

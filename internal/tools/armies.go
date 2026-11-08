@@ -111,7 +111,9 @@ func renderArmies(gs *gamestate.GameState, countryID int, country *gamestate.Cou
 		} else {
 			fmt.Fprintf(&b, "  Species: %s\n", populationSpecies(gs, *army.Species))
 		}
-		if army.Leader == nil {
+		if army.LeaderAmbiguous {
+			fmt.Fprintln(&b, "  Leader: duplicate saved army.leader fields")
+		} else if army.Leader == nil {
 			fmt.Fprintln(&b, "  Leader: not recorded")
 		} else if leader, ok := gs.Leaders[*army.Leader]; ok {
 			fmt.Fprintf(&b, "  Leader %d: %s\n", *army.Leader, name(leader.Name.FullNames))

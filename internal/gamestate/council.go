@@ -11,6 +11,7 @@ type CouncilGovernment struct {
 	Agenda        OptionalString
 	Progress      OptionalString
 	UnlockedSlots OptionalString
+	Heir          OptionalIntRef
 	Cooldowns     []CouncilAgendaCooldown
 	Unsupported   bool
 }
@@ -27,6 +28,7 @@ func (v *CouncilGovernment) UnmarshalClausewitz(value clausewitz.Value) error {
 		v.Unsupported = true
 		return nil
 	}
+	v.Heir = savedPathInt(value, "heir")
 	for _, pair := range value.Object.Pairs {
 		var field *OptionalString
 		switch pair.Key {

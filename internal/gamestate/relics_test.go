@@ -37,6 +37,7 @@ func TestRelicsMalformedAndDuplicateFieldsStayIsolated(t *testing.T) {
 	} {
 		gs, err := Load([]byte(`date=2201.01.01 country={0={` + raw + `
 		 adjective={key="Synthetic country"} num_sapient_pops=7 military_power=0
+		 owned_leaders={0 2} ruler=0 ruler_title=synthetic_title
 		 fleets_manager={owned_fleets={{fleet=0}}} sectors={owned={0}}
 		 modules={standard_economy_module={resources={energy=0}} standard_grand_archive_module={exhibits={}}}
 		 }}`))
@@ -49,6 +50,9 @@ func TestRelicsMalformedAndDuplicateFieldsStayIsolated(t *testing.T) {
 		}
 		if c.Adjective.Key != "Synthetic country" || c.NumPops != 7 || c.MilitaryPowerRaw == nil || *c.MilitaryPowerRaw != 0 || len(c.FleetsManager.OwnedFleets) != 1 || c.FleetsManager.OwnedFleets[0].FleetID == nil || *c.FleetsManager.OwnedFleets[0].FleetID != 0 || !reflect.DeepEqual(c.SectorRefs.Owned.Values, []int{0}) || c.EconomyModules.Economy == nil || len(c.EconomyModules.Economy.Resources.Entries) != 1 || c.GrandArchiveModules.Archive == nil || c.GrandArchiveModules.Archive.Exhibits == nil {
 			t.Fatal("existing country fields changed under relic errors")
+		}
+		if !reflect.DeepEqual(c.OwnedLeaders, []int{0, 2}) || c.RulerRef.Value == nil || *c.RulerRef.Value != 0 || c.RulerTitle.Value != "synthetic_title" {
+			t.Fatal("saved leadership references changed under relic errors")
 		}
 	}
 	gs, err := Load([]byte(`country={0={relics={r_example} last_activated_relic=0 last_activated_relic=1 last_received_relic=2}}`))
@@ -93,6 +97,8 @@ func TestRelicsLocalCatalogIntegration(t *testing.T) {
 			before.Relics = c.Relics
 			before.LastActivatedRelic = c.LastActivatedRelic
 			before.LastReceivedRelic = c.LastReceivedRelic
+			// The compatibility slice is derived from the independently decoded reference list.
+			before.OwnedLeaders = before.OwnedLeaderRefs.Values
 			if !ok || !reflect.DeepEqual(c, Country(before)) {
 				t.Fatalf("save index %d unrelated country fields changed", index)
 			}

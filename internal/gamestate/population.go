@@ -9,8 +9,22 @@ type PopEthos struct {
 }
 
 type PopFactionDistribution struct {
-	Objects []int `clausewitz:"objects"`
-	Pops    []int `clausewitz:"pops"`
+	Objects     []int `clausewitz:"objects"`
+	Pops        []int `clausewitz:"pops"`
+	Duplicate   bool  `clausewitz:"-"`
+	Unsupported bool  `clausewitz:"-"`
+}
+
+func (d *PopFactionDistribution) UnmarshalClausewitz(value clausewitz.Value) error {
+	if uniqueSavedFields(value, "objects", "pops") != nil {
+		*d = PopFactionDistribution{Duplicate: true}
+		return nil
+	}
+	type fields PopFactionDistribution
+	if err := clausewitz.DecodeValue(value, (*fields)(d)); err != nil {
+		*d = PopFactionDistribution{Unsupported: true}
+	}
+	return nil
 }
 
 type Species struct {
@@ -91,14 +105,4 @@ func (s *Species) UnmarshalClausewitz(value clausewitz.Value) error {
 		}
 	}
 	return nil
-}
-
-type PopFaction struct {
-	Country        *int          `clausewitz:"country"`
-	Type           string        `clausewitz:"type"`
-	Name           LocalizedName `clausewitz:"name"`
-	SupportPercent float64       `clausewitz:"support_percent"`
-	Approval       float64       `clausewitz:"faction_approval"`
-	LastMonthPops  int           `clausewitz:"last_month_pops"`
-	PopsChange     int           `clausewitz:"pops_change"`
 }

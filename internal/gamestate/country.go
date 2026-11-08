@@ -37,6 +37,7 @@ type Country struct {
 	SectorRefs                  CountrySectorRefs           `clausewitz:"sectors"`
 	VictoryRankRaw              *int                        `clausewitz:"victory_rank"`
 	EconomyModules              CountryEconomyModules       `clausewitz:"modules"`
+	FactionModules              CountryFactionModules       `clausewitz:"modules"`
 	ActivePolicies              ActivePolicyList            `clausewitz:"active_policies"`
 	Edicts                      EdictList                   `clausewitz:"edicts"`
 	PolicyFlags                 OptionalStringList          `clausewitz:"policy_flags"`
@@ -63,7 +64,10 @@ type Country struct {
 	EmpireSize                  int                         `clausewitz:"empire_size"`
 	VictoryRank                 int                         `clausewitz:"victory_rank"`
 	OwnedPlanets                []int                       `clausewitz:"owned_planets"`
-	OwnedLeaders                []int                       `clausewitz:"owned_leaders"`
+	OwnedLeaders                []int                       `clausewitz:"-"`
+	OwnedLeaderRefs             OptionalIntList             `clausewitz:"owned_leaders"`
+	RulerRef                    OptionalIntRef              `clausewitz:"ruler"`
+	RulerTitle                  OptionalString              `clausewitz:"ruler_title"`
 	OwnedArmies                 []int                       `clausewitz:"owned_armies"`
 	Traditions                  OptionalStringList          `clausewitz:"traditions"`
 	AscensionPerks              OptionalStringList          `clausewitz:"ascension_perks"`
@@ -79,6 +83,16 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 		return err
 	}
 	*c = Country(decoded)
+	if uniqueSavedFields(value, "owned_leaders") != nil {
+		c.OwnedLeaderRefs = OptionalIntList{Recorded: true, Unsupported: true}
+	}
+	c.OwnedLeaders = c.OwnedLeaderRefs.Values
+	if uniqueSavedFields(value, "ruler") != nil {
+		c.RulerRef = OptionalIntRef{Recorded: true, Unsupported: true}
+	}
+	if uniqueSavedFields(value, "ruler_title") != nil {
+		c.RulerTitle = OptionalString{Recorded: true, Unsupported: true}
+	}
 	if uniqueSavedFields(value, "events") != nil {
 		c.SpecialProjects = CountrySpecialProjects{Recorded: true, Unsupported: true}
 	}
@@ -135,6 +149,9 @@ func (c *Country) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	if uniqueSavedFields(value, "budget") != nil {
 		c.Budget = Budget{Duplicate: true}
+	}
+	if uniqueSavedFields(value, "modules") != nil {
+		c.FactionModules = CountryFactionModules{Recorded: true, Duplicate: true}
 	}
 	return nil
 }

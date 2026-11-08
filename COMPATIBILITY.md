@@ -28,6 +28,10 @@ The `get_empire_assets` tool lists saved agreements, situations and megastructur
 
 `get_council` reports saved council positions, leader references, agenda and ordered cooldown records. Parallel-list alignment and leader back-references are checked where available; agenda effects, cooldown semantics and eligibility remain unverified.
 
+`get_leaders` and `get_council` cross-check saved ruler, heir, owned leader and council position references when available. Leader details retain saved experience and history values; matches do not establish undocumented gameplay semantics.
+
+`get_factions` exposes saved country faction references and faction members. Legacy POP and current POP-group references are checked separately; ambiguous ID collisions are reported. Political effects, population units and positional arrays remain unverified.
+
 `get_casus_belli` reports saved country diplomacy-module records and country ID references; type, timing and roles remain raw and do not establish an available declaration of war.
 
 `get_economy_breakdown` separates saved balance categories from a computed income-minus-expenses net, for the saved current or last month. Missing tables are flagged; values and keys retain their saved precision.
