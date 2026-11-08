@@ -61,6 +61,13 @@ func renderSystemContents(data *gamestate.SystemContents, id int) *mcp.CallToolR
 	fmt.Fprintf(&b, "System name: %s\n", name(system.Name))
 	fmt.Fprintln(&b, "Locations and links describe saved fields. Coordinate units, orbital scales, visibility and resource yields remain unverified.")
 	writeSystemFields(&b, "Saved system fields", system.Value, "star_class", "coordinate", "inner_radius", "outer_radius", "initializer", "asteroid_belts", "ambient_object")
+	if data.NebulaUnresolved > 0 {
+		fmt.Fprintf(&b, "Nebula candidate coverage incomplete: %d unsupported saved record or reference fields. Use raw tools.\n", data.NebulaUnresolved)
+	}
+	for _, candidate := range data.NebulaCandidates {
+		fmt.Fprintf(&b, "\nNebula[%d]: %d saved galactic_object ID match(es); candidate only, membership and visibility unverified.\n", candidate.Position, candidate.Matches)
+		writeSavedValue(&b, "Saved nebula fields", candidate.Value, 0)
+	}
 	writeSavedTableStatus(&b, "planets.planet", data.Planets)
 	if !data.Deposits.Recorded {
 		fmt.Fprintln(&b, "deposit table not recorded")

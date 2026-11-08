@@ -9,9 +9,17 @@ import (
 )
 
 type SystemContents struct {
-	Systems  ConnectionRecordTable[SavedSystemContents]
-	Planets  ConnectionRecordTable[SavedSystemPlanet]
-	Deposits ConnectionRecordTable[Deposit]
+	Systems          ConnectionRecordTable[SavedSystemContents]
+	Planets          ConnectionRecordTable[SavedSystemPlanet]
+	Deposits         ConnectionRecordTable[Deposit]
+	NebulaCandidates []SavedNebulaCandidate
+	NebulaUnresolved int
+}
+
+type SavedNebulaCandidate struct {
+	Position int
+	Matches  int
+	Value    clausewitz.Value
 }
 
 type SavedSystemContents struct {
@@ -54,6 +62,36 @@ func LoadSystemContentsFromArchive(archive *zip.Reader, id int) (*SystemContents
 
 func decodeSystemContents(root clausewitz.Value, id int) *SystemContents {
 	result := &SystemContents{Systems: systemSubsetTable[SavedSystemContents](root, map[int]bool{id: true}, "galactic_object")}
+	if root.IsObject() {
+		position := 0
+		for _, pair := range root.Object.Pairs {
+			if pair.Key != "nebula" {
+				continue
+			}
+			if !pair.Value.IsObject() {
+				result.NebulaUnresolved++
+				position++
+				continue
+			}
+			matches := 0
+			for _, field := range pair.Value.Object.Pairs {
+				if field.Key != "galactic_object" {
+					continue
+				}
+				var ref OptionalIntRef
+				ref.UnmarshalClausewitz(field.Value)
+				if ref.Unsupported || ref.Value == nil {
+					result.NebulaUnresolved++
+				} else if *ref.Value == id {
+					matches++
+				}
+			}
+			if matches > 0 {
+				result.NebulaCandidates = append(result.NebulaCandidates, SavedNebulaCandidate{Position: position, Matches: matches, Value: pair.Value})
+			}
+			position++
+		}
+	}
 	system, found := result.Systems.Items[id]
 	if !found {
 		return result

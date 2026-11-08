@@ -21,7 +21,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_espionage_operations` | Espionage operations, network cross-references and saved logs |
 | `get_first_contacts` | Saved first-contact records, references and event histories |
 | `get_system_connections` | Saved system hyperlanes, bypass and natural wormhole references |
-| `get_system_contents` | Saved stars, celestial bodies, moons and deposit references by system |
+| `get_system_contents` | Saved stars, celestial bodies, moons, deposits and nebula candidates by system |
 | `get_sectors` | Saved sectors and country, system and capital references |
 | `get_casus_belli` | Saved diplomatic casus belli records and country references |
 | `get_resource_market` | Saved economy-module resource amounts and country-matched monthly trade entries |

@@ -85,3 +85,23 @@ func TestSystemContentsMissingAndDuplicateTables(t *testing.T) {
 		}
 	}
 }
+
+func TestSystemContentsNebulaCandidatesPreserveUncertainty(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`galactic_object={0={name={key=system}} 1={}} nebula={name={key=first} galactic_object=0 galactic_object=0 galactic_object=1 radius=0.125} nebula=bad nebula={galactic_object={invalid=0}} nebula={galactic_object=1}`)}})
+	result, err := handleSystemContents(context.Background(), rawRequest(map[string]any{"system_id": 0}))
+	if err != nil || result.IsError {
+		t.Fatal("system contents failed")
+	}
+	got := resultText(result)
+	for _, want := range []string{"Nebula[0]: 2 saved galactic_object ID match(es)", "candidate only", "Nebula candidate coverage incomplete: 2", `key="radius": "0.125"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, "Nebula[3]") {
+		t.Fatal("unmatched nebula included")
+	}
+}
