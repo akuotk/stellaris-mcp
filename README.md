@@ -24,6 +24,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_debris` | Saved debris records, components, resources and special project references |
 | `get_research_potential` | Paginated saved research-potential records with snapshot revision |
 | `get_economy_breakdown` | Current or last month saved budget categories and calculated net |
+| `get_country_observation_refs` | Saved sensor and deposit-holder references with numeric candidates |
 | `get_controlled_planets` | Saved controlled-planet references and planet-side comparisons |
 | `get_country_timed_modifiers` | Paginated saved country timed modifiers and raw positions |
 | `get_planets` | Colonized planets with districts, buildings, jobs, modifiers, production |
