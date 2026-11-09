@@ -6,15 +6,24 @@ import (
 )
 
 func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, flagScripts ...gamestate.FlagScriptSource) {
-	saveDir = dir
-	loc = localizer
 	var flagSource gamestate.FlagScriptSource
 	if len(flagScripts) > 0 {
 		flagSource = flagScripts[0]
 	}
+	register(s, dir, localizer, flagSource, nil)
+}
+
+func RegisterWithInstalledScripts(s *server.MCPServer, dir string, localizer *gamestate.Localizer, localizationDir string) {
+	register(s, dir, localizer, gamestate.NewFlagScriptSource(localizationDir), gamestate.NewTechnologyDefinitionSource(localizationDir))
+}
+
+func register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, flagSource gamestate.FlagScriptSource, technologySource gamestate.TechnologyDefinitionSource) {
+	saveDir = dir
+	loc = localizer
 	registerPing(s)
 	registerEmpireOverview(s)
 	registerResearchStatus(s)
+	registerTechnologyDefinition(s, technologySource)
 	registerSpecialProjects(s)
 	registerEventChains(s)
 	registerSavedEventTargets(s)

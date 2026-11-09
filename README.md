@@ -10,6 +10,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 |---|---|
 | `get_empire_overview` | Ethics, civics, government, power ratings, naval/starbase capacity, resources |
 | `get_research_status` | Current research + progress, available options, completed techs |
+| `get_technology_definition` | Paginated local static technology fields and optional saved key matches |
 | `get_special_projects` | Saved special project records and research queue and fleet order ID candidates |
 | `get_event_chains` | Paginated saved country event-chain and completed-chain entries |
 | `get_player_events` | Paginated saved player events and selection-history entries |

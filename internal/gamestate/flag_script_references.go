@@ -59,34 +59,46 @@ type FlagScriptSource func() FlagScriptIndex
 
 func NewFlagScriptSource(localizationDir string) FlagScriptSource {
 	return sync.OnceValue(func() FlagScriptIndex {
-		root := flagGameRoot(localizationDir)
-		if root == nil {
-			return FlagScriptIndex{Status: "unavailable", Fingerprint: "unavailable"}
-		}
-		defer root.Close()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		scan := flagScriptScan{
-			ctx: ctx, digest: sha256.New(),
-			index: FlagScriptIndex{Status: "complete", byKey: make(map[string][len(flagScriptCommands)]FlagScriptReference)},
-		}
-		scan.walk(root, "common", 0, false)
-		scan.walk(root, "events", 0, false)
-		if _, err := root.Lstat("dlc"); err == nil || !os.IsNotExist(err) {
-			scan.walk(root, "dlc", 0, true)
-		}
-		if scan.files == 0 {
-			scan.index.Status = "unavailable"
-		} else if scan.partial || ctx.Err() != nil {
-			scan.index.Status = "partial"
-		}
-		fmt.Fprintf(scan.digest, "flag-scripts-v1:%s", scan.index.Status)
-		scan.index.Fingerprint = hex.EncodeToString(scan.digest.Sum(nil))
-		return scan.index
+		index := FlagScriptIndex{byKey: make(map[string][len(flagScriptCommands)]FlagScriptReference)}
+		index.Status, index.Fingerprint = scanInstalledScripts(localizationDir, "flag-scripts-v1", []string{"common", "events"}, nil,
+			func(ctx context.Context, data []byte, _ bool) bool {
+				for _, command := range flagScriptCommands {
+					if bytes.Contains(data, []byte(command)) {
+						return index.indexScript(ctx, data)
+					}
+				}
+				return true
+			})
+		return index
 	})
 }
 
-func flagGameRoot(localizationDir string) *os.Root {
+func scanInstalledScripts(localizationDir, scope string, dirs []string, zipMember func(string) bool, consume func(context.Context, []byte, bool) bool) (status, fingerprint string) {
+	root := installedGameRoot(localizationDir)
+	if root == nil {
+		return "unavailable", "unavailable"
+	}
+	defer root.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	scan := installedScriptScan{ctx: ctx, digest: sha256.New(), zipMember: zipMember, consume: consume}
+	for _, dir := range dirs {
+		scan.walk(root, dir, 0, false)
+	}
+	if _, err := root.Lstat("dlc"); err == nil || !os.IsNotExist(err) {
+		scan.walk(root, "dlc", 0, true)
+	}
+	status = "complete"
+	if scan.files == 0 {
+		status = "unavailable"
+	} else if scan.partial || ctx.Err() != nil {
+		status = "partial"
+	}
+	fmt.Fprintf(scan.digest, "%s:%s", scope, status)
+	return status, hex.EncodeToString(scan.digest.Sum(nil))
+}
+
+func installedGameRoot(localizationDir string) *os.Root {
 	if localizationDir == "" {
 		return nil
 	}
@@ -120,17 +132,18 @@ func flagGameRoot(localizationDir string) *os.Root {
 	return root
 }
 
-type flagScriptScan struct {
+type installedScriptScan struct {
 	ctx                context.Context
 	digest             hash.Hash
-	index              FlagScriptIndex
+	zipMember          func(string) bool
+	consume            func(context.Context, []byte, bool) bool
 	bytes              int64
 	walkEntries, files int
 	archives           int
 	partial            bool
 }
 
-func (s *flagScriptScan) walk(root *os.Root, dir string, depth int, archives bool) {
+func (s *installedScriptScan) walk(root *os.Root, dir string, depth int, archives bool) {
 	if s.ctx.Err() != nil || depth > 16 || s.walkEntries >= maxFlagWalkEntries || s.bytes >= maxFlagScanBytes {
 		s.partial = true
 		return
@@ -174,7 +187,7 @@ func (s *flagScriptScan) walk(root *os.Root, dir string, depth int, archives boo
 	}
 }
 
-func (s *flagScriptScan) readFile(root *os.Root, name string, archive bool) {
+func (s *installedScriptScan) readFile(root *os.Root, name string, archive bool) {
 	info, err := root.Lstat(name)
 	if err != nil || !info.Mode().IsRegular() {
 		s.partial = true
@@ -189,11 +202,11 @@ func (s *flagScriptScan) readFile(root *os.Root, name string, archive bool) {
 	if archive {
 		s.readZip(f, name, info.Size())
 	} else {
-		s.readScript(f, name, info.Size())
+		s.readScript(f, name, info.Size(), false)
 	}
 }
 
-func (s *flagScriptScan) readZip(file *os.File, name string, size int64) {
+func (s *installedScriptScan) readZip(file *os.File, name string, size int64) {
 	if s.archives >= maxFlagArchives || size < 22 || size > maxFlagArchiveBytes || !flagZipDirectoryBounded(file, size) {
 		s.partial = true
 		return
@@ -219,7 +232,14 @@ func (s *flagScriptScan) readZip(file *os.File, name string, size int64) {
 			continue
 		}
 		if !fs.ValidPath(entry.Name) || strings.ContainsAny(entry.Name, "\\:") || names[entry.Name] != 1 ||
-			!entry.Mode().IsRegular() || entry.UncompressedSize64 > maxFlagScriptBytes {
+			!entry.Mode().IsRegular() {
+			s.partial = true
+			continue
+		}
+		if s.zipMember != nil && !s.zipMember(entry.Name) {
+			continue
+		}
+		if entry.UncompressedSize64 > maxFlagScriptBytes {
 			s.partial = true
 			continue
 		}
@@ -228,7 +248,7 @@ func (s *flagScriptScan) readZip(file *os.File, name string, size int64) {
 			s.partial = true
 			continue
 		}
-		s.readScript(content, name+":"+entry.Name, int64(entry.UncompressedSize64))
+		s.readScript(content, name+":"+entry.Name, int64(entry.UncompressedSize64), true)
 		content.Close()
 	}
 }
@@ -272,7 +292,7 @@ func (r *flagZipReadAt) ReadAt(p []byte, offset int64) (int, error) {
 	return n, err
 }
 
-func (s *flagScriptScan) readScript(r io.Reader, name string, size int64) {
+func (s *installedScriptScan) readScript(r io.Reader, name string, size int64, fromZip bool) {
 	limit := min(int64(maxFlagScriptBytes), maxFlagScanBytes-s.bytes)
 	if size < 0 || size > limit || s.ctx.Err() != nil {
 		s.partial = true
@@ -286,26 +306,22 @@ func (s *flagScriptScan) readScript(r io.Reader, name string, size int64) {
 	}
 	s.files++
 	fmt.Fprintf(s.digest, "%d:%s:%x\n", len(name), name, sha256.Sum256(data))
-	for _, command := range flagScriptCommands {
-		if bytes.Contains(data, []byte(command)) {
-			s.indexScript(data)
-			return
-		}
+	if !s.consume(s.ctx, data, fromZip) {
+		s.partial = true
 	}
 }
 
-func (s *flagScriptScan) indexScript(data []byte) {
-	root, err := clausewitz.ParseRaw(s.ctx, data)
+func (index *FlagScriptIndex) indexScript(ctx context.Context, data []byte) bool {
+	root, err := clausewitz.ParseRaw(ctx, data)
 	if err != nil {
-		s.partial = true
-		return
+		return false
 	}
+	complete := true
 	counts := make(map[string][len(flagScriptCommands)]int)
 	stack := []*clausewitz.RawNode{root}
 	for len(stack) > 0 {
-		if s.ctx.Err() != nil {
-			s.partial = true
-			return
+		if ctx.Err() != nil {
+			return false
 		}
 		n := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
@@ -321,11 +337,11 @@ func (s *flagScriptScan) indexScript(data []byte) {
 			recognized = true
 			key, ok := flagScriptLiteral(n, command == "set_timed_global_flag")
 			if !ok {
-				s.partial = true
+				complete = false
 				break
 			}
 			if _, exists := counts[key]; !exists && len(counts) >= maxFlagScriptKeys {
-				s.partial = true
+				complete = false
 				break
 			}
 			values := counts[key]
@@ -343,9 +359,9 @@ func (s *flagScriptScan) indexScript(data []byte) {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		refs, exists := s.index.byKey[key]
-		if !exists && len(s.index.byKey) >= maxFlagScriptKeys {
-			s.partial = true
+		refs, exists := index.byKey[key]
+		if !exists && len(index.byKey) >= maxFlagScriptKeys {
+			complete = false
 			continue
 		}
 		for i, count := range counts[key] {
@@ -354,8 +370,9 @@ func (s *flagScriptScan) indexScript(data []byte) {
 				refs[i].Files++
 			}
 		}
-		s.index.byKey[key] = refs
+		index.byKey[key] = refs
 	}
+	return complete
 }
 
 func flagScriptLiteral(node *clausewitz.RawNode, timed bool) (string, bool) {
