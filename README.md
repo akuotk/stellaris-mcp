@@ -13,6 +13,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_completed_technologies` | Saved completed technology keys and levels, 50 entries per page |
 | `get_technology_definition` | Paginated local static technology fields and optional saved key matches |
 | `read_technology_definition` | Navigate local technology trees and page normalized key or scalar bytes |
+| `get_technology_references` | Paginated static prerequisite references to a technology key |
 | `get_special_projects` | Saved special project records and research queue and fleet order ID candidates |
 | `get_event_chains` | Paginated saved country event-chain and completed-chain entries |
 | `get_player_events` | Paginated saved player events and selection-history entries |

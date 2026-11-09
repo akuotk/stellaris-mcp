@@ -10,14 +10,15 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, f
 	if len(flagScripts) > 0 {
 		flagSource = flagScripts[0]
 	}
-	register(s, dir, localizer, flagSource, nil)
+	register(s, dir, localizer, flagSource, nil, nil)
 }
 
 func RegisterWithInstalledScripts(s *server.MCPServer, dir string, localizer *gamestate.Localizer, localizationDir string) {
-	register(s, dir, localizer, gamestate.NewFlagScriptSource(localizationDir), gamestate.NewTechnologyDefinitionSource(localizationDir))
+	register(s, dir, localizer, gamestate.NewFlagScriptSource(localizationDir), gamestate.NewTechnologyDefinitionSource(localizationDir),
+		gamestate.NewTechnologyReferenceSource(localizationDir))
 }
 
-func register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, flagSource gamestate.FlagScriptSource, technologySource gamestate.TechnologyDefinitionSource) {
+func register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, flagSource gamestate.FlagScriptSource, technologySource gamestate.TechnologyDefinitionSource, technologyReferences gamestate.TechnologyReferenceSource) {
 	saveDir = dir
 	loc = localizer
 	registerPing(s)
@@ -26,6 +27,7 @@ func register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, f
 	registerCompletedTechnologies(s)
 	registerTechnologyDefinition(s, technologySource)
 	registerTechnologyDefinitionTree(s, technologySource)
+	registerTechnologyReferences(s, technologyReferences)
 	registerSpecialProjects(s)
 	registerEventChains(s)
 	registerSavedEventTargets(s)

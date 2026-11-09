@@ -16,7 +16,7 @@ func TestToolsAdvertiseReadOnly(t *testing.T) {
 		if a.ReadOnlyHint == nil || !*a.ReadOnlyHint || a.DestructiveHint == nil || *a.DestructiveHint {
 			t.Errorf("%s has incorrect read-only annotations", name)
 		}
-		if name != "ping" && name != "list_save_games" && name != "read_technology_definition" {
+		if name != "ping" && name != "list_save_games" && name != "read_technology_definition" && name != "get_technology_references" {
 			if _, ok := entry.Tool.InputSchema.Properties["save_id"]; !ok {
 				t.Errorf("%s does not expose save selection", name)
 			}

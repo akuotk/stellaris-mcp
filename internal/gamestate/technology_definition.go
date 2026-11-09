@@ -39,7 +39,7 @@ func NewTechnologyDefinitionSource(localizationDir string) TechnologyDefinitionS
 		index := TechnologyDefinitionIndex{byKey: map[string][]TechnologyDefinition{}}
 		var records, nodes, textBytes int
 		index.Status, index.Fingerprint = scanInstalledScripts(localizationDir, "technology-definitions-v1", []string{"common/technology"}, technologyZipMember,
-			func(ctx context.Context, data []byte, archived bool) bool {
+			func(ctx context.Context, data []byte, _ string, archived bool) bool {
 				doc, err := clausewitz.ParseRaw(ctx, data)
 				if err != nil {
 					return false
