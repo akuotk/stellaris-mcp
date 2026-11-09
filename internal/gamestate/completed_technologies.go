@@ -35,7 +35,7 @@ func LoadCompletedTechnologiesFromArchive(archive *zip.Reader, requestedCountry 
 	if err != nil {
 		return SavedCompletedTechnologies{}, fmt.Errorf("cannot parse selected gamestate")
 	}
-	countryID, country, path, err := completedTechnologyCountry(doc, requestedCountry)
+	countryID, country, path, err := selectSavedCountry(doc, requestedCountry)
 	if err != nil {
 		return SavedCompletedTechnologies{}, err
 	}
@@ -92,46 +92,4 @@ func LoadCompletedTechnologiesFromArchive(archive *zip.Reader, requestedCountry 
 		entry.RepeatedKey = entry.Key != "" && counts[entry.Key] > 1
 	}
 	return result, nil
-}
-
-func completedTechnologyCountry(doc *clausewitz.Object, requested *int) (int, clausewitz.Value, string, error) {
-	if requested == nil {
-		root := clausewitz.Value{Object: doc}
-		player, recorded, unsupported := savedFieldPath(root, "player")
-		if player.IsList() && len(player.List) == 1 {
-			player = player.List[0]
-		}
-		ref := savedPathInt(player, "country")
-		if !recorded || unsupported || ref.Value == nil || ref.Unsupported || *ref.Value < 0 {
-			return 0, clausewitz.Value{}, "", fmt.Errorf("cannot determine a unique player country; specify country_id")
-		}
-		requested = ref.Value
-	}
-	var countries clausewitz.Value
-	rootIndex := -1
-	for i, field := range doc.Pairs {
-		if field.Key == "country" {
-			if rootIndex >= 0 {
-				return 0, clausewitz.Value{}, "", fmt.Errorf("saved country table is ambiguous")
-			}
-			countries, rootIndex = field.Value, i
-		}
-	}
-	if !countries.IsObject() {
-		return 0, clausewitz.Value{}, "", fmt.Errorf("saved country table is unavailable")
-	}
-	var country clausewitz.Value
-	countryIndex := -1
-	for i, field := range countries.Object.Pairs {
-		if id, err := strconv.Atoi(field.Key); err == nil && id == *requested {
-			if countryIndex >= 0 {
-				return 0, clausewitz.Value{}, "", fmt.Errorf("selected saved country is ambiguous")
-			}
-			country, countryIndex = field.Value, i
-		}
-	}
-	if !country.IsObject() {
-		return 0, clausewitz.Value{}, "", fmt.Errorf("selected saved country is unavailable")
-	}
-	return *requested, country, fmt.Sprintf("/%d/%d", rootIndex, countryIndex), nil
 }

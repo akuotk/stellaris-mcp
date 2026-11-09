@@ -18,7 +18,7 @@ func registerCompletedTechnologies(s *server.MCPServer) {
 	s.AddTool(mcp.NewTool("get_completed_technologies", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithDescription("Page through one saved country's completed technology fields in order, with adjacent integer levels and raw fallback for unusual data."),
 		mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")),
-		mcp.WithNumber("country_id", mcp.Description("Country ID; omit for the sole player")),
+		mcp.WithNumber("country_id", mcp.Description("Country ID. If omitted, all saved player records must refer to one country.")),
 		mcp.WithNumber("offset", mcp.Description("First saved entry, zero-based; 50 per page")),
 		mcp.WithString("page_context", mcp.Description("Token from the first page; required for later pages"))), handleCompletedTechnologies)
 }

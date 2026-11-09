@@ -11,6 +11,9 @@ import (
 )
 
 type GameState struct {
+	playerRecordsIncomplete bool
+	savedCountryIndex       *savedCountryIndex
+
 	RootEventTargets    []SavedEventTarget                          `clausewitz:"-"`
 	Debris              DebrisTable                                 `clausewitz:"debris"`
 	Bypasses            ConnectionRecordTable[SavedBypass]          `clausewitz:"bypasses"`
@@ -39,7 +42,7 @@ type GameState struct {
 	Version             string                                      `clausewitz:"version"`
 	Name                string                                      `clausewitz:"name"`
 	Date                string                                      `clausewitz:"date"`
-	Player              []Player                                    `clausewitz:"player"`
+	Player              []Player                                    `clausewitz:"-"`
 	Country             map[int]Country                             `clausewitz:"country"`
 	Fleet               map[int]Fleet                               `clausewitz:"fleet"`
 	Ships               map[int]Ship                                `clausewitz:"ships"`
@@ -133,6 +136,8 @@ func Load(data []byte) (*GameState, error) {
 	if err := clausewitz.DecodeValue(value, &gs); err != nil {
 		return nil, fmt.Errorf("parse gamestate: %w", err)
 	}
+	gs.Player, gs.playerRecordsIncomplete = readSavedPlayers(root)
+	gs.savedCountryIndex = indexSavedCountries(root)
 	gs.RootEventTargets = rootEventTargets(value)
 	if uniqueSavedFields(value, "galactic_community") != nil {
 		gs.Community = &GalacticCommunity{Unsupported: true}

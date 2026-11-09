@@ -20,7 +20,7 @@ func registerTechnologyDefinition(s *server.MCPServer, source gamestate.Technolo
 		mcp.WithString("technology_id", mcp.Required(), mcp.Description("Exact saved or installed technology key")),
 		mcp.WithBoolean("include_save_status", mcp.Description("Include exact matches in a selected save"), mcp.DefaultBool(false)),
 		mcp.WithString("save_id", mcp.Description("Save ID when including save status; omit for latest")),
-		mcp.WithNumber("country_id", mcp.Description("Country ID when including save status; omit for the sole player")),
+		mcp.WithNumber("country_id", mcp.Description("Country ID when including save status. If omitted, all saved player records must refer to one country.")),
 		mcp.WithNumber("offset", mcp.Description("First definition field, zero-based; 20 per page")),
 		mcp.WithString("page_context", mcp.Description("Token from the first page; required for later pages"))),
 		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

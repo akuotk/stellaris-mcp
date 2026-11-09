@@ -16,7 +16,7 @@ func registerResearchStatus(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("get_research_status", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 			mcp.WithDescription("Get current research, available options, and completed technologies"),
-			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
+			mcp.WithNumber("country_id", mcp.Description("Country ID. If omitted, all saved player records must refer to one country.")),
 		),
 		handleResearchStatus,
 	)

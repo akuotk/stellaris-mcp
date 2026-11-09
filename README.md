@@ -45,6 +45,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_fleet_templates` | Saved fleet templates, design/count entries and reference links |
 | `get_fleet_power` | Fleets with power, ship-level detail (design, HP, weapons) |
 | `get_ship_loadout` | Saved ship sections and weapons, design stages and slot comparisons |
+| `get_ship_design_collection` | Paginated saved country design references and matching ship counts |
 | `get_space_combat_objects` | Paginated saved missile or strike-craft records |
 | `get_council` | Saved council positions, leader references and agenda records |
 | `get_factions` | Saved political factions, member references and colony history |
@@ -68,7 +69,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `read_save_scalar` | Paginated normalized scalar or key bytes |
 | `read_save_bytes` | Paginated exact source bytes from a ZIP entry or container |
 
-Country-specific tools accept `country_id`. If omitted, they select the sole player recorded in a single-player save; if the player is ambiguous or absent, supply the ID explicitly. Use `list_save_games` and `save_id` to select a save, or omit `save_id` for the newest.
+Country-specific tools accept `country_id`. If omitted, every saved player record must contain one valid country ID and all must refer to the same unique country record. This rule identifies the country and leaves the number of human players unspecified. Supply `country_id` explicitly when player references are absent, incomplete or disagree. Use `list_save_games` and `save_id` to select a save, or omit `save_id` for the newest.
 
 `get_saved_flags` accepts `include_script_references=true` to add counts from local installed game scripts when the localization path has a supported layout. The default shows saved fields alone.
 

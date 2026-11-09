@@ -83,7 +83,7 @@ func TestCompletedTechnologiesTechStatusStates(t *testing.T) {
 
 func TestCompletedTechnologiesPagination(t *testing.T) {
 	var b strings.Builder
-	b.WriteString("player={country=0} country={0={tech_status={")
+	b.WriteString("player={{country=0} {country=0}} country={0={tech_status={")
 	for i := 0; i < 53; i++ {
 		fmt.Fprintf(&b, " technology=tech_%d level=%d", i, i)
 	}

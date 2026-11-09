@@ -141,7 +141,7 @@ func TestTechnologyDefinitionSaveMatchesAndContinuation(t *testing.T) {
 	}
 	script.WriteString("} tech_other={tier=1}")
 	root, locale := technologyGameFixture(t, script.String())
-	const fixture = `player={{country=0}} country={
+	const fixture = `player={{country=0} {country=0}} country={
 	0={tech_status={technology=tech_sample level=1 technology=tech_sample level=2
 		physics_queue={{technology=tech_sample} {special_project=0} {technology=tech_sample technology=tech_other}}
 		society_queue={}

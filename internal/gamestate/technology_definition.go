@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -135,33 +134,9 @@ func LoadTechnologySaveMatches(archive *zip.Reader, countryID *int, technologyID
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse selected gamestate")
 	}
-	root := clausewitz.Value{Object: doc}
-	if countryID == nil {
-		player, recorded, unsupported := savedFieldPath(root, "player")
-		if player.IsList() && len(player.List) == 1 {
-			player = player.List[0]
-		}
-		country := savedPathInt(player, "country")
-		if !recorded || unsupported || country.Value == nil || country.Unsupported || *country.Value < 0 {
-			return nil, fmt.Errorf("cannot determine a unique player country; specify country_id")
-		}
-		countryID = country.Value
-	}
-	countries, _, unsupported := savedFieldPath(root, "country")
-	if unsupported || !countries.IsObject() {
-		return nil, fmt.Errorf("saved country table unavailable or ambiguous")
-	}
-	var country clausewitz.Value
-	matches := 0
-	for _, pair := range countries.Object.Pairs {
-		id, err := strconv.Atoi(pair.Key)
-		if err == nil && id == *countryID {
-			country = pair.Value
-			matches++
-		}
-	}
-	if matches != 1 || !country.IsObject() {
-		return nil, fmt.Errorf("selected country unavailable or ambiguous")
+	_, country, _, err := selectSavedCountry(doc, countryID)
+	if err != nil {
+		return nil, err
 	}
 	status, recorded, unsupported := savedFieldPath(country, "tech_status")
 	if !recorded || unsupported || !status.IsObject() {

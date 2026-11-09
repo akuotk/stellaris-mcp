@@ -41,7 +41,7 @@ func ll(keys []string) []string {
 func name(n gamestate.LocalizedName) string { return loc.ResolveName(n) }
 
 func getCountry(gs *gamestate.GameState, req mcp.CallToolRequest) (int, *gamestate.Country, error) {
-	var id int
+	var requested *int
 	if value, provided := req.GetArguments()["country_id"]; provided {
 		var n float64
 		switch v := value.(type) {
@@ -59,18 +59,10 @@ func getCountry(gs *gamestate.GameState, req mcp.CallToolRequest) (int, *gamesta
 		if math.IsNaN(n) || math.IsInf(n, 0) || n < 0 || n > max || math.Trunc(n) != n {
 			return 0, nil, fmt.Errorf("country_id must be a nonnegative exact integer")
 		}
-		id = int(n)
-	} else {
-		if len(gs.Player) != 1 || gs.Player[0].CountryID == nil {
-			return 0, nil, fmt.Errorf("cannot determine a unique player country; specify country_id")
-		}
-		id = *gs.Player[0].CountryID
+		id := int(n)
+		requested = &id
 	}
-	c, ok := gs.Country[id]
-	if !ok {
-		return 0, nil, fmt.Errorf("country %d not found", id)
-	}
-	return id, &c, nil
+	return gs.SelectCountry(requested)
 }
 
 func countryName(gs *gamestate.GameState, id int) string {
