@@ -28,6 +28,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_system_connections` | Saved system hyperlanes, bypass and natural wormhole references |
 | `get_system_contents` | Saved stars, bodies, moons, deposits, ambient objects and nebula candidates |
 | `get_galaxy_metadata` | Ordered root galaxy records and saved fields |
+| `get_galaxy_regions` | Paginated saved clusters, nebulae and their object entries |
 | `get_sectors` | Saved sectors and country, system and capital references |
 | `get_casus_belli` | Saved diplomatic casus belli records and country references |
 | `get_resource_market` | Saved economy-module resource amounts and country-matched monthly trade entries |

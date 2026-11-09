@@ -52,6 +52,8 @@ Federation country and envoy references are checked against available reverse re
 
 `get_galaxy_metadata` displays root `galaxy` records and duplicate fields in saved order. Their status as configuration or current state, units and applicability are not inferred. Deep or mixed data remains available through the raw tools.
 
+`get_galaxy_regions` pages through saved clusters and nebulae in root order. The `cluster_objects` and `nebula_objects` views page through their saved entries separately. Each continuation token is bound to the selected view and save revision. Object IDs show numeric candidates in the system, planet and country tables. Namespace, membership, coordinate, route and visibility semantics remain unverified. Empty and unsupported records retain their saved position. Use raw tree or byte tools for deep, large or mixed values.
+
 `get_sectors` reports saved sector ownership, systems and capital references, checks available back-references, and flags incomplete or conflicting data. An ID match without a verified reverse link remains a candidate.
 
 `get_notifications` lists saved war records, including those with end dates; it does not infer whether a war is active from a missing date.
