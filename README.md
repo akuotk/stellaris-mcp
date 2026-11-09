@@ -14,7 +14,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_event_chains` | Paginated saved country event-chain and completed-chain entries |
 | `get_player_events` | Paginated saved player events and selection-history entries |
 | `get_saved_messages` | Paginated root message records in saved order, with raw fields |
-| `get_saved_flags` | Paginated root flags and fields in saved order |
+| `get_saved_flags` | Paginated root flags and optional local script-reference counts |
 | `get_trade_routes` | Paginated saved trade routes and manager entries, with numeric ID candidates |
 | `get_saved_event_targets` | Paginated root event targets and numeric ID candidates |
 | `get_debris` | Saved debris records, components, resources and special project references |
@@ -65,6 +65,8 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `read_save_bytes` | Paginated exact source bytes from a ZIP entry or container |
 
 Country-specific tools accept `country_id`. If omitted, they select the sole player recorded in a single-player save; if the player is ambiguous or absent, supply the ID explicitly. Use `list_save_games` and `save_id` to select a save, or omit `save_id` for the newest.
+
+`get_saved_flags` accepts `include_script_references=true` to add counts from local installed game scripts when the localization path has a supported layout. The default shows saved fields alone.
 
 Raw exploration preserves ordered duplicate keys, mixed keyed/anonymous blocks, quote/escape flags and source offsets. Normalized values may not preserve spelling or comments: use the offsets with `read_save_bytes` for exact content. Pagination requires the archive revision returned by `inspect_save_archive`; a changed save is rejected. For continued byte, tree, scalar or search reads, pass the returned `page_context` to detect changes in the selected source and query. A nonzero offset without the token remains supported for random access and legacy clients but is marked `pagination_context_verified=false`. The server does not send files to a network service, but clients receive requested data and may forward it according to their own configuration. Never upload private saves. See [COMPATIBILITY.md](COMPATIBILITY.md) for the remaining limits.
 

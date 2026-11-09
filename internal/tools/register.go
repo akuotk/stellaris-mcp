@@ -5,9 +5,13 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
+func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, flagScripts ...gamestate.FlagScriptSource) {
 	saveDir = dir
 	loc = localizer
+	var flagSource gamestate.FlagScriptSource
+	if len(flagScripts) > 0 {
+		flagSource = flagScripts[0]
+	}
 	registerPing(s)
 	registerEmpireOverview(s)
 	registerResearchStatus(s)
@@ -16,7 +20,7 @@ func Register(s *server.MCPServer, dir string, localizer *gamestate.Localizer) {
 	registerSavedEventTargets(s)
 	registerPlayerEvents(s)
 	registerSavedMessages(s)
-	registerSavedFlags(s)
+	registerSavedFlags(s, flagSource)
 	registerTradeRoutes(s)
 	registerDebris(s)
 	registerResearchPotential(s)

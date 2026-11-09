@@ -10,6 +10,7 @@ import (
 type SavedFlagEntry struct {
 	Path            string
 	Value           clausewitz.Value
+	Key             *string
 	RepeatedKey     bool
 	UnsupportedRoot bool
 }
@@ -47,7 +48,7 @@ func LoadSavedFlagsFromArchive(archive *zip.Reader) (SavedFlags, error) {
 		for j, field := range value.Object.Pairs {
 			flags.Entries = append(flags.Entries, SavedFlagEntry{
 				Path:  fmt.Sprintf("%s/field[%d] key=%q", path, j, field.Key),
-				Value: field.Value, RepeatedKey: counts[field.Key] > 1,
+				Value: field.Value, Key: &field.Key, RepeatedKey: counts[field.Key] > 1,
 			})
 		}
 	}

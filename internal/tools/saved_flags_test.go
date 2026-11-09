@@ -3,16 +3,19 @@ package tools
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
 func savedFlagText(t *testing.T, args map[string]any) string {
 	t.Helper()
-	result, err := handleSavedFlags(context.Background(), rawRequest(args))
+	result, err := handleSavedFlags(context.Background(), rawRequest(args), nil)
 	if err != nil || result.IsError {
 		t.Fatalf("saved flag read failed: %v %v", result, err)
 	}
@@ -130,13 +133,13 @@ func TestSavedFlagsPagination(t *testing.T) {
 		{"save_id": 0},
 		{"page_context": 0},
 	} {
-		result, err := handleSavedFlags(context.Background(), rawRequest(invalid))
+		result, err := handleSavedFlags(context.Background(), rawRequest(invalid), nil)
 		if err != nil || !result.IsError {
 			t.Errorf("accepted invalid request %v", invalid)
 		}
 	}
 	writeSyntheticSave(t, filepath.Join(dir, "synthetic.sav"), []syntheticEntry{{"gamestate", []byte(source + " changed=yes")}})
-	result, err := handleSavedFlags(context.Background(), rawRequest(args))
+	result, err := handleSavedFlags(context.Background(), rawRequest(args), nil)
 	if err != nil || !result.IsError || !strings.Contains(resultText(result), "page_context") {
 		t.Fatal("accepted stale continuation")
 	}
@@ -154,12 +157,100 @@ func TestSavedFlagsLargeNestedBlocks(t *testing.T) {
 	}
 	input.WriteString("}}}")
 	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(input.String())}})
-	result, err := handleSavedFlags(context.Background(), rawRequest(nil))
+	result, err := handleSavedFlags(context.Background(), rawRequest(nil), nil)
 	if err != nil || result.IsError {
 		t.Fatal("read failed")
 	}
 	got := resultText(result)
 	if strings.Count(got, "large saved block; use raw tree/byte tools") != 2 || strings.Contains(got, "key29") {
 		t.Fatalf("large blocks expanded: %s", got)
+	}
+}
+
+func TestSavedFlagsScriptReferencesOptIn(t *testing.T) {
+	input := "flags={sample={nested=0} " + strings.Repeat("unmatched=1 ", 19) + "sample=2} flags={}"
+	savePath := filepath.Join(syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(input)}}), "synthetic.sav")
+	root := t.TempDir()
+	locale := filepath.Join(root, "localisation", "english")
+	for _, dir := range []string{locale, filepath.Join(root, "common"), filepath.Join(root, "events")} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write := func(path, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(root, path), []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("stellaris.exe", "")
+	write("launcher-settings.json", "")
+	write("events/private-script.txt", "set_global_flag=sample set_global_flag=sample has_global_flag=nested")
+	source := gamestate.NewFlagScriptSource(locale)
+	loads := 0
+	s := server.NewMCPServer("test", "test")
+	Register(s, saveDir, loc, func() gamestate.FlagScriptIndex {
+		loads++
+		return source()
+	})
+	entry := s.ListTools()["get_saved_flags"]
+	call := func(args map[string]any) *mcp.CallToolResult {
+		t.Helper()
+		result, err := entry.Handler(context.Background(), rawRequest(args))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+	field := func(result, name string) string {
+		t.Helper()
+		for _, line := range strings.Split(result, "\n") {
+			if value, ok := strings.CutPrefix(line, name+"="); ok {
+				return value
+			}
+		}
+		t.Fatalf("missing %s", name)
+		return ""
+	}
+	defaultPage := resultText(call(nil))
+	if defaultPage != resultText(call(map[string]any{"include_script_references": false})) ||
+		strings.Contains(defaultPage, "script_reference_status") || loads != 0 {
+		t.Fatal("default mode changed or loaded the script source")
+	}
+	if !call(map[string]any{"include_script_references": "true"}).IsError || loads != 0 {
+		t.Fatal("invalid boolean loaded the script source")
+	}
+	first := resultText(call(map[string]any{"include_script_references": true}))
+	requireSavedFlagOrder(t, first, "script_reference_status=complete",
+		`key="sample" [duplicate saved key]`, `Field 0 key="nested": "0"`,
+		"set_global_flag sites=2 files=1", "set_timed_global_flag sites=0 files=0",
+		"has_global_flag sites=0 files=0", "remove_global_flag sites=0 files=0")
+	if loads != 1 || strings.Contains(first, "private-script") || strings.Contains(first, root) ||
+		strings.Contains(first, "has_global_flag sites=1") {
+		t.Fatal("response included script source details or indexed a nested saved key")
+	}
+	args := map[string]any{"include_script_references": true, "save_id": field(first, "save_id"), "offset": 20, "page_context": field(first, "page_context")}
+	second := resultText(call(args))
+	requireSavedFlagOrder(t, second, "offset=20", "set_global_flag sites=2 files=1", "entry[21]", "next_offset=none")
+	if strings.Count(second, "set_global_flag sites=") != 1 {
+		t.Fatal("root fallback received a lookup")
+	}
+	args["include_script_references"] = false
+	if !call(args).IsError {
+		t.Fatal("script reference token accepted in default mode")
+	}
+	args["include_script_references"] = true
+	write("events/private-script.txt", "set_global_flag=sample")
+	changed, err := handleSavedFlags(context.Background(), rawRequest(args), gamestate.NewFlagScriptSource(locale))
+	if err != nil || !changed.IsError || !strings.Contains(resultText(changed), "page_context") {
+		t.Fatal("changed script snapshot accepted")
+	}
+	writeSyntheticSave(t, savePath, []syntheticEntry{{"gamestate", []byte(input + " changed=yes")}})
+	if !call(args).IsError {
+		t.Fatal("changed save revision accepted")
+	}
+	unavailable := savedFlagText(t, map[string]any{"include_script_references": true})
+	if !strings.Contains(unavailable, "script_reference_status=unavailable") || strings.Contains(unavailable, "set_global_flag sites=") {
+		t.Fatal("unavailable source was presented as zero references")
 	}
 }

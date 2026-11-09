@@ -39,7 +39,7 @@ func main() {
 		server.WithRecovery(),
 	)
 
-	tools.Register(s, saveDir, loc)
+	tools.Register(s, saveDir, loc, gamestate.NewFlagScriptSource(locDir))
 
 	if err := server.ServeStdio(s); err != nil {
 		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
