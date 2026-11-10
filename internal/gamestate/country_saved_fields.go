@@ -13,10 +13,13 @@ type SavedRawCountry struct {
 	Path                  string
 	Node                  *clausewitz.RawNode
 	source                []byte
+	root                  *clausewitz.RawNode
 }
 
 func LoadCountrySavedFieldsFromArchive(ctx context.Context, archive *zip.Reader, requestedCountry *int) (SavedRawCountry, error) {
-	return loadRawSavedCountry(ctx, archive, requestedCountry, true)
+	country, err := loadRawSavedCountry(ctx, archive, requestedCountry, true)
+	country.root = nil
+	return country, err
 }
 
 func loadRawSavedCountry(ctx context.Context, archive *zip.Reader, requestedCountry *int, allowMixedRecord bool) (SavedRawCountry, error) {
@@ -64,7 +67,10 @@ func loadRawSavedCountry(ctx context.Context, archive *zip.Reader, requestedCoun
 	}
 	for i, f := range archive.File {
 		if f.Name == "gamestate" {
-			return SavedRawCountry{id, i, path, root.Children[rootIndex].Children[countryIndex], data}, nil
+			return SavedRawCountry{
+				CountryID: id, EntryIndex: i, Path: path, Node: root.Children[rootIndex].Children[countryIndex],
+				source: data, root: root,
+			}, nil
 		}
 	}
 	return SavedRawCountry{}, fmt.Errorf("cannot locate selected gamestate")
