@@ -135,6 +135,7 @@ func (p *LegacyFactionPop) UnmarshalClausewitz(value clausewitz.Value) error {
 func (gs *GameState) markAmbiguousPopGroupFactions(value clausewitz.Value) {
 	mark := func(id int) {
 		if group, ok := gs.PopGroups[id]; ok {
+			group.RecordDuplicate = true
 			group.Factions = PopFactionDistribution{Duplicate: true}
 			gs.PopGroups[id] = group
 		}

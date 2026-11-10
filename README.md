@@ -31,7 +31,8 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_country_saved_fields` | Paginated immediate country fields, including unknown and repeated keys |
 | `get_controlled_planets` | Saved controlled-planet references and planet-side comparisons |
 | `get_country_timed_modifiers` | Paginated saved country timed modifiers and raw positions |
-| `get_planets` | Colonized planets with districts, buildings, jobs, modifiers, production |
+| `get_planets` | Colonized planets with districts, buildings, jobs, modifiers, production and raw POP group values |
+| `get_colony_population_records` | Saved population growth, groups and jobs with reference checks |
 | `get_colonies` | Direct saved colony records and carrier references, including non-planet types |
 | `get_pre_ftl` | Saved pre-FTL country, planet and observation fleet references |
 | `get_construction` | Construction queues and item references, saved progress and resources |
@@ -50,6 +51,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_armies` | Ground armies, country, colony, ship, fleet, leader and species references |
 | `get_planets available=true` | Surveyed uncolonized habitable planets with features |
 | `get_fleet_templates` | Saved fleet templates, design/count entries and reference links |
+| `get_fleet_orders` | Saved fleet orders with explicit reference candidates |
 | `get_fleet_power` | Fleets with power, ship-level detail (design, HP, weapons) |
 | `get_ship_loadout` | Saved ship sections and weapons, design stages and slot comparisons |
 | `get_ship_design_collection` | Paginated saved country design references and matching ship counts |

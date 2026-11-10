@@ -1,6 +1,11 @@
 package gamestate
 
-import "github.com/bmassemin/stellaris-mcp/internal/clausewitz"
+import (
+	"math"
+	"strconv"
+
+	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
+)
 
 // Colony stores the population and economy records separated from planets in 4.5 saves.
 type Colony struct {
@@ -111,24 +116,86 @@ type PopGroup struct {
 		SpeciesID *int   `clausewitz:"species"`
 		Category  string `clausewitz:"category"`
 	} `clausewitz:"key"`
-	Planet                   int            `clausewitz:"-"`
-	PlanetRef                OptionalIntRef `clausewitz:"planet"`
-	PlanetRefDuplicate       bool           `clausewitz:"-"`
-	Size                     int            `clausewitz:"size"`
-	SizeRaw                  *int           `clausewitz:"size"`
-	LastMonthGrowth          int            `clausewitz:"last_month_growth"`
-	LastMonthGrowthRaw       *string        `clausewitz:"last_month_growth"`
-	LastMonthGrowthDuplicate bool           `clausewitz:"-"`
-	MonthStartSize           OptionalString `clausewitz:"month_start_size"`
-	Habitability             float64        `clausewitz:"habitability"`
-	Happiness                float64        `clausewitz:"happiness"`
+	Planet                   int                 `clausewitz:"-"`
+	PlanetRef                OptionalIntRef      `clausewitz:"planet"`
+	PlanetRefDuplicate       bool                `clausewitz:"-"`
+	Size                     int                 `clausewitz:"-"`
+	SizeRaw                  *int                `clausewitz:"-"`
+	LastMonthGrowth          int                 `clausewitz:"-"`
+	LastMonthGrowthRaw       *string             `clausewitz:"-"`
+	LastMonthGrowthDuplicate bool                `clausewitz:"-"`
+	MonthStartSize           OptionalString      `clausewitz:"month_start_size"`
+	Habitability             float64             `clausewitz:"-"`
+	Happiness                float64             `clausewitz:"-"`
+	SavedSize                SavedPopGroupNumber `clausewitz:"-"`
+	SavedGrowth              SavedPopGroupNumber `clausewitz:"-"`
+	SavedHabitability        SavedPopGroupNumber `clausewitz:"-"`
+	SavedHappiness           SavedPopGroupNumber `clausewitz:"-"`
+	RecordDuplicate          bool                `clausewitz:"-"`
+}
+
+type SavedPopGroupNumber struct {
+	Values  []clausewitz.Value
+	Valid   bool
+	Integer int64
+}
+
+func (n *SavedPopGroupNumber) parseInteger() {
+	if len(n.Values) != 1 || !n.Values[0].IsScalar() {
+		return
+	}
+	value, err := strconv.ParseInt(n.Values[0].Scalar, 10, 64)
+	if err == nil {
+		n.Integer, n.Valid = value, true
+	}
+}
+
+func (n *SavedPopGroupNumber) parseDecimal() float64 {
+	if len(n.Values) == 1 && n.Values[0].IsScalar() {
+		value, err := strconv.ParseFloat(n.Values[0].Scalar, 64)
+		if err == nil && !math.IsInf(value, 0) && !math.IsNaN(value) {
+			n.Valid = true
+			return value
+		}
+	}
+	return 0
 }
 
 func (g *PopGroup) UnmarshalClausewitz(value clausewitz.Value) error {
 	type fields PopGroup
-	if err := clausewitz.DecodeValue(value, (*fields)(g)); err != nil {
+	var decoded fields
+	if err := clausewitz.DecodeValue(value, &decoded); err != nil {
 		return err
 	}
+	*g = PopGroup(decoded)
+	for _, field := range value.Object.Pairs {
+		switch field.Key {
+		case "size":
+			g.SavedSize.Values = append(g.SavedSize.Values, field.Value)
+		case "last_month_growth":
+			g.SavedGrowth.Values = append(g.SavedGrowth.Values, field.Value)
+		case "habitability":
+			g.SavedHabitability.Values = append(g.SavedHabitability.Values, field.Value)
+		case "happiness":
+			g.SavedHappiness.Values = append(g.SavedHappiness.Values, field.Value)
+		}
+	}
+	g.SavedSize.parseInteger()
+	g.SavedGrowth.parseInteger()
+	g.Habitability = g.SavedHabitability.parseDecimal()
+	g.Happiness = g.SavedHappiness.parseDecimal()
+	if g.SavedSize.Valid && int64(int(g.SavedSize.Integer)) == g.SavedSize.Integer {
+		g.Size = int(g.SavedSize.Integer)
+		size := g.Size
+		g.SizeRaw = &size
+	}
+	if g.SavedGrowth.Valid {
+		g.LastMonthGrowthRaw = &g.SavedGrowth.Values[0].Scalar
+		if int64(int(g.SavedGrowth.Integer)) == g.SavedGrowth.Integer {
+			g.LastMonthGrowth = int(g.SavedGrowth.Integer)
+		}
+	}
+	g.LastMonthGrowthDuplicate = len(g.SavedGrowth.Values) > 1
 	g.PlanetRefDuplicate = uniqueSavedFields(value, "planet") != nil
 	if g.PlanetRefDuplicate {
 		g.PlanetRef = OptionalIntRef{Recorded: true}
@@ -137,10 +204,6 @@ func (g *PopGroup) UnmarshalClausewitz(value clausewitz.Value) error {
 	}
 	if uniqueSavedFields(value, "month_start_size") != nil {
 		g.MonthStartSize = OptionalString{Recorded: true, Unsupported: true}
-	}
-	if uniqueSavedFields(value, "last_month_growth") != nil {
-		g.LastMonthGrowthRaw = nil
-		g.LastMonthGrowthDuplicate = true
 	}
 	if uniqueSavedFields(value, "factions") != nil {
 		g.Factions = PopFactionDistribution{Duplicate: true}

@@ -125,21 +125,17 @@ func renderColonies(gs *gamestate.GameState, countryID int, country *gamestate.C
 				fmt.Fprintf(&b, "    Group %d: unavailable\n", groupID)
 				continue
 			}
-			size := "not recorded"
-			if group.SizeRaw != nil {
-				size = fmt.Sprint(*group.SizeRaw)
+			if group.RecordDuplicate {
+				fmt.Fprintf(&b, "    Group %d: duplicate saved group records or tables; use raw save tools\n", groupID)
+				continue
 			}
 			species := "not recorded"
 			if group.Key.SpeciesID != nil {
 				species = populationSpecies(gs, *group.Key.SpeciesID)
 			}
-			fmt.Fprintf(&b, "    Group %d: species=%s category=%s population=%s\n", groupID, species, group.Key.Category, size)
+			fmt.Fprintf(&b, "    Group %d: species=%s category=%s population=%s\n", groupID, species, group.Key.Category, popGroupNumberText(group.SavedSize, false))
 			writeColonyPopulationLink(&b, "pop_group", id, group.PlanetRef, group.PlanetRefDuplicate)
-			growth := governanceValue(group.LastMonthGrowthRaw)
-			if group.LastMonthGrowthDuplicate {
-				growth = "duplicate saved fields"
-			}
-			fmt.Fprintf(&b, "      month_start_size=%s last_month_growth=%s (raw save values)\n", councilSavedString(group.MonthStartSize), growth)
+			fmt.Fprintf(&b, "      month_start_size=%s last_month_growth=%s (raw save values)\n", councilSavedString(group.MonthStartSize), popGroupNumberText(group.SavedGrowth, true))
 			writePopDistributions(&b, gs, group)
 		}
 		fmt.Fprintln(&b, "  Job references (workforce as saved, including zero/negative values):")

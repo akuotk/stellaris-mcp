@@ -110,6 +110,8 @@ Typed ZIP analysis reads archive bytes into memory first and rejects missing or 
 
 `get_species` links species records to country and owned-planet references, including saved base species and home planet candidates, and displays traits and saved group-size totals. Incomplete or duplicate references are reported; groups referenced by multiple owned planets are counted once and their location is marked ambiguous. Non-planet carriers are not included. `get_colonies` exposes owned colony records, species information and raw carrier types and checks population group and job back-references without inventing a carrier identity. Non-planet carrier serialization has not yet been checked against a real Arkship save.
 
+POP group details distinguish absent, zero, duplicate and unsupported saved values for size, last-month growth, happiness and habitability where shown. Scalar spellings are preserved in bounded previews, and raw save tools provide exact source bytes. Species totals include only unique group records with a valid, unique integer size. Missing, duplicate or unsupported sizes are counted separately when a subtotal is incomplete. These values use saved units.
+
 `get_pre_ftl` exposes countries with saved primitive type or pre-FTL age, capital candidates and observation fleet references. Planet and fleet back-references are checked when available; fleet registration and planet owner are reported separately. Age and awareness scales and present visibility remain unverified.
 
 Duplicate or malformed colony carrier records are reported as unsupported and are not projected onto a planet. The meaning of non-planet carrier types and references remains unverified.
@@ -141,3 +143,7 @@ Set `include_script_references=true` to count exact literal `set_global_flag`, `
 `get_country_exploration_records` pages saved visited_objects, hyperlane_systems and terra_incognita fields in order, including unmodeled fields and malformed entries. Numeric table matches are candidates only; visits, visibility, travel and element meanings are not established. Raw paths and byte ranges preserve access to the original saved values.
 
 `get_country_control_groups` pages saved country group slots and entries. Numeric ID matches to fleet, ship and design tables are candidates only. Saved type values, current UI assignments and ownership remain unverified. Raw paths and byte ranges provide access to the original records.
+
+`get_colony_population_records` pages saved growth, population-group and job fields from a country-owned location reference. It distinguishes legacy planet records from colony-table records, checks reciprocal links where available and retains duplicate or unresolved records. Numeric units, actual job effects and population conversion are not inferred.
+
+`get_fleet_orders` pages saved fleet current-order fields and explicit reference candidates. Saved order IDs, execution status, units, target namespaces and availability are not inferred. Raw paths and byte ranges retain access to the saved records.

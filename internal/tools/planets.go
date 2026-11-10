@@ -139,7 +139,12 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 				fmt.Fprintf(&b, "  Group %d: referenced record unavailable\n", id)
 				continue
 			}
-			fmt.Fprintf(&b, "  Group %d: species=%s category=%s population=%d growth=%+d happiness=%g habitability=%g\n", id, populationSpecies(gs, group.Key.Species), group.Key.Category, group.Size, group.LastMonthGrowth, group.Happiness, group.Habitability)
+			if group.RecordDuplicate {
+				fmt.Fprintf(&b, "  Group %d: duplicate saved group records or tables; use raw save tools\n", id)
+				continue
+			}
+			fmt.Fprintf(&b, "  Group %d: species=%s category=%s population=%s growth=%s happiness=%s habitability=%s\n", id, populationSpecies(gs, group.Key.Species), group.Key.Category,
+				popGroupNumberText(group.SavedSize, false), popGroupNumberText(group.SavedGrowth, false), popGroupNumberText(group.SavedHappiness, false), popGroupNumberText(group.SavedHabitability, false))
 			writePopDistributions(&b, gs, group)
 		}
 	}
