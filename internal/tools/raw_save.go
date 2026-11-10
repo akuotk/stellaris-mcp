@@ -351,6 +351,10 @@ func rawNode(path string, key *string, v *clausewitz.RawNode) map[string]any {
 }
 
 func rawTree(ctx context.Context, req mcp.CallToolRequest) (*rawSaveArchive, int, *clausewitz.RawNode, *string, error) {
+	return rawTreeAtPath(ctx, req, req.GetString("path", ""))
+}
+
+func rawTreeAtPath(ctx context.Context, req mcp.CallToolRequest, path string) (*rawSaveArchive, int, *clausewitz.RawNode, *string, error) {
 	archive, index, f, err := openRawEntry(req)
 	if err != nil {
 		return nil, 0, nil, nil, err
@@ -371,7 +375,7 @@ func rawTree(ctx context.Context, req mcp.CallToolRequest) (*rawSaveArchive, int
 	if err != nil {
 		return nil, 0, nil, nil, fmt.Errorf("semantic tree unsupported for this entry: %w; use read_save_bytes for exact complete content", err)
 	}
-	v, key, err := rawAtPath(obj, req.GetString("path", ""))
+	v, key, err := rawAtPath(obj, path)
 	return archive, index, v, key, err
 }
 

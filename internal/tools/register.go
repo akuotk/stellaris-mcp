@@ -76,6 +76,7 @@ func register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, f
 	registerEmpireAssets(s)
 	registerGalacticCommunity(s)
 	registerRawSave(s)
+	registerSaveRecordRefs(s)
 	registerSaveCatalog(s)
 	registerSpecies(s)
 	registerSpeciesRights(s)

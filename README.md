@@ -70,6 +70,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `list_save_games` | Paginated local save catalog with stable IDs |
 | `inspect_save_archive` | Save revision and paginated ZIP entry metadata |
 | `read_save_tree` | Ordered tree navigation, including mixed entries and source offsets |
+| `get_save_record_refs` | Find numeric keys directly under a saved table and return raw positions |
 | `search_save_tree` | Paginated search for keys and scalar values |
 | `read_save_scalar` | Paginated normalized scalar or key bytes |
 | `read_save_bytes` | Paginated exact source bytes from a ZIP entry or container |
@@ -77,6 +78,8 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 Country-specific tools accept `country_id`. If omitted, every saved player record must contain one valid country ID and all must refer to the same unique country record. This rule identifies the country and leaves the number of human players unspecified. Supply `country_id` explicitly when player references are absent, incomplete or disagree. Use `list_save_games` and `save_id` to select a save, or omit `save_id` for the newest.
 
 `get_country_saved_fields` lists a country's immediate saved fields in pages of 20. The optional `query` filters keys by literal substring after Unicode lowercasing, with no Unicode normalization or full case folding. Omit it or pass an empty string to include anonymous entries. Pass the same `query`, `save_id`, country selection and returned `page_context` with `next_offset` to continue. Use the returned paths or byte ranges with `read_save_tree`, `read_save_scalar` or `read_save_bytes`, passing the returned `save_id`, `revision` and `entry_index`.
+
+`get_save_record_refs` takes the `table_path` and `revision` from a raw tree and a nonnegative integer `record_id`. It searches only the table's direct keys and returns every numeric match with its original position and byte range. A single match in a partial table has `lookup_status=observed` and a separate `observed_record_status` for its saved value. Continue with `next_offset` and the returned `page_context`. Use the candidate path with `read_save_tree` to inspect a record's fields.
 
 `get_saved_flags` accepts `include_script_references=true` to add counts from local installed game scripts when the localization path has a supported layout. The default shows saved fields alone.
 
