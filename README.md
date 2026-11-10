@@ -24,6 +24,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_debris` | Saved debris records, components, resources and special project references |
 | `get_research_potential` | Paginated saved research-potential records with snapshot revision |
 | `get_economy_breakdown` | Current or last month saved budget categories and calculated net |
+| `get_country_control_groups` | Saved control groups with numeric reference candidates |
 | `get_country_exploration_records` | Saved exploration-related fields with numeric reference candidates |
 | `get_country_observation_refs` | Saved sensor and deposit-holder references with numeric candidates |
 | `get_country_intel_records` | Saved intel structures with numeric reference candidates |

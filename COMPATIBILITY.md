@@ -139,3 +139,5 @@ Set `include_script_references=true` to count exact literal `set_global_flag`, `
 `get_country_intel_records` pages saved intel manager records and level arrays separately. Country and spy-network numeric matches are candidates only; index namespaces, array relationships, units and current visibility are not established. Original saved values and paths remain accessible through the raw save tools.
 
 `get_country_exploration_records` pages saved visited_objects, hyperlane_systems and terra_incognita fields in order, including unmodeled fields and malformed entries. Numeric table matches are candidates only; visits, visibility, travel and element meanings are not established. Raw paths and byte ranges preserve access to the original saved values.
+
+`get_country_control_groups` pages saved country group slots and entries. Numeric ID matches to fleet, ship and design tables are candidates only. Saved type values, current UI assignments and ownership remain unverified. Raw paths and byte ranges provide access to the original records.
