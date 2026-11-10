@@ -131,21 +131,30 @@ func handleInspectSaveArchive(_ context.Context, req mcp.CallToolRequest) (*mcp.
 }
 
 func rawInteger(req mcp.CallToolRequest, key string, defaultValue, minValue, maxValue int) (int, error) {
-	n := float64(defaultValue)
+	n, err := rawInteger64(req, key, int64(defaultValue), int64(minValue), int64(maxValue))
+	return int(n), err
+}
+
+func rawInteger64(req mcp.CallToolRequest, key string, defaultValue, minValue, maxValue int64) (int64, error) {
+	n := defaultValue
+	invalid := func() error { return fmt.Errorf("%s must be an integer from %d to %d", key, minValue, maxValue) }
 	if value, ok := req.GetArguments()[key]; ok {
 		switch value := value.(type) {
 		case float64:
-			n = value
+			if math.Trunc(value) != value || value < -1<<63 || value >= 1<<63 {
+				return 0, invalid()
+			}
+			n = int64(value)
 		case int:
-			n = float64(value)
+			n = int64(value)
 		default:
 			return 0, fmt.Errorf("%s must be a JSON number", key)
 		}
 	}
-	if math.IsNaN(n) || math.IsInf(n, 0) || math.Trunc(n) != n || n < float64(minValue) || n > float64(maxValue) {
-		return 0, fmt.Errorf("%s must be an integer from %d to %d", key, minValue, maxValue)
+	if n < minValue || n > maxValue {
+		return 0, invalid()
 	}
-	return int(n), nil
+	return n, nil
 }
 
 func openRawEntry(req mcp.CallToolRequest) (*rawSaveArchive, int, *zip.File, error) {
@@ -203,7 +212,7 @@ func rawPageToken(archive *rawSaveArchive, index int, operation string, paramete
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:])
 }
-func validateRawPageContext(req mcp.CallToolRequest, offset int, token string) (bool, error) {
+func validateRawPageContext[Offset int | int64](req mcp.CallToolRequest, offset Offset, token string) (bool, error) {
 	provided := req.GetString("page_context", "")
 	if provided != "" && provided != token {
 		return false, fmt.Errorf("page_context does not match this source or operation; restart pagination")
@@ -211,28 +220,49 @@ func validateRawPageContext(req mcp.CallToolRequest, offset int, token string) (
 	return offset == 0 || provided != "", nil
 }
 
-func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+const rawReadChunkSize = 32 * 1024
+
+type rawChunkReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r rawChunkReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	n, err := r.reader.Read(p[:min(len(p), rawReadChunkSize)])
+	if canceled := r.ctx.Err(); canceled != nil {
+		return n, canceled
+	}
+	return n, err
+}
+
+func handleReadSaveBytes(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := ctx.Err(); err != nil {
+		return toolError(err), nil
+	}
 	archive, index, f, err := openRawEntry(req)
 	if err != nil {
 		return toolError(err), nil
 	}
 
 	var stream io.ReadCloser
-	var total int
+	var total int64
 	var entryName *string
 	source := "archive_entry"
 	if index == -2 {
-		total = len(archive.data)
+		total = int64(len(archive.data))
 		stream = io.NopCloser(bytes.NewReader(archive.data))
 		source = "archive_bytes"
 	} else {
 		if f.UncompressedSize64 > 1<<53-1 {
 			return toolError(fmt.Errorf("entry size exceeds exact JSON integer range")), nil
 		}
-		total = int(f.UncompressedSize64)
+		total = int64(f.UncompressedSize64)
 		entryName = &f.Name
 	}
-	offset, err := rawInteger(req, "offset", 0, 0, total)
+	offset, err := rawInteger64(req, "offset", 0, 0, total)
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -245,7 +275,7 @@ func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	if err != nil {
 		return toolError(err), nil
 	}
-	end := offset + min(limit, total-offset)
+	end := offset + min(int64(limit), total-offset)
 	if index != -2 {
 		stream, err = f.Open()
 		if err != nil {
@@ -253,11 +283,20 @@ func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 		}
 	}
 	defer stream.Close()
-	if _, err := io.CopyN(io.Discard, stream, int64(offset)); err != nil {
+	reader := rawChunkReader{ctx, stream}
+	// CopyN and ReadFull can discard an error returned together with the last requested bytes.
+	skipped, err := io.Copy(io.Discard, io.LimitReader(reader, offset))
+	if err == nil && skipped != offset {
+		err = io.ErrUnexpectedEOF
+	}
+	if err != nil {
 		return toolError(fmt.Errorf("seek uncompressed entry: %w", err)), nil
 	}
-	data := make([]byte, end-offset)
-	if _, err := io.ReadFull(stream, data); err != nil {
+	data, err := io.ReadAll(io.LimitReader(reader, end-offset))
+	if err == nil && int64(len(data)) != end-offset {
+		err = io.ErrUnexpectedEOF
+	}
+	if err != nil {
 		return toolError(fmt.Errorf("read archive bytes: %w", err)), nil
 	}
 	var crcVerified *bool
@@ -266,8 +305,8 @@ func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 		crcVerified = &verified
 	}
 	if end == total {
-		extra := make([]byte, 1)
-		n, err := stream.Read(extra)
+		var extra [1]byte
+		n, err := reader.Read(extra[:])
 		if err != io.EOF || n != 0 {
 			if err == nil {
 				err = fmt.Errorf("entry exceeds declared uncompressed size")
@@ -278,7 +317,10 @@ func handleReadSaveBytes(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 			*crcVerified = true
 		}
 	}
-	var next *int
+	if err := ctx.Err(); err != nil {
+		return toolError(err), nil
+	}
+	var next *int64
 	if end < total {
 		next = &end
 	}
@@ -355,6 +397,9 @@ func rawTree(ctx context.Context, req mcp.CallToolRequest) (*rawSaveArchive, int
 }
 
 func rawTreeAtPath(ctx context.Context, req mcp.CallToolRequest, path string) (*rawSaveArchive, int, *clausewitz.RawNode, *string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, 0, nil, nil, err
+	}
 	archive, index, f, err := openRawEntry(req)
 	if err != nil {
 		return nil, 0, nil, nil, err
@@ -367,7 +412,7 @@ func rawTreeAtPath(ctx context.Context, req mcp.CallToolRequest, path string) (*
 		return nil, 0, nil, nil, fmt.Errorf("open archive entry: %w", err)
 	}
 	defer stream.Close()
-	data, err := io.ReadAll(stream)
+	data, err := io.ReadAll(rawChunkReader{ctx, stream})
 	if err != nil {
 		return nil, 0, nil, nil, fmt.Errorf("read archive entry: %w", err)
 	}
