@@ -485,31 +485,9 @@ func handleSearchSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	if err != nil {
 		return toolError(err), nil
 	}
-	type item struct {
-		path  string
-		key   *string
-		value *clausewitz.RawNode
-	}
-	stack := []item{{req.GetString("path", ""), key, v}}
-	matches := make([]map[string]any, 0, limit)
-	total, visited := 0, 0
-	for len(stack) > 0 {
-		if err := ctx.Err(); err != nil {
-			return toolError(err), nil
-		}
-		n := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		visited++
-		if query == "" || n.key != nil && strings.Contains(strings.ToLower(*n.key), query) || n.value.IsScalar() && strings.Contains(strings.ToLower(n.value.Scalar.Text), query) {
-			if total >= offset && len(matches) < limit {
-				matches = append(matches, rawNode(n.path, n.key, n.value))
-			}
-			total++
-		}
-		for i := rawChildCount(n.value) - 1; i >= 0; i-- {
-			child, key := rawChild(n.value, i)
-			stack = append(stack, item{n.path + "/" + strconv.Itoa(i), key, child})
-		}
+	matches, total, visited, err := indexedRawSearchPage(ctx, v, key, req.GetString("path", ""), query, offset, limit)
+	if err != nil {
+		return toolError(err), nil
 	}
 	if offset > total {
 		return toolError(fmt.Errorf("offset %d exceeds total matches %d", offset, total)), nil
@@ -523,6 +501,54 @@ func handleSearchSaveTree(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	result["matches"], result["total_matches"], result["visited_nodes"], result["offset"], result["next_offset"] = matches, total, visited, offset, next
 	result["page_context"], result["pagination_context_verified"] = token, verified
 	return rawJSON(result)
+}
+
+func indexedRawSearchPage(ctx context.Context, root *clausewitz.RawNode, rootKey *string, prefix, query string, offset, limit int) ([]map[string]any, int, int, error) {
+	type frame struct {
+		node      *clausewitz.RawNode
+		nextChild int
+	}
+	stack := []frame{{node: root, nextChild: -1}}
+	var path []byte
+	matches := make([]map[string]any, 0, limit)
+	total, visited := 0, 0
+	for len(stack) > 0 {
+		top := &stack[len(stack)-1]
+		if top.nextChild == -1 {
+			if err := ctx.Err(); err != nil {
+				return nil, total, visited, err
+			}
+			visited++
+			key := rootKey
+			if len(stack) > 1 {
+				key = nil
+				if top.node.Key != nil {
+					key = &top.node.Key.Text
+				}
+			}
+			if query == "" || key != nil && strings.Contains(strings.ToLower(*key), query) || top.node.IsScalar() && strings.Contains(strings.ToLower(top.node.Scalar.Text), query) {
+				if total >= offset && len(matches) < limit {
+					path = append(path[:0], prefix...)
+					// Each ancestor's last selected child leads to the current node.
+					for _, parent := range stack[:len(stack)-1] {
+						path = append(path, '/')
+						path = strconv.AppendInt(path, int64(parent.nextChild-1), 10)
+					}
+					matches = append(matches, rawNode(string(path), key, top.node))
+				}
+				total++
+			}
+			top.nextChild = 0
+		}
+		if top.nextChild == len(top.node.Children) {
+			stack = stack[:len(stack)-1]
+			continue
+		}
+		child := top.node.Children[top.nextChild]
+		top.nextChild++
+		stack = append(stack, frame{node: child, nextChild: -1})
+	}
+	return matches, total, visited, nil
 }
 
 func handleReadSaveScalar(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
