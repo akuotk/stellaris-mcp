@@ -3,7 +3,6 @@ package gamestate
 import (
 	"archive/zip"
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
@@ -23,40 +22,12 @@ type SavedCountryTimedModifierEntry struct {
 }
 
 func LoadCountryTimedModifiersFromArchive(ctx context.Context, archive *zip.Reader, requestedCountry *int) (SavedCountryTimedModifiers, error) {
-	data, err := extractGamestateEntry(archive)
-	if err != nil {
-		return SavedCountryTimedModifiers{}, fmt.Errorf("cannot read selected gamestate")
-	}
-	root, err := clausewitz.ParseRaw(ctx, data)
-	if err != nil {
-		return SavedCountryTimedModifiers{}, fmt.Errorf("cannot parse selected gamestate")
-	}
-
-	// Project only the fields needed by the shared country selector, retaining root and table positions.
-	doc := &clausewitz.Object{Pairs: make([]clausewitz.Pair, len(root.Children))}
-	for i, node := range root.Children {
-		if node.Key == nil {
-			continue
-		}
-		pair := &doc.Pairs[i]
-		pair.Key = node.Key.Text
-		switch pair.Key {
-		case "player":
-			pair.Value = projectTimedModifierCountrySelection(node, 3)
-		case "country":
-			pair.Value = projectTimedModifierCountrySelection(node, 1)
-		}
-	}
-	id, _, path, err := selectSavedCountry(doc, requestedCountry)
+	saved, err := loadRawSavedCountry(ctx, archive, requestedCountry, false)
 	if err != nil {
 		return SavedCountryTimedModifiers{}, err
 	}
-	var rootIndex, countryIndex int
-	if _, err := fmt.Sscanf(path, "/%d/%d", &rootIndex, &countryIndex); err != nil {
-		return SavedCountryTimedModifiers{}, fmt.Errorf("invalid selected country position")
-	}
-	country := root.Children[rootIndex].Children[countryIndex]
-	out := SavedCountryTimedModifiers{CountryID: id, Source: data, KeyCounts: make(map[string]int)}
+	country := saved.Node
+	out := SavedCountryTimedModifiers{CountryID: saved.CountryID, Source: saved.source, KeyCounts: make(map[string]int)}
 	add := func(path, kind, containerKind string, node *clausewitz.RawNode) {
 		out.Entries = append(out.Entries, SavedCountryTimedModifierEntry{Path: path, Kind: kind, ContainerKind: containerKind, Node: node})
 	}
@@ -65,7 +36,7 @@ func LoadCountryTimedModifiersFromArchive(ctx context.Context, archive *zip.Read
 			continue
 		}
 		out.WrapperCount++
-		wrapperPath := path + "/" + strconv.Itoa(i)
+		wrapperPath := saved.Path + "/" + strconv.Itoa(i)
 		if len(wrapper.Children) == 0 {
 			add(wrapperPath, "timed_modifier", country.Kind, wrapper)
 			continue
@@ -98,31 +69,4 @@ func LoadCountryTimedModifiersFromArchive(ctx context.Context, archive *zip.Read
 		}
 	}
 	return out, nil
-}
-
-func projectTimedModifierCountrySelection(node *clausewitz.RawNode, depth int) clausewitz.Value {
-	switch node.Kind {
-	case "scalar":
-		return clausewitz.Value{Scalar: node.Scalar.Text}
-	case "mixed":
-		return clausewitz.Value{Mixed: true}
-	case "list":
-		if depth == 0 {
-			return clausewitz.Value{List: []clausewitz.Value{}}
-		}
-		items := make([]clausewitz.Value, len(node.Children))
-		for i, child := range node.Children {
-			items[i] = projectTimedModifierCountrySelection(child, depth-1)
-		}
-		return clausewitz.Value{List: items}
-	default:
-		obj := &clausewitz.Object{}
-		if depth > 0 {
-			obj.Pairs = make([]clausewitz.Pair, len(node.Children))
-			for i, child := range node.Children {
-				obj.Pairs[i] = clausewitz.Pair{Key: child.Key.Text, Value: projectTimedModifierCountrySelection(child, depth-1)}
-			}
-		}
-		return clausewitz.Value{Object: obj}
-	}
 }

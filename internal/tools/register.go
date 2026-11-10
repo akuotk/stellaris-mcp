@@ -47,6 +47,7 @@ func register(s *server.MCPServer, dir string, localizer *gamestate.Localizer, f
 	registerEconomyBreakdown(s)
 	registerResourceMarket(s)
 	registerCountryObservationRefs(s)
+	registerCountrySavedFields(s)
 	registerControlledPlanets(s)
 	registerCountryTimedModifiers(s)
 	registerPlanets(s)

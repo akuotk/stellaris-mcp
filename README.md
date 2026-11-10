@@ -25,6 +25,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_research_potential` | Paginated saved research-potential records with snapshot revision |
 | `get_economy_breakdown` | Current or last month saved budget categories and calculated net |
 | `get_country_observation_refs` | Saved sensor and deposit-holder references with numeric candidates |
+| `get_country_saved_fields` | Paginated immediate country fields, including unknown and repeated keys |
 | `get_controlled_planets` | Saved controlled-planet references and planet-side comparisons |
 | `get_country_timed_modifiers` | Paginated saved country timed modifiers and raw positions |
 | `get_planets` | Colonized planets with districts, buildings, jobs, modifiers, production |
@@ -73,6 +74,8 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `read_save_bytes` | Paginated exact source bytes from a ZIP entry or container |
 
 Country-specific tools accept `country_id`. If omitted, every saved player record must contain one valid country ID and all must refer to the same unique country record. This rule identifies the country and leaves the number of human players unspecified. Supply `country_id` explicitly when player references are absent, incomplete or disagree. Use `list_save_games` and `save_id` to select a save, or omit `save_id` for the newest.
+
+`get_country_saved_fields` lists a country's immediate saved fields in pages of 20. The optional `query` filters keys by literal substring after Unicode lowercasing, with no Unicode normalization or full case folding. Omit it or pass an empty string to include anonymous entries. Pass the same `query`, `save_id`, country selection and returned `page_context` with `next_offset` to continue. Use the returned paths or byte ranges with `read_save_tree`, `read_save_scalar` or `read_save_bytes`, passing the returned `save_id`, `revision` and `entry_index`.
 
 `get_saved_flags` accepts `include_script_references=true` to add counts from local installed game scripts when the localization path has a supported layout. The default shows saved fields alone.
 
