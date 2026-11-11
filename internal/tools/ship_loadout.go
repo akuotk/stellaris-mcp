@@ -15,7 +15,7 @@ import (
 
 func registerShipLoadout(s *server.MCPServer) {
 	s.AddTool(mcp.NewTool("get_ship_loadout", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-		mcp.WithDescription("Read a saved ship's actual sections and weapons, or read a saved design directly. Supply exactly one of ship_id or design_id. Checks ship/fleet membership and compares saved section and component slots with legacy and growth-stage designs. Runtime weapon values and growth_stage codes remain raw."),
+		mcp.WithDescription("Read a saved ship's actual sections and weapons, or read a saved design directly. Supply exactly one of ship_id or design_id. Checks ship/fleet membership and compares saved section and component slots with legacy and growth-stage designs. Runtime weapon values and growth_stage codes remain raw. Explicit leader, army, kill_target, owner, upgrade design, species, aura source and weapon/targeting target IDs are listed with numeric table candidates, plus ship records naming the selected ship."),
 		mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")),
 		mcp.WithNumber("ship_id", mcp.Description("ID in the ships table; use get_fleet_power for member IDs")),
 		mcp.WithNumber("design_id", mcp.Description("ID in the ship_design table"))), handleShipLoadout)
@@ -80,6 +80,7 @@ func renderShipLoadout(loadout *gamestate.ShipLoadout) *mcp.CallToolResult {
 		fmt.Fprintf(&b, "  ship_design=%s ship_design_implementation.design=%s growth_stage=%s upgrade=%s (saved references)\n", loadoutRefText(loadout.LegacyDesign), loadoutRefText(loadout.ImplDesign), loadoutRefText(loadout.GrowthStage), loadoutRefText(loadout.Upgrade))
 		writeLoadoutFields(&b, "Saved ship fields", loadout.Ship.Value, "section")
 		writeLoadoutSections(&b, loadout.ShipLayout, "weapon")
+		writeShipReferences(&b, loadout)
 	}
 	if loadout.DesignID == nil {
 		if loadout.LegacyDesign.Recorded || loadout.ImplDesign.Recorded {
@@ -117,6 +118,52 @@ func renderShipLoadout(loadout *gamestate.ShipLoadout) *mcp.CallToolResult {
 		}
 	}
 	return mcp.NewToolResultText(b.String())
+}
+
+func writeShipReferences(b *strings.Builder, loadout *gamestate.ShipLoadout) {
+	fmt.Fprintln(b, "\nExplicit saved reference fields (saved order; numeric table candidates only. Type codes, target namespaces, activity and ownership are unverified)")
+	if len(loadout.References) == 0 {
+		fmt.Fprintln(b, "  None recorded")
+	}
+	for _, ref := range loadout.References {
+		fmt.Fprintf(b, "  %s=%s%s -> %s: %s\n", ref.Path, shipRefIDText(ref.ID), shipRefTypeText(ref.Type), ref.Table, ref.Status)
+	}
+	if loadout.InboundUnscanned < 0 {
+		fmt.Fprintln(b, "Inbound ship references unavailable: ships table not recorded, unsupported or duplicate")
+		return
+	}
+	fmt.Fprintf(b, "Ship records whose explicit ship-table reference fields name ID %d: references=%d records=%d (numeric candidates; includes this record)\n", *loadout.ShipID, loadout.InboundCount, loadout.InboundShips)
+	if loadout.InboundUnscanned > 0 {
+		fmt.Fprintf(b, "  %d ships entries were not scanned (non-numeric key or unsupported shape)\n", loadout.InboundUnscanned)
+	}
+	for _, ref := range loadout.Inbound {
+		self := ""
+		if ref.ShipID == *loadout.ShipID {
+			self = " (this record)"
+		}
+		fmt.Fprintf(b, "  ship %d%s %s%s\n", ref.ShipID, self, ref.Path, shipRefTypeText(ref.Type))
+	}
+	if loadout.InboundCount > len(loadout.Inbound) {
+		fmt.Fprintf(b, "  first %d shown; use search_save_tree or raw tools for the rest\n", len(loadout.Inbound))
+	}
+}
+
+func shipRefIDText(id *int) string {
+	if id == nil {
+		return "(no usable integer)"
+	}
+	return fmt.Sprint(*id)
+}
+
+func shipRefTypeText(typ *gamestate.OptionalString) string {
+	switch {
+	case typ == nil:
+		return ""
+	case typ.Unsupported:
+		return " type=unsupported or duplicate"
+	default:
+		return fmt.Sprintf(" type=%q", typ.Value)
+	}
 }
 
 func writeLoadoutFleetMembership(b *strings.Builder, loadout *gamestate.ShipLoadout) {

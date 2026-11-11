@@ -19,6 +19,11 @@ type ShipLoadout struct {
 	ShipLayout               LoadoutLayout
 	DesignLayouts            []LoadoutLayout
 	GrowthStagesUnsupported  bool
+	References               []ShipSavedReference
+	Inbound                  []ShipInboundReference
+	InboundCount             int
+	InboundShips             int
+	InboundUnscanned         int
 }
 
 type LoadoutRecord struct {
@@ -85,6 +90,9 @@ func decodeShipLoadout(root clausewitz.Value, shipID, designID *int) *ShipLoadou
 		result.Upgrade = savedPathInt(value, "ship_design_implementation", "upgrade")
 		result.DesignID = unambiguousShipDesign(result.LegacyDesign, result.ImplDesign)
 		result.ShipLayout = decodeLoadoutLayout(value, "design", "weapon", "component_slot")
+		result.References = shipReferenceFields(value)
+		resolveShipReferences(root, result.References)
+		result.Inbound, result.InboundCount, result.InboundShips, result.InboundUnscanned = shipInboundReferences(root, *shipID)
 	}
 	if result.DesignID == nil {
 		return result
@@ -261,4 +269,245 @@ func loadoutComponentsBySlot(components []LoadoutComponent) map[string][]Loadout
 		}
 	}
 	return result
+}
+
+// ShipSavedReference is an explicit saved reference field inside a ship record.
+// Table matches are numeric candidates; the saved type field is kept raw.
+type ShipSavedReference struct {
+	Path, Table, Status string
+	ID                  *int
+	Type                *OptionalString
+}
+
+// ShipInboundReference is a saved ship-table reference in a ship record (including the selected one) naming the selected ship ID.
+type ShipInboundReference struct {
+	ShipID int
+	Path   string
+	Type   *OptionalString
+}
+
+const ShipInboundPreviewLimit = 20
+
+var shipScalarRefTables = map[string]string{
+	"leader": "leaders", "army": "army", "kill_target": "ships", "original_owner": "country", "design_upgrade": "ship_design",
+}
+
+// shipRefKeySlot numbers the top-level ship fields that carry references, so repeated
+// fields can be detected without allocating per record.
+func shipRefKeySlot(key string) int {
+	switch key {
+	case "leader":
+		return 0
+	case "army":
+		return 1
+	case "kill_target":
+		return 2
+	case "original_owner":
+		return 3
+	case "design_upgrade":
+		return 4
+	case "colonization_data":
+		return 5
+	case "homepop":
+		return 6
+	case "auras":
+		return 7
+	case "targeting_module":
+		return 8
+	}
+	return -1
+}
+
+const unsupportedShipRef = "reference unsupported or duplicate"
+
+// shipReferenceFields lists explicit reference fields in saved order without resolving them.
+// A repeated top-level reference field is listed once, at its first position, as unsupported.
+// Non-object containers (for example weapon=none) have no nested reference fields.
+func shipReferenceFields(ship clausewitz.Value) []ShipSavedReference {
+	return collectShipReferences(ship, nil)
+}
+
+// collectShipReferences returns all references, or with match set only ships-table
+// references naming that ID (paths are formatted only for returned entries).
+func collectShipReferences(ship clausewitz.Value, match *int) []ShipSavedReference {
+	var refs []ShipSavedReference
+	var counts [9]int
+	for _, pair := range ship.Object.Pairs {
+		if slot := shipRefKeySlot(pair.Key); slot >= 0 {
+			counts[slot]++
+		}
+	}
+	keep := func(table string, id *int) bool {
+		return match == nil || (table == "ships" && id != nil && *id == *match)
+	}
+	add := func(path func() string, table string, ref OptionalIntRef, typ *OptionalString) {
+		if !keep(table, ref.Value) {
+			return
+		}
+		item := ShipSavedReference{Path: path(), Table: table, ID: ref.Value, Type: typ}
+		if ref.Unsupported || ref.Value == nil {
+			item.Status = unsupportedShipRef
+		}
+		refs = append(refs, item)
+	}
+	unsupported := func(path, table string) {
+		if match == nil {
+			refs = append(refs, ShipSavedReference{Path: path, Table: table, Status: unsupportedShipRef})
+		}
+	}
+	var seen [9]bool
+	section := 0
+	for _, pair := range ship.Object.Pairs {
+		if pair.Key == "section" {
+			weapon := 0
+			if pair.Value.IsObject() {
+				for _, field := range pair.Value.Object.Pairs {
+					if field.Key != "weapon" {
+						continue
+					}
+					s, w := section, weapon
+					refs = appendShipTargetRef(refs, field.Value, match, func() string { return fmt.Sprintf("section[%d].weapon[%d].target", s, w) }, "target")
+					refs = appendShipTargetRef(refs, field.Value, match, func() string { return fmt.Sprintf("section[%d].weapon[%d].targeting_module.target", s, w) }, "targeting_module", "target")
+					weapon++
+				}
+			}
+			section++
+			continue
+		}
+		slot := shipRefKeySlot(pair.Key)
+		if slot < 0 || seen[slot] {
+			continue
+		}
+		seen[slot] = true
+		repeated := counts[slot] > 1
+		key := pair.Key
+		switch slot {
+		case 0, 1, 2, 3, 4:
+			table := shipScalarRefTables[key]
+			if repeated {
+				unsupported(key, table)
+				continue
+			}
+			add(func() string { return key }, table, savedPathInt(ship, key), nil)
+		case 5, 6:
+			switch {
+			case repeated:
+				unsupported(key+".species", "species_db")
+			case pair.Value.IsObject():
+				if ref := savedPathInt(ship, key, "species"); ref.Recorded {
+					add(func() string { return key + ".species" }, "species_db", ref, nil)
+				}
+			}
+		case 7:
+			auras := pair.Value
+			if repeated || auras.Mixed || (!auras.IsList() && !(auras.IsObject() && len(auras.Object.Pairs) == 0)) {
+				unsupported("auras", "ships")
+				continue
+			}
+			for i, aura := range auras.List {
+				if source, recorded, bad := savedObjectPath(aura, "source"); recorded && (bad || source.IsObject()) {
+					if ref := savedPathInt(aura, "source", "ship"); ref.Recorded {
+						index := i
+						add(func() string { return fmt.Sprintf("auras[%d].source.ship", index) }, "ships", ref, nil)
+					}
+				}
+			}
+		case 8:
+			if repeated {
+				unsupported("targeting_module.target.id", "ships")
+				continue
+			}
+			refs = appendShipTargetRef(refs, ship, match, func() string { return "targeting_module.target" }, "targeting_module", "target")
+		}
+	}
+	return refs
+}
+
+// savedObjectPath follows path like savedFieldPath, but a non-object intermediate value
+// has no fields, so the path counts as not recorded. Duplicate keys remain unsupported.
+func savedObjectPath(value clausewitz.Value, path ...string) (clausewitz.Value, bool, bool) {
+	for i, key := range path {
+		if !value.IsObject() {
+			return clausewitz.Value{}, false, false
+		}
+		field, recorded, unsupported := savedFieldPath(value, key)
+		if !recorded || unsupported {
+			return field, recorded, unsupported
+		}
+		if i == len(path)-1 {
+			return field, true, false
+		}
+		value = field
+	}
+	return value, true, false
+}
+
+// appendShipTargetRef reads an {id type} block; only the id is compared with the ships table.
+func appendShipTargetRef(refs []ShipSavedReference, value clausewitz.Value, match *int, label func() string, path ...string) []ShipSavedReference {
+	target, recorded, unsupported := savedObjectPath(value, path...)
+	if !recorded {
+		return refs
+	}
+	if unsupported || !target.IsObject() {
+		if match != nil {
+			return refs
+		}
+		return append(refs, ShipSavedReference{Path: label() + ".id", Table: "ships", Status: unsupportedShipRef})
+	}
+	ref := savedPathInt(target, "id")
+	if match != nil && (ref.Value == nil || *ref.Value != *match) {
+		return refs
+	}
+	item := ShipSavedReference{Path: label() + ".id", Table: "ships", ID: ref.Value}
+	if typ := savedFieldString(target, "type"); typ.Recorded {
+		item.Type = &typ
+	}
+	if !ref.Recorded {
+		item.Status = "id not recorded"
+	} else if ref.Unsupported || ref.Value == nil {
+		item.Status = unsupportedShipRef
+	}
+	return append(refs, item)
+}
+
+func resolveShipReferences(root clausewitz.Value, refs []ShipSavedReference) {
+	for i := range refs {
+		if refs[i].Status != "" || refs[i].ID == nil {
+			continue
+		}
+		record := loadoutRecord(root, refs[i].Table, *refs[i].ID)
+		refs[i].Status = record.Issue
+		if refs[i].Status == "" {
+			refs[i].Status = "unique saved record"
+		}
+	}
+}
+
+// shipInboundReferences scans all ship records for ship-table references naming shipID.
+func shipInboundReferences(root clausewitz.Value, shipID int) (refs []ShipInboundReference, count, ships int, unscanned int) {
+	table, recorded, unsupported := savedFieldPath(root, "ships")
+	if !recorded || unsupported || !table.IsObject() {
+		return nil, 0, 0, -1
+	}
+	for _, pair := range table.Object.Pairs {
+		source, err := strconv.Atoi(pair.Key)
+		if err != nil || !pair.Value.IsObject() {
+			if !(pair.Value.IsScalar() && pair.Value.Scalar == "none") {
+				unscanned++
+			}
+			continue
+		}
+		matched := false
+		for _, ref := range collectShipReferences(pair.Value, &shipID) {
+			count++
+			matched = true
+			if len(refs) < ShipInboundPreviewLimit {
+				refs = append(refs, ShipInboundReference{ShipID: source, Path: ref.Path, Type: ref.Type})
+			}
+		}
+		if matched {
+			ships++
+		}
+	}
+	return refs, count, ships, unscanned
 }

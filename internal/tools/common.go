@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -93,7 +94,11 @@ func formatNavalCapacity(c *gamestate.Country) string {
 }
 
 func toolError(err error) *mcp.CallToolResult {
-	return mcp.NewToolResultError(err.Error())
+	message := err.Error()
+	if strconv.IntSize == 32 && strings.Contains(message, "overflows int") {
+		message += " (this 32-bit build cannot represent saved IDs above 2147483647; use the 64-bit build; the raw tree, byte, scalar and search tools still read every saved value)"
+	}
+	return mcp.NewToolResultError(message)
 }
 
 func writeSavedTableStatus[T any](b *strings.Builder, label string, table gamestate.ConnectionRecordTable[T]) {

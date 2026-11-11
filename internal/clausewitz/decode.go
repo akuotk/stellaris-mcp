@@ -125,6 +125,10 @@ func decodeValue(val Value, rv reflect.Value) error {
 		if err != nil {
 			return fmt.Errorf("cannot parse %q as %s: %w", val.Scalar, rv.Type(), err)
 		}
+		if rv.OverflowInt(n) {
+			// SetInt would silently wrap (for example 4294967295 to -1 in a 32-bit int).
+			return fmt.Errorf("value %q overflows %s", val.Scalar, rv.Type())
+		}
 		rv.SetInt(n)
 
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -134,6 +138,9 @@ func decodeValue(val Value, rv reflect.Value) error {
 		n, err := strconv.ParseUint(val.Scalar, 10, 64)
 		if err != nil {
 			return fmt.Errorf("cannot parse %q as %s: %w", val.Scalar, rv.Type(), err)
+		}
+		if rv.OverflowUint(n) {
+			return fmt.Errorf("value %q overflows %s", val.Scalar, rv.Type())
 		}
 		rv.SetUint(n)
 
@@ -233,11 +240,17 @@ func setFromString(rv reflect.Value, s string) error {
 		if err != nil {
 			return err
 		}
+		if rv.OverflowInt(n) {
+			return fmt.Errorf("key %q overflows %s", s, rv.Type())
+		}
 		rv.SetInt(n)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		n, err := strconv.ParseUint(s, 10, 64)
 		if err != nil {
 			return err
+		}
+		if rv.OverflowUint(n) {
+			return fmt.Errorf("key %q overflows %s", s, rv.Type())
 		}
 		rv.SetUint(n)
 	default:

@@ -74,7 +74,11 @@ func renderSectors(gs *gamestate.GameState, countryID int, country *gamestate.Co
 			otherUnmatched++
 		}
 	}
-	fmt.Fprintf(&b, "System sector reference survey (all saved systems): raw 4294967295=%d (meaning unverified); other IDs without a decoded sector record=%d\n", maxUint32Refs, otherUnmatched)
+	fmt.Fprintf(&b, "System sector reference survey (all saved systems): raw 4294967295=%d (meaning unverified); other IDs without a decoded sector record=%d", maxUint32Refs, otherUnmatched)
+	if unsupportedRefs > 0 {
+		fmt.Fprintf(&b, "; undecodable references=%d (not included in the counts above)", unsupportedRefs)
+	}
+	fmt.Fprintln(&b)
 	if !gs.Sectors.Recorded || gs.Sectors.TableIssue || len(gs.Sectors.DecodeErrors) > 0 || unsupportedRefs > 0 {
 		fmt.Fprintln(&b, "  Survey coverage incomplete; use raw tools for unknown tables or references.")
 	}

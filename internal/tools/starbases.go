@@ -70,7 +70,11 @@ func renderStarbases(gs *gamestate.GameState, countryID int, country *gamestate.
 			}
 		}
 	}
-	fmt.Fprintf(&b, "System starbase reference survey (all saved systems): raw 4294967295=%d (meaning unverified); other IDs without a decoded base record=%d\n", maxUint32Refs, otherUnmatched)
+	fmt.Fprintf(&b, "System starbase reference survey (all saved systems): raw 4294967295=%d (meaning unverified); other IDs without a decoded base record=%d", maxUint32Refs, otherUnmatched)
+	if unknownLists > 0 {
+		fmt.Fprintf(&b, "; undecodable starbase lists=%d (their entries are not included in the counts above)", unknownLists)
+	}
+	fmt.Fprintln(&b)
 	if !gs.Starbases.Recorded || gs.Starbases.TableIssue || len(gs.Starbases.DecodeErrors) > 0 || unknownLists > 0 {
 		fmt.Fprintln(&b, "  Survey coverage incomplete; use raw tools for unknown tables or lists.")
 	}

@@ -23,7 +23,7 @@ func TestSectorsOwnershipAndSystemCrossReferences(t *testing.T) {
 	}
 	c := gs.Country[0]
 	summary := resultText(renderSectors(gs, 0, &c, nil))
-	for _, want := range []string{"Sector 0:", "2 duplicate references", "Sector 1:", "Sector owner differs from selected country", "Sector 2:", "membership=missing reverse reference", "Sector 7: referenced record unavailable", "Sector 8: referenced record unsupported or duplicate", "Sector decoding incomplete", "type=\"0\" auto_expand=\"unknown\" local_capital=0", "raw 4294967295=1 (meaning unverified); other IDs without a decoded sector record=1", "Survey coverage incomplete"} {
+	for _, want := range []string{"Sector 0:", "2 duplicate references", "Sector 1:", "Sector owner differs from selected country", "Sector 2:", "membership=missing reverse reference", "Sector 7: referenced record unavailable", "Sector 8: referenced record unsupported or duplicate", "Sector decoding incomplete", "type=\"0\" auto_expand=\"unknown\" local_capital=0", byIntWidth("raw 4294967295=1 (meaning unverified); other IDs without a decoded sector record=1", "raw 4294967295=0 (meaning unverified); other IDs without a decoded sector record=1"), "Survey coverage incomplete"} {
 		if !strings.Contains(summary, want) {
 			t.Fatalf("missing %q in %s", want, summary)
 		}
@@ -33,7 +33,7 @@ func TestSectorsOwnershipAndSystemCrossReferences(t *testing.T) {
 	}
 	selected := 0
 	details := resultText(renderSectors(gs, 0, &c, &selected))
-	for _, want := range []string{"System position 0 id=0", "System position 1 id=0", "reciprocal sector/system IDs agree", "sector/system reference mismatch", "system.sector=not recorded", "system.sector=unsupported", "Referenced system record unavailable", "System 5: system.sector points here; sector.systems membership=missing reverse reference", "Unsupported system.sector fields=2", "Possible colony ID match: 0", "Possible planet ID match: 0 Candidate planet", "namespace unverified; ID equality does not establish capital identity"} {
+	for _, want := range []string{"System position 0 id=0", "System position 1 id=0", "reciprocal sector/system IDs agree", "sector/system reference mismatch", "system.sector=not recorded", "system.sector=unsupported", "Referenced system record unavailable", "System 5: system.sector points here; sector.systems membership=missing reverse reference", byIntWidth("Unsupported system.sector fields=2", "Unsupported system.sector fields=3"), byIntWidth("undecodable references=2 (not included in the counts above)", "undecodable references=3 (not included in the counts above)"), "Possible colony ID match: 0", "Possible planet ID match: 0 Candidate planet", "namespace unverified; ID equality does not establish capital identity"} {
 		if !strings.Contains(details, want) {
 			t.Fatalf("missing %q in %s", want, details)
 		}

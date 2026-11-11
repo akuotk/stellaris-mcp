@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -82,5 +83,142 @@ func TestShipLoadoutReportsDesignOnlySlots(t *testing.T) {
 	}
 	if got := resultText(result); !strings.Contains(got, "matches=1 differs=0 unresolved=1") {
 		t.Fatal(got)
+	}
+}
+
+func TestShipLoadoutExplicitReferenceCandidates(t *testing.T) {
+	var inbound strings.Builder
+	for i := 0; i < 21; i++ {
+		inbound.WriteString(" ")
+		inbound.WriteString(strconv.Itoa(100 + i))
+		inbound.WriteString(`={section={slot=A design=a weapon={component_slot=X template=t target={id=0 type=0}}}}`)
+	}
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`leaders={7={name=x}} army={3=none} country={2={}} species_db={4={} 4={}} ship_design={}
+	 ships={
+	 0={leader=7 army=3 kill_target=1 original_owner=2 design_upgrade=9 colonization_data={species=4} homepop={species=1.5}
+	   auras={{source={ship=0 aura=a}} {source={aura=b}} {source={ship=1}}}
+	   targeting_module={target={id=1 type=2}}
+	   section={slot=A design=a weapon={component_slot=X template=t target={id=1 type=0} targeting_module={}} weapon={component_slot=Y template=t target={type=0}}}
+	   section={slot=B design=b weapon={component_slot=Z template=t target={id=0 type=0 type=1} targeting_module={target={id=99 type=0}}} weapon={component_slot=W template=t target=5}}}
+	 1={leader=7 leader=8 auras=bad kill_target=0 section={slot=A design=a weapon={component_slot=X template=t targeting_module={target={id=0}}}}}
+	 2={section={slot=A design=a}}
+	 x={kill_target=0}
+	` + inbound.String() + `
+	 }`)}})
+	result, err := handleShipLoadout(context.Background(), rawRequest(map[string]any{"ship_id": 0}))
+	if err != nil || result.IsError {
+		t.Fatal("ship loadout failed")
+	}
+	text := resultText(result)
+	ordered := []string{
+		"leader=7 -> leaders: unique saved record",
+		`army=3 -> army: saved record is "none"`,
+		"kill_target=1 -> ships: unique saved record",
+		"original_owner=2 -> country: unique saved record",
+		"design_upgrade=9 -> ship_design: record unavailable",
+		"colonization_data.species=4 -> species_db: duplicate saved record ID",
+		"homepop.species=(no usable integer) -> species_db: reference unsupported or duplicate",
+		"auras[0].source.ship=0 -> ships: unique saved record",
+		"auras[2].source.ship=1 -> ships: unique saved record",
+		`targeting_module.target.id=1 type="2" -> ships: unique saved record`,
+		`section[0].weapon[0].target.id=1 type="0" -> ships: unique saved record`,
+		`section[0].weapon[1].target.id=(no usable integer) type="0" -> ships: id not recorded`,
+		`section[1].weapon[0].target.id=0 type=unsupported or duplicate -> ships: unique saved record`,
+		`section[1].weapon[0].targeting_module.target.id=99 type="0" -> ships: record unavailable`,
+		"section[1].weapon[1].target.id=(no usable integer) -> ships: reference unsupported or duplicate",
+		"Ship records whose explicit ship-table reference fields name ID 0: references=25 records=23",
+		"1 ships entries were not scanned",
+		"ship 0 (this record) auras[0].source.ship",
+		"ship 0 (this record) section[1].weapon[0].target.id type=unsupported or duplicate",
+		`ship 1 kill_target`,
+		`ship 1 section[0].weapon[0].targeting_module.target.id`,
+		`ship 100 section[0].weapon[0].target.id type="0"`,
+		"first 20 shown",
+	}
+	last := -1
+	for _, want := range ordered {
+		at := strings.Index(text, want)
+		if at < 0 || at < last {
+			t.Fatalf("missing or out of order %q in %s", want, text)
+		}
+		last = at
+	}
+	if strings.Contains(text, "auras[1]") || strings.Contains(text, "ship 116 ") {
+		t.Fatalf("unexpected aura without ship or preview overflow: %s", text)
+	}
+
+	result, err = handleShipLoadout(context.Background(), rawRequest(map[string]any{"ship_id": 1}))
+	if err != nil || result.IsError {
+		t.Fatal("ship loadout failed")
+	}
+	text = resultText(result)
+	for _, want := range []string{
+		"leader=(no usable integer) -> leaders: reference unsupported or duplicate",
+		"auras=(no usable integer) -> ships: reference unsupported or duplicate",
+		"section[0].weapon[0].targeting_module.target.id=0 -> ships: unique saved record",
+		"name ID 1: references=4 records=1",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing %q in %s", want, text)
+		}
+	}
+	result, err = handleShipLoadout(context.Background(), rawRequest(map[string]any{"ship_id": 2}))
+	if err != nil || result.IsError || !strings.Contains(resultText(result), "Explicit saved reference fields") || !strings.Contains(resultText(result), "  None recorded") {
+		t.Fatalf("empty reference list not reported: %v", resultText(result))
+	}
+}
+
+func TestShipLoadoutReferencesFollowSavedOrderAndSkipNonObjects(t *testing.T) {
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`leaders={7={n=a}} country={2={n=a}}
+	 ships={0={original_owner=2 section={slot=A design=a weapon=none weapon={component_slot=X template=t target={id=0 type=0}}} leader=7
+	   auras={ x {source=none} {source={ship=0}} } colonization_data=none homepop={species=3} leader=8 targeting_module=none}}`)}})
+	result, err := handleShipLoadout(context.Background(), rawRequest(map[string]any{"ship_id": 0}))
+	if err != nil || result.IsError {
+		t.Fatal("ship loadout failed")
+	}
+	text := resultText(result)
+	ordered := []string{
+		"original_owner=2 -> country: unique saved record",
+		`section[0].weapon[1].target.id=0 type="0" -> ships: unique saved record`,
+		"leader=(no usable integer) -> leaders: reference unsupported or duplicate",
+		"auras[2].source.ship=0 -> ships: unique saved record",
+		"homepop.species=3 -> species_db: table not recorded",
+		"references=2 records=1",
+	}
+	last := -1
+	for _, want := range ordered {
+		at := strings.Index(text, want)
+		if at < 0 || at < last {
+			t.Fatalf("missing or out of order %q in %s", want, text)
+		}
+		last = at
+	}
+	for _, avoid := range []string{"weapon[0].target", "weapon[0].targeting_module", "auras[0]", "auras[1]", "colonization_data.species", "targeting_module.target.id=(no", "leader=8"} {
+		if strings.Contains(text, avoid) {
+			t.Fatalf("unexpected %q in %s", avoid, text)
+		}
+	}
+}
+
+func TestShipLoadoutRepeatedReferenceContainersAreUnsupported(t *testing.T) {
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`ships={0={colonization_data=none colonization_data={species=3} homepop={species=3} homepop=none auras={} auras={{source={ship=0}}} targeting_module={} targeting_module={target={id=0}}}}`)}})
+	result, err := handleShipLoadout(context.Background(), rawRequest(map[string]any{"ship_id": 0}))
+	if err != nil || result.IsError {
+		t.Fatal("ship loadout failed")
+	}
+	text := resultText(result)
+	for _, want := range []string{
+		"colonization_data.species=(no usable integer) -> species_db: reference unsupported or duplicate",
+		"homepop.species=(no usable integer) -> species_db: reference unsupported or duplicate",
+		"auras=(no usable integer) -> ships: reference unsupported or duplicate",
+		"targeting_module.target.id=(no usable integer) -> ships: reference unsupported or duplicate",
+		"name ID 0: references=0 records=0",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing %q in %s", want, text)
+		}
+	}
+	if strings.Contains(text, "auras[0]") {
+		t.Fatalf("repeated auras should not be expanded: %s", text)
 	}
 }

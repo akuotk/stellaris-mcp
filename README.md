@@ -36,11 +36,13 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_colonies` | Direct saved colony records and carrier references, including non-planet types |
 | `get_pre_ftl` | Saved pre-FTL country, planet and observation fleet references |
 | `get_construction` | Construction queues and item references, saved progress and resources |
+| `get_location_construction` | Planet/colony queue fields followed into construction queues and items, with location and back-reference checks |
 | `get_espionage_operations` | Espionage operations, network cross-references and saved logs |
 | `get_first_contacts` | Saved first-contact records, references and event histories |
 | `get_system_connections` | Saved system hyperlanes, bypass and natural wormhole references |
 | `get_system_contents` | Saved stars, bodies, moons, deposits, ambient objects and nebula candidates |
 | `get_galaxy_metadata` | Ordered root galaxy records and saved fields |
+| `get_save_root_fields` | Index of every meta/gamestate root field: scalars, scalar lists such as required_dlcs, table sizes and tools that read them |
 | `get_galaxy_regions` | Paginated saved clusters, nebulae and their object entries |
 | `get_sectors` | Saved sectors and country, system and capital references |
 | `get_casus_belli` | Saved diplomatic casus belli records and country references |
@@ -53,7 +55,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_fleet_templates` | Saved fleet templates, design/count entries and reference links |
 | `get_fleet_orders` | Saved fleet orders with explicit reference candidates |
 | `get_fleet_power` | Fleets with power, ship-level detail (design, HP, weapons) |
-| `get_ship_loadout` | Saved ship sections and weapons, design stages and slot comparisons |
+| `get_ship_loadout` | Saved ship sections and weapons, design stages, slot comparisons and explicit reference candidates (leader, army, weapon targets, aura sources) |
 | `get_ship_design_collection` | Paginated saved country design references and matching ship counts |
 | `get_space_combat_objects` | Paginated saved missile or strike-craft records |
 | `get_council` | Saved council positions, leader references and agenda records |
@@ -75,6 +77,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `inspect_save_archive` | Save revision and paginated ZIP entry metadata |
 | `read_save_tree` | Ordered tree navigation, including mixed entries and source offsets |
 | `get_save_record_refs` | Find numeric keys directly under a saved table and return raw positions |
+| `get_saved_record_links` | Walk any raw gamestate subtree and compare integers under known field names with root tables |
 | `search_save_tree` | Paginated search for keys and scalar values |
 | `read_save_scalar` | Paginated normalized scalar or key bytes |
 | `read_save_bytes` | Paginated exact source bytes from a ZIP entry or container |
