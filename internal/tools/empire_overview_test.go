@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 	"strings"
 	"testing"
@@ -49,6 +50,61 @@ func TestNavalCapacityPreservesSavedPrecision(t *testing.T) {
 	}
 	if !strings.Contains(resultText(result), "Fleet Size: 0.75") {
 		t.Fatal(resultText(result))
+	}
+}
+
+func TestEmpireOverviewShowsSavedResourceAmounts(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	const heading = "\nSaved resource amounts (economy module, saved order; stockpile candidates, units unverified):\n"
+	for _, tc := range []struct{ country, want string }{
+		// Missing at each level is reported as such, never as zero.
+		{``, "  country.modules not recorded\n"},
+		{`modules={}`, "  standard_economy_module not recorded\n"},
+		{`modules={standard_economy_module={}}`, "  resources not recorded\n"},
+		{`modules={standard_economy_module={resources={}}}`, "  Empty\n"},
+		// Saved order and saved text are kept; a repeated key and a non-number are marked.
+		{`modules={standard_economy_module={resources={minerals=12.50 energy=0 energy=-3 odd="a b"}}}`,
+			"  Minerals [minerals]=12.50, Energy [energy]=0, Energy [energy]=-3 [duplicate saved resource key], Odd [odd]=\"a b\"\n"},
+		{`modules={standard_economy_module={resources={energy=1 bad={x=1}}}}`,
+			"  Unsupported resource entries; supported entries below may be partial, use raw tree/byte tools\n  Energy [energy]=1\n"},
+		{`modules={standard_economy_module={resources={energy=1}} standard_economy_module={resources={energy=2}}}`,
+			"  Unsupported modules shape or duplicate known fields; use raw tree/byte tools\n"},
+	} {
+		syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`player={{country=0}} country={0={` + tc.country + `}}`)}})
+		result, err := handleEmpireOverview(context.Background(), rawRequest(map[string]any{}))
+		if err != nil || result.IsError {
+			t.Fatalf("overview failed for %q", tc.country)
+		}
+		text := resultText(result)
+		if want := heading + tc.want + "\n"; !strings.Contains(text, want) {
+			t.Errorf("country %q: want section %q in:\n%s", tc.country, want, text)
+		}
+	}
+}
+
+// The overview repeats what get_resource_market reads; the two must not drift.
+func TestEmpireOverviewResourcesMatchResourceMarket(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`player={{country=0}} country={0={modules={standard_economy_module={resources={energy=1234.5 alloys=0 unity=876.125}}}}}`)}})
+	overview, err := handleEmpireOverview(context.Background(), rawRequest(map[string]any{}))
+	if err != nil || overview.IsError {
+		t.Fatal("overview failed")
+	}
+	market, err := handleResourceMarket(context.Background(), rawRequest(map[string]any{}))
+	if err != nil || market.IsError {
+		t.Fatal("resource market failed")
+	}
+	for _, pair := range [][2]string{{"energy", "1234.5"}, {"alloys", "0"}, {"unity", "876.125"}} {
+		if want := fmt.Sprintf("[%s]=%s", pair[0], pair[1]); !strings.Contains(resultText(overview), want) {
+			t.Errorf("overview lacks %s", want)
+		}
+		if want := fmt.Sprintf("resource=%q amount=%q", pair[0], pair[1]); !strings.Contains(resultText(market), want) {
+			t.Errorf("resource market lacks %s", want)
+		}
 	}
 }
 

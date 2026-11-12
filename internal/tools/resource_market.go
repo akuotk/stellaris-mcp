@@ -12,7 +12,7 @@ import (
 
 func registerResourceMarket(s *server.MCPServer) {
 	s.AddTool(mcp.NewTool("get_resource_market", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-		mcp.WithDescription("Read saved resource candidates, monthly market orders and country rows under resources_bought, resources_sold and internal_market_fluctuations. Raw values and row order are preserved. Resource-index mapping, ledger period, price conversion and order activity remain unverified."),
+		mcp.WithDescription("Read the country's saved resource amounts (stockpile candidates from the economy module), monthly market orders and country rows under resources_bought, resources_sold and internal_market_fluctuations. Raw values and row order are preserved. Resource-index mapping, ledger period, price conversion and order activity remain unverified."),
 		mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")),
 		mcp.WithNumber("country_id", mcp.Description("Country ID; omit for sole player"))), handleResourceMarket)
 }
@@ -34,33 +34,18 @@ func renderResourceMarket(gs *gamestate.GameState, countryID int, country *games
 	fmt.Fprintf(&b, "=== Saved resource and market records (%s, country %d) ===\n", name(country.Adjective), countryID)
 	fmt.Fprintln(&b, "Resource amounts below are stockpile candidates from the saved economy module. Their stockpile identity and units remain unverified.")
 	fmt.Fprintln(&b, "\ncountry.modules.standard_economy_module.resources (saved order)")
-	modules := country.EconomyModules
-	switch {
-	case modules.Unsupported:
-		fmt.Fprintln(&b, "  Unsupported modules shape or duplicate known fields; use raw tree/byte tools")
-	case !modules.Recorded:
-		fmt.Fprintln(&b, "  country.modules not recorded")
-	case modules.Economy == nil:
-		fmt.Fprintln(&b, "  standard_economy_module not recorded")
-	default:
-		resources := modules.Economy.Resources
-		switch {
-		case resources.Unsupported:
-			fmt.Fprintln(&b, "  Unsupported resource entries; supported entries below may be partial, use raw tree/byte tools")
-		case !resources.Recorded:
-			fmt.Fprintln(&b, "  resources not recorded")
-		case len(resources.Entries) == 0:
-			fmt.Fprintln(&b, "  Empty")
+	entries, status := economyModuleResources(country)
+	if status != "" {
+		fmt.Fprintf(&b, "  %s\n", status)
+	}
+	seen := map[string]bool{}
+	for index, entry := range entries {
+		fmt.Fprintf(&b, "  Entry %d resource=%q amount=%q", index, entry.Resource, entry.Amount)
+		if seen[entry.Resource] {
+			fmt.Fprint(&b, " [duplicate saved resource key]")
 		}
-		seen := map[string]bool{}
-		for index, entry := range resources.Entries {
-			fmt.Fprintf(&b, "  Entry %d resource=%q amount=%q", index, entry.Resource, entry.Amount)
-			if seen[entry.Resource] {
-				fmt.Fprint(&b, " [duplicate saved resource key]")
-			}
-			seen[entry.Resource] = true
-			fmt.Fprintln(&b)
-		}
+		seen[entry.Resource] = true
+		fmt.Fprintln(&b)
 	}
 	fmt.Fprintln(&b, "\nmarket.monthly_trades (saved order, filtered by trade_data.country)")
 	fmt.Fprintln(&b, "  Resource identity, transaction direction, amount/price units, current order activity and history remain unverified.")
@@ -114,6 +99,31 @@ func renderResourceMarket(gs *gamestate.GameState, countryID int, country *games
 		}
 	}
 	return mcp.NewToolResultText(b.String())
+}
+
+// economyModuleResources returns the country's saved economy-module resource
+// entries in saved order. A non-empty status says why they are missing or
+// incomplete; entries returned with a status may be partial.
+func economyModuleResources(country *gamestate.Country) ([]gamestate.SavedResourceAmount, string) {
+	modules := country.EconomyModules
+	switch {
+	case modules.Unsupported:
+		return nil, "Unsupported modules shape or duplicate known fields; use raw tree/byte tools"
+	case !modules.Recorded:
+		return nil, "country.modules not recorded"
+	case modules.Economy == nil:
+		return nil, "standard_economy_module not recorded"
+	}
+	resources := modules.Economy.Resources
+	switch {
+	case resources.Unsupported:
+		return resources.Entries, "Unsupported resource entries; supported entries below may be partial, use raw tree/byte tools"
+	case !resources.Recorded:
+		return nil, "resources not recorded"
+	case len(resources.Entries) == 0:
+		return nil, "Empty"
+	}
+	return resources.Entries, ""
 }
 
 func writeMarketCountryRows(b *strings.Builder, countryID int, label string, rows gamestate.MarketCountryRows) {

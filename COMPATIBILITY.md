@@ -6,7 +6,7 @@ This fork adds preliminary support for Stellaris 4.5 colony and population recor
 
 With `neighbor_id`, `get_neighbors` displays both saved directions independently, including trust, opinion modifiers and truce fields. Differences between the two records remain visible; timing and modifier semantics are not inferred.
 
-`get_empire_overview` distinguishes missing population, fleet size, naval capacity, starbase capacity and empire size from zero. Its planet count covers decoded owned planet records with colony indicators; non-planet carriers are excluded.
+`get_empire_overview` distinguishes missing population, fleet size, naval capacity, starbase capacity and empire size from zero. Its planet count covers decoded owned planet records with colony indicators; non-planet carriers are excluded. It also lists the saved economy-module resource amounts that `get_resource_market` reads, in saved order and as saved text; they are stockpile candidates with the same limits described there.
 
 The military-class total only includes fleets whose `ship_class` is `shipclass_military`. Ship hull, shield and armor values preserve missing versus zero and are shown in saved precision. Ship designs can have multiple sections and growth stages; fleet detail lists each saved design stage without claiming which stage the ship currently uses. Missing fleet and ship references are reported, and military-class totals are labeled incomplete when fleet records are missing. Spy network power is reported as a raw save value; infiltration conversion and operation availability are not established.
 

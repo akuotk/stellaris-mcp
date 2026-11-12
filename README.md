@@ -8,7 +8,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 
 | Tool | Description |
 |---|---|
-| `get_empire_overview` | Ethics, civics, government, power ratings, naval/starbase capacity, resources |
+| `get_empire_overview` | Ethics, civics, government, power ratings, naval/starbase capacity, saved monthly balance and saved resource amounts (stockpile candidates) |
 | `get_research_status` | Current research + progress, available options, completed techs |
 | `get_completed_technologies` | Saved completed technology keys and levels, 50 entries per page |
 | `get_technology_definition` | Paginated local static technology fields and optional saved key matches |

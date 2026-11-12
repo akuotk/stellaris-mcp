@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -13,7 +15,7 @@ import (
 func registerEmpireOverview(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("get_empire_overview", mcp.WithString("save_id", mcp.Description("Optional save ID from list_save_games; omit for latest")), mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
-			mcp.WithDescription("Get empire overview: ethics, civics, government, resources, pops, power ratings"),
+			mcp.WithDescription("Get empire overview: ethics, civics, government, power ratings, pops, saved monthly balance, saved resource amounts (stockpile candidates) and factions"),
 			mcp.WithNumber("country_id", mcp.Description("Country ID; omit to select the sole player in a single-player save")),
 		),
 		handleEmpireOverview,
@@ -84,7 +86,37 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 		fmt.Fprintf(&b, "  %s\n", formatBudgetResources(netBalance))
 	}
 
+	writeOverviewResources(&b, c)
+
 	writeCountryFactions(&b, gs, countryID)
 
 	return mcp.NewToolResultText(b.String()), nil
+}
+
+// writeOverviewResources prints the amounts get_resource_market reads, on one
+// line. Amounts stay as saved text; one that is not a number is quoted.
+func writeOverviewResources(b *strings.Builder, c *gamestate.Country) {
+	fmt.Fprintln(b, "\nSaved resource amounts (economy module, saved order; stockpile candidates, units unverified):")
+	entries, status := economyModuleResources(c)
+	if status != "" {
+		fmt.Fprintf(b, "  %s\n", status)
+	}
+	if len(entries) == 0 {
+		return
+	}
+	parts := make([]string, 0, len(entries))
+	seen := map[string]bool{}
+	for _, entry := range entries {
+		amount := entry.Amount
+		if _, err := strconv.ParseFloat(amount, 64); err != nil {
+			amount = strconv.Quote(amount)
+		}
+		part := fmt.Sprintf("%s [%s]=%s", l(entry.Resource), entry.Resource, amount)
+		if seen[entry.Resource] {
+			part += " [duplicate saved resource key]"
+		}
+		seen[entry.Resource] = true
+		parts = append(parts, part)
+	}
+	fmt.Fprintf(b, "  %s\n", strings.Join(parts, ", "))
 }

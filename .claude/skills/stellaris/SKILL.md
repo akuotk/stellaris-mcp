@@ -22,7 +22,7 @@ Consult these for recommendations:
 The `stellaris` MCP server provides these tools to read live save game data:
 
 ### Overview Tools
-- **get_empire_overview**: Ethics, civics, government, power ratings, pops, fleet size, net balance
+- **get_empire_overview**: Ethics, civics, government, power ratings, pops, fleet size, net balance, saved resource amounts (stockpile candidates)
 - **get_economy_breakdown**: Income/expenses by category with net balance per resource
 - **get_research_status**: Current research + progress, available options, all completed techs
 - **get_traditions_ascension**: Adopted traditions and ascension perks
