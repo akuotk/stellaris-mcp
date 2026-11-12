@@ -41,6 +41,44 @@ func TestPlanetAvailableRequiresSurveyAndNoOwner(t *testing.T) {
 	}
 }
 
+func TestPlanetAvailableOrdersEqualSizesByID(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	gs, err := gamestate.Load([]byte(`planets={planet={
+  1={planet_class="pc_arid" surveyed_by=0 planet_size=16 name={key="N01"}}
+  2={planet_class="pc_arid" surveyed_by=0 planet_size=16 name={key="N02"}}
+  3={planet_class="pc_arid" surveyed_by=0 planet_size=16 name={key="N03"}}
+  4={planet_class="pc_arid" surveyed_by=0 planet_size=16 name={key="N04"}}
+  5={planet_class="pc_arid" surveyed_by=0 planet_size=16 name={key="N05"}}
+  6={planet_class="pc_arid" surveyed_by=0 planet_size=16 name={key="N06"}}
+  7={planet_class="pc_arid" surveyed_by=0 planet_size=16 name={key="N07"}}
+  8={planet_class="pc_arid" surveyed_by=0 planet_size=16 name={key="N08"}}
+  9={planet_class="pc_arid" surveyed_by=0 planet_size=25 name={key="N09"}}
+  10={planet_class="pc_arid" surveyed_by=0 planet_size=10 name={key="N10"}}
+ }}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"N09", "N01", "N02", "N03", "N04", "N05", "N06", "N07", "N08", "N10"}
+	// Map iteration order differs between calls; repeat so a missing tie-break shows.
+	for run := 0; run < 30; run++ {
+		r, err := planetAvailable(gs, 0, &gamestate.Country{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := resultText(r)
+		last := -1
+		for _, key := range want {
+			at := strings.Index(text, key)
+			if at <= last {
+				t.Fatalf("run %d: %s out of order (largest first, then planet ID):\n%s", run, key, text)
+			}
+			last = at
+		}
+	}
+}
+
 func TestJobBreakdownPreservesFractionalWorkforce(t *testing.T) {
 	gs, err := gamestate.Load([]byte(`planets={planet={3={}}} pop_jobs={1={type=miner planet=3 workforce=1.25} 2={type=miner planet=3 workforce=0.5} 3={type=unused planet=3 workforce=-1} 4={type=other planet=4 workforce=100}}`))
 	if err != nil {

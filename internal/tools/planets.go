@@ -506,9 +506,12 @@ func planetAvailable(gs *gamestate.GameState, countryID int, c *gamestate.Countr
 		}
 		planets = append(planets, entry{id, p, true})
 	}
-	// Sort by size descending
+	// Largest first; equal sizes by planet ID, so map order cannot reorder rows.
 	sort.Slice(planets, func(i, j int) bool {
-		return planets[i].p.PlanetSize > planets[j].p.PlanetSize
+		if planets[i].p.PlanetSize != planets[j].p.PlanetSize {
+			return planets[i].p.PlanetSize > planets[j].p.PlanetSize
+		}
+		return planets[i].id < planets[j].id
 	})
 
 	var b strings.Builder
