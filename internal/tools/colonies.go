@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -27,12 +26,7 @@ func handleColonies(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["colony_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		id, err := rawInteger(req, "colony_id", 0, 0, maxID)
+		id, err := rawInteger(req, "colony_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}

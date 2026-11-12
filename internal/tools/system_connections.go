@@ -3,7 +3,6 @@ package tools
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -22,12 +21,7 @@ func handleSystemConnections(_ context.Context, req mcp.CallToolRequest) (*mcp.C
 	if _, ok := req.GetArguments()["system_id"]; !ok {
 		return toolError(fmt.Errorf("system_id is required")), nil
 	}
-	maxID := int(^uint(0) >> 1)
-	if strconv.IntSize == 64 {
-		maxExact := int64(1<<53 - 1)
-		maxID = int(maxExact)
-	}
-	id, err := rawInteger(req, "system_id", 0, 0, maxID)
+	id, err := rawInteger(req, "system_id", 0, 0, maxRecordID)
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -61,7 +55,7 @@ func renderSystemConnections(gs *gamestate.GameState, id int) *mcp.CallToolResul
 			fmt.Fprintf(&b, "  Entry %d unsupported or duplicate fields. Use raw tools.\n", index)
 			continue
 		}
-		fmt.Fprintf(&b, "  Entry %d to=%s length=%s bridge=%s\n", index, armyInt(edge.To), governanceValue(edge.Length), governanceValue(edge.Bridge))
+		fmt.Fprintf(&b, "  Entry %d to=%s length=%s bridge=%s\n", index, savedInt(edge.To), governanceValue(edge.Length), governanceValue(edge.Bridge))
 		if edge.To == nil {
 			continue
 		}
@@ -145,18 +139,18 @@ func writeSavedBypass(b *strings.Builder, gs *gamestate.GameState, id int) {
 		fmt.Fprintf(b, "  Bypass %d referenced record unavailable or unsupported\n", id)
 		return
 	}
-	fmt.Fprintf(b, "  Bypass %d type=%s active=%s linked_to=%s\n", id, governanceValue(bypass.Type), governanceValue(bypass.Active), armyInt(bypass.LinkedTo))
-	fmt.Fprintf(b, "    is_manual_lock=%s lock_country=%s lock_remaining_days=%s (saved values)\n", governanceValue(bypass.ManualLock), armyInt(bypass.LockCountry), governanceValue(bypass.LockRemainingDays))
+	fmt.Fprintf(b, "  Bypass %d type=%s active=%s linked_to=%s\n", id, governanceValue(bypass.Type), governanceValue(bypass.Active), savedInt(bypass.LinkedTo))
+	fmt.Fprintf(b, "    is_manual_lock=%s lock_country=%s lock_remaining_days=%s (saved values)\n", governanceValue(bypass.ManualLock), savedInt(bypass.LockCountry), governanceValue(bypass.LockRemainingDays))
 	if bypass.Owner == nil {
 		fmt.Fprintln(b, "    owner not recorded")
 	} else {
-		fmt.Fprintf(b, "    owner.type=%s owner.id=%s (namespace unverified)\n", governanceValue(bypass.Owner.Type), armyInt(bypass.Owner.ID))
+		fmt.Fprintf(b, "    owner.type=%s owner.id=%s (namespace unverified)\n", governanceValue(bypass.Owner.Type), savedInt(bypass.Owner.ID))
 	}
 	if bypass.LinkedTo != nil {
 		if *bypass.LinkedTo == id {
 			fmt.Fprintln(b, "    Saved linked_to equals the source bypass ID")
 		} else if other, ok := gs.Bypasses.Items[*bypass.LinkedTo]; ok {
-			fmt.Fprintf(b, "    linked_to bypass ID candidate %d with linked_to=%s\n", *bypass.LinkedTo, armyInt(other.LinkedTo))
+			fmt.Fprintf(b, "    linked_to bypass ID candidate %d with linked_to=%s\n", *bypass.LinkedTo, savedInt(other.LinkedTo))
 			if other.LinkedTo != nil && *other.LinkedTo == id {
 				fmt.Fprintln(b, "      Reciprocal saved linked_to IDs agree")
 			} else if other.LinkedTo != nil {
@@ -200,7 +194,7 @@ func writeSavedWormhole(b *strings.Builder, gs *gamestate.GameState, systemID in
 		fmt.Fprintf(b, "  Natural wormhole %d referenced record unavailable or unsupported\n", id)
 		return
 	}
-	fmt.Fprintf(b, "  Natural wormhole %d bypass=%s\n", id, armyInt(wormhole.Bypass))
+	fmt.Fprintf(b, "  Natural wormhole %d bypass=%s\n", id, savedInt(wormhole.Bypass))
 	switch {
 	case wormhole.Coordinate.Unsupported:
 		fmt.Fprintln(b, "    coordinate unsupported or duplicate. Use raw tools.")

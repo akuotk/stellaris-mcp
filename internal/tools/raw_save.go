@@ -88,10 +88,8 @@ func rawJSON(v any) (*mcp.CallToolResult, error) {
 }
 
 func handleInspectSaveArchive(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if value, ok := req.GetArguments()["save_id"]; ok {
-		if _, ok := value.(string); !ok {
-			return toolError(fmt.Errorf("save_id must be a string")), nil
-		}
+	if err := requireStringArgs(req, "save_id"); err != nil {
+		return toolError(err), nil
 	}
 	archive, err := openRawSave(saveDir, req.GetString("save_id", ""))
 	if err != nil {
@@ -101,10 +99,8 @@ func handleInspectSaveArchive(_ context.Context, req mcp.CallToolRequest) (*mcp.
 	if err != nil {
 		return toolError(err), nil
 	}
-	if value, ok := req.GetArguments()["revision"]; ok {
-		if _, ok := value.(string); !ok {
-			return toolError(fmt.Errorf("revision must be a string")), nil
-		}
+	if err := requireStringArgs(req, "revision"); err != nil {
+		return toolError(err), nil
 	}
 	revision := req.GetString("revision", "")
 	if offset > 0 && revision == "" {
@@ -158,12 +154,8 @@ func rawInteger64(req mcp.CallToolRequest, key string, defaultValue, minValue, m
 }
 
 func openRawEntry(req mcp.CallToolRequest) (*rawSaveArchive, int, *zip.File, error) {
-	for _, key := range []string{"revision", "path", "query", "part", "save_id", "page_context"} {
-		if value, ok := req.GetArguments()[key]; ok {
-			if _, ok := value.(string); !ok {
-				return nil, 0, nil, fmt.Errorf("%s must be a string", key)
-			}
-		}
+	if err := requireStringArgs(req, "revision", "path", "query", "part", "save_id", "page_context"); err != nil {
+		return nil, 0, nil, err
 	}
 	revision := req.GetString("revision", "")
 	if revision == "" {

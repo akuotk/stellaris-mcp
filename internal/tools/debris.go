@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -22,12 +21,7 @@ func registerDebris(s *server.MCPServer) {
 func handleDebris(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	var selected *int
 	if _, ok := req.GetArguments()["debris_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		id, err := rawInteger(req, "debris_id", 0, -maxID, maxID)
+		id, err := rawInteger(req, "debris_id", 0, -maxRecordID, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -87,13 +81,13 @@ func renderDebris(gs *gamestate.GameState, selected *int) *mcp.CallToolResult {
 		if issue != "" {
 			fmt.Fprintf(&b, "\nDebris %d %s\n", id, issue)
 		} else {
-			fmt.Fprintf(&b, "\nDebris %d debris.country=%s (saved field)\n", id, debrisRefText(record.Country))
+			fmt.Fprintf(&b, "\nDebris %d debris.country=%s (saved field)\n", id, optionalIntRefText(record.Country))
 		}
 		if len(refs[id]) == 0 {
 			fmt.Fprintln(&b, "  No decoded saved project debris references")
 		}
 		for _, ref := range refs[id] {
-			fmt.Fprintf(&b, "  Country %d country.events.special_project[%d] id=%s debris=%d (saved reference)\n", ref.countryID, ref.position, debrisRefText(ref.projectID), id)
+			fmt.Fprintf(&b, "  Country %d country.events.special_project[%d] id=%s debris=%d (saved reference)\n", ref.countryID, ref.position, optionalIntRefText(ref.projectID), id)
 			if issue == "" && record.Country.Value != nil {
 				fmt.Fprintf(&b, "    debris.country numeric ID %s the project country ID\n", debrisCountryComparison(*record.Country.Value, ref.countryID))
 			}
@@ -150,13 +144,6 @@ func debrisCandidate(table gamestate.DebrisTable, id int) (gamestate.SavedDebris
 	default:
 		return entries[0], ""
 	}
-}
-
-func debrisRefText(ref gamestate.OptionalIntRef) string {
-	if ref.Unsupported {
-		return "unsupported or duplicate"
-	}
-	return armyInt(ref.Value)
 }
 
 func debrisCountryComparison(country, projectCountry int) string {

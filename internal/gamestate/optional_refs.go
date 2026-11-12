@@ -80,6 +80,24 @@ func savedFieldPath(value clausewitz.Value, path ...string) (clausewitz.Value, b
 	return value, true, false
 }
 
+// uniqueRawField finds a keyed child of a raw node and reports whether it is
+// "unique", "duplicate" or "not-recorded"; duplicates never select a winner.
+func uniqueRawField(node *clausewitz.RawNode, key string) (*clausewitz.RawNode, string) {
+	var field *clausewitz.RawNode
+	for _, child := range node.Children {
+		if child.Key != nil && child.Key.Text == key {
+			if field != nil {
+				return nil, "duplicate"
+			}
+			field = child
+		}
+	}
+	if field == nil {
+		return nil, "not-recorded"
+	}
+	return field, "unique"
+}
+
 func savedLocalizedName(value clausewitz.Value, key string) LocalizedName {
 	var name LocalizedName
 	if field, recorded, unsupported := savedFieldPath(value, key); recorded && !unsupported && uniqueSavedFields(field, "key", "variables") == nil {

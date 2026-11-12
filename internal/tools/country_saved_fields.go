@@ -24,17 +24,12 @@ func registerCountrySavedFields(s *server.MCPServer) {
 }
 
 func handleCountrySavedFields(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"save_id", "query", "page_context"} {
-		if value, ok := req.GetArguments()[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "query", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	var requestedCountry *int
 	if _, ok := req.GetArguments()["country_id"]; ok {
-		maxID := int(min(int64(^uint(0)>>1), int64(9007199254740991)))
-		id, err := rawInteger(req, "country_id", 0, 0, maxID)
+		id, err := rawInteger(req, "country_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}

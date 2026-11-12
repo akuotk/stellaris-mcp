@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -27,12 +26,7 @@ func handleArchaeology(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["site_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		siteID, err := rawInteger(req, "site_id", 0, 0, maxID)
+		siteID, err := rawInteger(req, "site_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -85,12 +79,12 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 	}
 	for _, id := range ids {
 		site := gs.ArchaeologySites.Items[id]
-		fmt.Fprintf(&b, "\nSite %d: type=%s index=%s days_left=%s; country references=%v\n", id, operationFlagText(site.Type), armyInt(site.Index), armyFloat(site.DaysLeft), reasons[id])
+		fmt.Fprintf(&b, "\nSite %d: type=%s index=%s days_left=%s; country references=%v\n", id, operationFlagText(site.Type), savedInt(site.Index), savedFloat(site.DaysLeft), reasons[id])
 		_, siteDecodeError := gs.ArchaeologySites.DecodeErrors[id]
 		if siteDecodeError {
 			fmt.Fprintln(&b, "  Record decoding incomplete; displayed fields may be partial")
 		}
-		fmt.Fprintf(&b, "  Location (raw): type=%s id=%s\n", operationFlagText(site.Location.Type), armyInt(site.Location.ID))
+		fmt.Fprintf(&b, "  Location (raw): type=%s id=%s\n", operationFlagText(site.Location.Type), savedInt(site.Location.ID))
 		if site.Location.ID != nil {
 			if planet, ok := gs.Planets.Planet[*site.Location.ID]; ok {
 				fmt.Fprintf(&b, "    Possible planet ID match: %s; no reverse site link validated\n", name(planet.Name))
@@ -98,7 +92,7 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 				fmt.Fprintln(&b, "    No planet ID match; numeric location type remains unclassified")
 			}
 		}
-		fmt.Fprintf(&b, "  last_excavator_country=%s excavator_fleet=%s\n", archaeologyRefText(gamestate.OptionalIntRef{Value: site.LastExcavatorCountry, Unsupported: site.LastExcavatorUnsupported}), armyInt(site.ExcavatorFleet))
+		fmt.Fprintf(&b, "  last_excavator_country=%s excavator_fleet=%s\n", optionalIntRefText(gamestate.OptionalIntRef{Value: site.LastExcavatorCountry, Unsupported: site.LastExcavatorUnsupported}), savedInt(site.ExcavatorFleet))
 		if site.LastExcavatorCountry != nil {
 			if _, ok := gs.Country[*site.LastExcavatorCountry]; !ok {
 				fmt.Fprintln(&b, "    Last excavator country reference unresolved (sentinel/deleted-state meaning not inferred)")
@@ -116,7 +110,7 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 		if selected == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "  clues=%s last_roll=%s difficulty=%s\n", armyFloat(site.Clues), armyFloat(site.LastRoll), armyFloat(site.Difficulty))
+		fmt.Fprintf(&b, "  clues=%s last_roll=%s difficulty=%s\n", savedFloat(site.Clues), savedFloat(site.LastRoll), savedFloat(site.Difficulty))
 		if site.Locked == nil {
 			fmt.Fprintln(&b, "  locked: not recorded")
 		} else {
@@ -129,7 +123,7 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 			fmt.Fprintln(&b, "  completed entries: empty")
 		}
 		for index, entry := range site.Completed {
-			fmt.Fprintf(&b, "  completed entry %d: country=%s date=%s (saved record; global site completion not inferred)\n", index, armyInt(entry.Country), operationFlagText(entry.Date))
+			fmt.Fprintf(&b, "  completed entry %d: country=%s date=%s (saved record; global site completion not inferred)\n", index, savedInt(entry.Country), operationFlagText(entry.Date))
 		}
 		if site.EventsUnsupported {
 			fmt.Fprintln(&b, "  events: unsupported or duplicate. Use raw tree/byte tools.")
@@ -147,7 +141,7 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 			fmt.Fprintln(&b, "  log: empty")
 		}
 		for index, entry := range site.Log {
-			fmt.Fprintf(&b, "  log entry %d (saved order): date=%s title=%s tooltip=%s clues=%s total=%s roll=%s bonus=%s difficulty=%s\n", index, operationFlagText(entry.Date), operationFlagText(entry.Title), operationFlagText(entry.Tooltip), armyFloat(entry.Clues), armyFloat(entry.Total), armyFloat(entry.Roll), armyFloat(entry.Bonus), armyFloat(entry.Difficulty))
+			fmt.Fprintf(&b, "  log entry %d (saved order): date=%s title=%s tooltip=%s clues=%s total=%s roll=%s bonus=%s difficulty=%s\n", index, operationFlagText(entry.Date), operationFlagText(entry.Title), operationFlagText(entry.Tooltip), savedFloat(entry.Clues), savedFloat(entry.Total), savedFloat(entry.Roll), savedFloat(entry.Bonus), savedFloat(entry.Difficulty))
 		}
 		for _, key := range federationSortedKeys(site.Flags) {
 			flag := site.Flags[key]
@@ -162,15 +156,8 @@ func renderArchaeology(gs *gamestate.GameState, countryID int, country *gamestat
 	return mcp.NewToolResultText(b.String())
 }
 
-func archaeologyRefText(ref gamestate.OptionalIntRef) string {
-	if ref.Unsupported {
-		return "unsupported or duplicate"
-	}
-	return armyInt(ref.Value)
-}
-
 func writeArchaeologyEvent(b *strings.Builder, gs *gamestate.GameState, siteID, countryID, position int, site gamestate.ArchaeologySite, event gamestate.SavedArchaeologyEvent, siteUnsupported bool) {
-	fmt.Fprintf(b, "  event entry %d: event_id=%s expired=%s owner=%s fleet=%s index=%s player_event=%s\n", position, operationFlagText(event.EventID), operationFlagText(event.Expired), archaeologyRefText(event.OwnerRef), archaeologyRefText(event.FleetRef), armyInt(event.Index), operationFlagText(event.PlayerEvent))
+	fmt.Fprintf(b, "  event entry %d: event_id=%s expired=%s owner=%s fleet=%s index=%s player_event=%s\n", position, operationFlagText(event.EventID), operationFlagText(event.Expired), optionalIntRefText(event.OwnerRef), optionalIntRefText(event.FleetRef), savedInt(event.Index), operationFlagText(event.PlayerEvent))
 	if event.Unsupported {
 		fmt.Fprintln(b, "    Event record shape unsupported. Use raw tree/byte tools.")
 		writeSavedValue(b, "Saved event payload", event.Value, 0)
@@ -193,7 +180,7 @@ func writeArchaeologyEvent(b *strings.Builder, gs *gamestate.GameState, siteID, 
 			fmt.Fprintln(b, "    Event owner ID differs from the selected country ID")
 		}
 		if site.LastExcavatorCountry != nil {
-			fmt.Fprintf(b, "    Event owner ID %s saved last_excavator_country\n", archaeologyIDComparison(id, *site.LastExcavatorCountry))
+			fmt.Fprintf(b, "    Event owner ID %s saved last_excavator_country\n", compareSavedIDs(id, *site.LastExcavatorCountry))
 		}
 	}
 	if event.Fleet != nil {
@@ -215,22 +202,15 @@ func writeArchaeologyEvent(b *strings.Builder, gs *gamestate.GameState, siteID, 
 		fmt.Fprintf(b, "    scope: preserved opaque object (%d ordered fields). Scope type codes remain unclassified.\n", len(scope.Value.Object.Pairs))
 		writeSavedValue(b, "Saved event scope fields", scope.Value, 0)
 		if scope.ID.Unsupported || scope.FromID.Unsupported {
-			fmt.Fprintf(b, "    scope.id=%s scope.from.id=%s (saved references)\n", archaeologyRefText(scope.ID), archaeologyRefText(scope.FromID))
+			fmt.Fprintf(b, "    scope.id=%s scope.from.id=%s (saved references)\n", optionalIntRefText(scope.ID), optionalIntRefText(scope.FromID))
 		}
 		if scope.ID.Value != nil && event.Fleet != nil {
-			fmt.Fprintf(b, "    scope.id numeric ID %s saved event fleet ID\n", archaeologyIDComparison(*scope.ID.Value, *event.Fleet))
+			fmt.Fprintf(b, "    scope.id numeric ID %s saved event fleet ID\n", compareSavedIDs(*scope.ID.Value, *event.Fleet))
 		}
 		if scope.FromID.Value != nil {
-			fmt.Fprintf(b, "    scope.from.id numeric ID %s saved site ID\n", archaeologyIDComparison(*scope.FromID.Value, siteID))
+			fmt.Fprintf(b, "    scope.from.id numeric ID %s saved site ID\n", compareSavedIDs(*scope.FromID.Value, siteID))
 		}
 	}
-}
-
-func archaeologyIDComparison(a, b int) string {
-	if a == b {
-		return "agrees with"
-	}
-	return "differs from"
 }
 
 func writeRemainingExcavationOrders(b *strings.Builder, gs *gamestate.GameState, country *gamestate.Country, reasons map[int][]string, selected *int) {

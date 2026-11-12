@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -27,12 +26,7 @@ func handleStarbases(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["starbase_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		baseID, err := rawInteger(req, "starbase_id", 0, 0, maxID)
+		baseID, err := rawInteger(req, "starbase_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -128,7 +122,7 @@ func renderStarbases(gs *gamestate.GameState, countryID int, country *gamestate.
 	for _, id := range ids {
 		base := gs.Starbases.Items[id]
 		fmt.Fprintf(&b, "\nStarbase %d: level=%s type=%s construction_type=%s; country paths=%v\n", id, operationFlagText(base.Level), operationFlagText(base.Type), operationFlagText(base.ConstructionType), routes[id])
-		fmt.Fprintf(&b, "  station=%s design=%s upgrade=%s growth_stage=%s (saved values)\n", armyInt(base.Station), armyInt(base.ShipDesign.Design), armyInt(base.ShipDesign.Upgrade), armyInt(base.ShipDesign.GrowthStage))
+		fmt.Fprintf(&b, "  station=%s design=%s upgrade=%s growth_stage=%s (saved values)\n", savedInt(base.Station), savedInt(base.ShipDesign.Design), savedInt(base.ShipDesign.Upgrade), savedInt(base.ShipDesign.GrowthStage))
 		if base.ShipDesign.Design != nil {
 			if design, ok := gs.ShipDesign[*base.ShipDesign.Design]; ok {
 				fmt.Fprintf(&b, "  Saved design ID record: %s\n", name(design.Name))
@@ -151,7 +145,7 @@ func renderStarbases(gs *gamestate.GameState, countryID int, country *gamestate.
 						fmt.Fprintln(&b, "    Base/ship saved design IDs disagree")
 					}
 				}
-				fmt.Fprintf(&b, "    ship.fleet=%s\n", armyInt(ship.FleetID))
+				fmt.Fprintf(&b, "    ship.fleet=%s\n", savedInt(ship.FleetID))
 				if ship.FleetID != nil {
 					if fleet, ok := gs.Fleet[*ship.FleetID]; ok {
 						fmt.Fprintf(&b, "    Fleet record %d: %s; fleet.ships membership: %s\n", *ship.FleetID, name(fleet.Name), armyMembership(fleet.Ships, *base.Station))
@@ -164,7 +158,7 @@ func renderStarbases(gs *gamestate.GameState, countryID int, country *gamestate.
 				} else if !ship.Coordinate.Recorded {
 					fmt.Fprintln(&b, "    ship.coordinate: not recorded")
 				} else {
-					fmt.Fprintf(&b, "    ship.coordinate.origin=%s\n", armyInt(ship.Coordinate.Origin))
+					fmt.Fprintf(&b, "    ship.coordinate.origin=%s\n", savedInt(ship.Coordinate.Origin))
 				}
 			} else {
 				fmt.Fprintln(&b, "  station ID has no decoded ship candidate; namespace/sentinel meaning unverified")
@@ -234,7 +228,7 @@ func writeStarbaseQueue(b *strings.Builder, gs *gamestate.GameState, countryID i
 		fmt.Fprintf(b, "  %s %d: referenced queue unavailable\n", label, *id)
 		return
 	}
-	fmt.Fprintf(b, "  %s %d: owner=%s type=%s location.type=%s location.id=%s items=%s (saved values; location namespace unverified)\n", label, *id, armyInt(queue.Owner), queue.Type, armyInt(queue.Location.Type), armyInt(queue.Location.ID), colonyReferenceList(queue.Items))
+	fmt.Fprintf(b, "  %s %d: owner=%s type=%s location.type=%s location.id=%s items=%s (saved values; location namespace unverified)\n", label, *id, savedInt(queue.Owner), queue.Type, savedInt(queue.Location.Type), savedInt(queue.Location.ID), colonyReferenceList(queue.Items))
 	if queue.Owner != nil && *queue.Owner != countryID {
 		fmt.Fprintln(b, "    Queue owner differs from selected country")
 	}

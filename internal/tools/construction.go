@@ -56,13 +56,13 @@ func renderConstruction(gs *gamestate.GameState, countryID int, country *gamesta
 	shown := map[int]bool{}
 	for _, queueID := range queueIDs {
 		q := queues[queueID]
-		fmt.Fprintf(&b, "\nQueue %d: type=%s owner=%s simultaneous=%s", queueID, q.Type, constructionInt(q.Owner), constructionFloat(q.Simultaneous))
+		fmt.Fprintf(&b, "\nQueue %d: type=%s owner=%s simultaneous=%s", queueID, q.Type, savedInt(q.Owner), savedFloat(q.Simultaneous))
 		if q.Disabled == nil {
 			fmt.Fprint(&b, " disabled=not recorded")
 		} else {
 			fmt.Fprintf(&b, " disabled=%t", *q.Disabled)
 		}
-		fmt.Fprintf(&b, "\n  Location (raw): type=%s id=%s\n", constructionInt(q.Location.Type), constructionInt(q.Location.ID))
+		fmt.Fprintf(&b, "\n  Location (raw): type=%s id=%s\n", savedInt(q.Location.Type), savedInt(q.Location.ID))
 		if q.Items == nil {
 			fmt.Fprintln(&b, "  Item order: not recorded")
 		} else if len(q.Items) == 0 {
@@ -114,7 +114,7 @@ func renderConstruction(gs *gamestate.GameState, countryID int, country *gamesta
 	sort.Ints(orphanIDs)
 	for _, id := range orphanIDs {
 		item := items[id]
-		fmt.Fprintf(&b, "\nUnresolved item %d: queue=%s", id, constructionInt(item.Queue))
+		fmt.Fprintf(&b, "\nUnresolved item %d: queue=%s", id, savedInt(item.Queue))
 		if item.Queue == nil {
 			fmt.Fprintln(&b, " (queue reference not recorded)")
 		} else {
@@ -129,7 +129,7 @@ func renderConstruction(gs *gamestate.GameState, countryID int, country *gamesta
 }
 
 func writeConstructionItem(b *strings.Builder, gs *gamestate.GameState, item gamestate.ConstructionItem) {
-	fmt.Fprintf(b, "    paying_country=%s progress=%s progress_needed=%s\n", constructionInt(item.PayingCountry), constructionFloat(item.Progress), constructionFloat(item.ProgressNeeded))
+	fmt.Fprintf(b, "    paying_country=%s progress=%s progress_needed=%s\n", savedInt(item.PayingCountry), savedFloat(item.Progress), savedFloat(item.ProgressNeeded))
 	if item.Resources == nil {
 		fmt.Fprintln(b, "    resources: not recorded")
 	} else {
@@ -181,17 +181,4 @@ func writeConstructionItem(b *strings.Builder, gs *gamestate.GameState, item gam
 	if count > 1 {
 		fmt.Fprintln(b, "    Multiple buildable payloads recorded; interpretation not inferred")
 	}
-}
-
-func constructionInt(value *int) string {
-	if value == nil {
-		return "not recorded"
-	}
-	return fmt.Sprint(*value)
-}
-func constructionFloat(value *float64) string {
-	if value == nil {
-		return "not recorded"
-	}
-	return fmt.Sprintf("%g", *value)
 }

@@ -63,12 +63,8 @@ func registerSaveRootFields(s *server.MCPServer) {
 }
 
 func handleSaveRootFields(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	for _, name := range []string{"save_id", "entry", "key"} {
-		if value, ok := req.GetArguments()[name]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", name)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "entry", "key"); err != nil {
+		return toolError(err), nil
 	}
 	entry := req.GetString("entry", "both")
 	if entry != "meta" && entry != "gamestate" && entry != "both" {

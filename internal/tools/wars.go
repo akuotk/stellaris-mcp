@@ -25,21 +25,12 @@ func registerWars(s *server.MCPServer) {
 }
 
 func handleWars(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"save_id", "page_context"} {
-		if value, ok := req.GetArguments()[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["war_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		id, err := rawInteger(req, "war_id", 0, -maxID, maxID)
+		id, err := rawInteger(req, "war_id", 0, -maxRecordID, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}

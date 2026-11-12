@@ -24,12 +24,8 @@ func registerCountryObservationRefs(s *server.MCPServer) {
 }
 
 func handleCountryObservationRefs(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"save_id", "page_context", "kind"} {
-		if value, ok := req.GetArguments()[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "page_context", "kind"); err != nil {
+		return toolError(err), nil
 	}
 	kind := req.GetString("kind", gamestate.SensorRangeFleetsKind)
 	if kind != gamestate.SensorRangeFleetsKind && kind != gamestate.SurveyedDepositHoldersKind {
@@ -37,8 +33,7 @@ func handleCountryObservationRefs(_ context.Context, req mcp.CallToolRequest) (*
 	}
 	var countryID *int
 	if _, ok := req.GetArguments()["country_id"]; ok {
-		maxID := int(min(int64(^uint(0)>>1), int64(9007199254740991)))
-		id, err := rawInteger(req, "country_id", 0, 0, maxID)
+		id, err := rawInteger(req, "country_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}

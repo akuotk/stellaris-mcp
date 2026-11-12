@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -28,12 +27,7 @@ func handleSpecies(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["species_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			exactMax := int64(1<<53 - 1)
-			maxID = int(exactMax)
-		}
-		v, err := rawInteger(req, "species_id", 0, 0, maxID)
+		v, err := rawInteger(req, "species_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}

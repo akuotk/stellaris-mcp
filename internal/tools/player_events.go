@@ -18,12 +18,8 @@ func registerPlayerEvents(s *server.MCPServer) {
 		mcp.WithString("page_context", mcp.Description("Token from first page; required for later pages"))), handlePlayerEvents)
 }
 func handlePlayerEvents(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"save_id", "page_context", "kind"} {
-		if v, ok := req.GetArguments()[key]; ok {
-			if _, ok := v.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "page_context", "kind"); err != nil {
+		return toolError(err), nil
 	}
 	offset, err := rawInteger(req, "offset", 0, 0, 1<<31-1)
 	if err != nil {

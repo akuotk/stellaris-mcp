@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -37,10 +38,17 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 		}
 	}
 
-	// Net balance from budget
+	// Net balance from budget. Categories are added in sorted order: float
+	// addition is not associative, so map order would change the last digits.
+	balance := c.Budget.CurrentMonth.Balance
+	categories := make([]string, 0, len(balance))
+	for category := range balance {
+		categories = append(categories, category)
+	}
+	sort.Strings(categories)
 	netBalance := make(map[string]float64)
-	for _, resources := range c.Budget.CurrentMonth.Balance {
-		for k, v := range resources {
+	for _, category := range categories {
+		for k, v := range balance[category] {
 			netBalance[k] += v
 		}
 	}
@@ -59,16 +67,16 @@ func handleEmpireOverview(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	fmt.Fprintf(&b, "Ethics: %s\n", strings.Join(ll(ethics), ", "))
 	fmt.Fprintf(&b, "Civics: %s\n", strings.Join(ll(c.Government.Civics), ", "))
 	fmt.Fprintf(&b, "\nPower Ratings:\n")
-	fmt.Fprintf(&b, "  Military: %s\n", armyFloat(c.MilitaryPowerRaw))
-	fmt.Fprintf(&b, "  Economy:  %s\n", armyFloat(c.EconomyPowerRaw))
-	fmt.Fprintf(&b, "  Tech:     %s\n", armyFloat(c.TechPowerRaw))
-	fmt.Fprintf(&b, "  Victory Rank: %s\n", armyInt(c.VictoryRankRaw))
+	fmt.Fprintf(&b, "  Military: %s\n", savedFloat(c.MilitaryPowerRaw))
+	fmt.Fprintf(&b, "  Economy:  %s\n", savedFloat(c.EconomyPowerRaw))
+	fmt.Fprintf(&b, "  Tech:     %s\n", savedFloat(c.TechPowerRaw))
+	fmt.Fprintf(&b, "  Victory Rank: %s\n", savedInt(c.VictoryRankRaw))
 	fmt.Fprintf(&b, "\nEmpire Stats:\n")
-	fmt.Fprintf(&b, "  Population (raw save units): %s\n", armyInt(c.NumPopsRaw))
+	fmt.Fprintf(&b, "  Population (raw save units): %s\n", savedInt(c.NumPopsRaw))
 	fmt.Fprintf(&b, "  Owned planet records with colony indicators: %d (non-planet carriers excluded)\n", planetCount)
-	fmt.Fprintf(&b, "  Fleet Size: %s (Naval Cap: %s)\n", armyFloat(c.FleetSizeRaw), formatNavalCapacity(c))
-	fmt.Fprintf(&b, "  Starbase capacity: %s\n", armyInt(c.StarbaseCapRaw))
-	fmt.Fprintf(&b, "  Empire Size: %s\n", armyInt(c.EmpireSizeRaw))
+	fmt.Fprintf(&b, "  Fleet Size: %s (Naval Cap: %s)\n", savedFloat(c.FleetSizeRaw), formatNavalCapacity(c))
+	fmt.Fprintf(&b, "  Starbase capacity: %s\n", savedInt(c.StarbaseCapRaw))
+	fmt.Fprintf(&b, "  Empire Size: %s\n", savedInt(c.EmpireSizeRaw))
 	fmt.Fprintln(&b, "\nSaved current-month balance (sum of saved categories):")
 	if !c.Budget.CurrentMonth.Recorded || c.Budget.CurrentMonth.Balance == nil {
 		fmt.Fprintln(&b, "  not recorded")

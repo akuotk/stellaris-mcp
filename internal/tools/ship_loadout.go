@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
@@ -28,21 +27,14 @@ func handleShipLoadout(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 	if shipProvided == designProvided {
 		return toolError(fmt.Errorf("supply exactly one of ship_id or design_id")), nil
 	}
-	if value, ok := args["save_id"]; ok {
-		if _, ok := value.(string); !ok {
-			return toolError(fmt.Errorf("save_id must be a string")), nil
-		}
+	if err := requireStringArgs(req, "save_id"); err != nil {
+		return toolError(err), nil
 	}
 	key := "ship_id"
 	if designProvided {
 		key = "design_id"
 	}
-	maxID := int(^uint(0) >> 1)
-	if strconv.IntSize == 64 {
-		maxExact := int64(1<<53 - 1)
-		maxID = int(maxExact)
-	}
-	id, err := rawInteger(req, key, 0, -maxID, maxID)
+	id, err := rawInteger(req, key, 0, -maxRecordID, maxRecordID)
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -77,7 +69,7 @@ func renderShipLoadout(loadout *gamestate.ShipLoadout) *mcp.CallToolResult {
 			fmt.Fprintln(&b, "  A fleet record also uses this numeric ID. Membership follows the saved ship.fleet reference.")
 		}
 		writeLoadoutFleetMembership(&b, loadout)
-		fmt.Fprintf(&b, "  ship_design=%s ship_design_implementation.design=%s growth_stage=%s upgrade=%s (saved references)\n", loadoutRefText(loadout.LegacyDesign), loadoutRefText(loadout.ImplDesign), loadoutRefText(loadout.GrowthStage), loadoutRefText(loadout.Upgrade))
+		fmt.Fprintf(&b, "  ship_design=%s ship_design_implementation.design=%s growth_stage=%s upgrade=%s (saved references)\n", optionalIntRefText(loadout.LegacyDesign), optionalIntRefText(loadout.ImplDesign), optionalIntRefText(loadout.GrowthStage), optionalIntRefText(loadout.Upgrade))
 		writeLoadoutFields(&b, "Saved ship fields", loadout.Ship.Value, "section")
 		writeLoadoutSections(&b, loadout.ShipLayout, "weapon")
 		writeShipReferences(&b, loadout)
@@ -167,7 +159,7 @@ func shipRefTypeText(typ *gamestate.OptionalString) string {
 }
 
 func writeLoadoutFleetMembership(b *strings.Builder, loadout *gamestate.ShipLoadout) {
-	fmt.Fprintf(b, "  ship.fleet=%s (saved reference)\n", loadoutRefText(loadout.FleetRef))
+	fmt.Fprintf(b, "  ship.fleet=%s (saved reference)\n", optionalIntRefText(loadout.FleetRef))
 	if loadout.FleetRef.Value == nil {
 		return
 	}
@@ -218,11 +210,4 @@ func writeLoadoutFields(b *strings.Builder, label string, value clausewitz.Value
 		value = clausewitz.Value{Object: fields}
 	}
 	writeSavedValue(b, label, value, 0)
-}
-
-func loadoutRefText(ref gamestate.OptionalIntRef) string {
-	if ref.Unsupported {
-		return "unsupported or duplicate"
-	}
-	return armyInt(ref.Value)
 }

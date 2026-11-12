@@ -30,12 +30,8 @@ func registerTechnologyDefinitionTree(s *server.MCPServer, source gamestate.Tech
 }
 
 func handleTechnologyDefinitionTree(_ context.Context, req mcp.CallToolRequest, source gamestate.TechnologyDefinitionSource) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"technology_id", "path", "operation", "part", "page_context"} {
-		if value, ok := req.GetArguments()[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "technology_id", "path", "operation", "part", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	id := req.GetString("technology_id", "")
 	if strings.TrimSpace(id) == "" || len(id) > gamestate.MaxTechnologyKeyBytes {

@@ -24,12 +24,8 @@ func registerTechnologyReferences(s *server.MCPServer, source gamestate.Technolo
 }
 
 func handleTechnologyReferences(_ context.Context, req mcp.CallToolRequest, source gamestate.TechnologyReferenceSource) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"technology_id", "page_context"} {
-		if value, ok := req.GetArguments()[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "technology_id", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	id := req.GetString("technology_id", "")
 	if !gamestate.IsTechnologyReferenceLiteral(id) {

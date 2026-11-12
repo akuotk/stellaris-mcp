@@ -330,7 +330,7 @@ func writeMegastructureDetails(b *strings.Builder, gs *gamestate.GameState, id i
 		if bypass, found := gs.Bypasses.Items[*m.Bypass]; found {
 			fmt.Fprintf(b, "; bypass.type=%s", governanceValue(bypass.Type))
 			if owner := bypass.Owner; owner != nil {
-				fmt.Fprintf(b, "; bypass.owner.type=%s bypass.owner.id=%s (owner namespace unverified)", governanceValue(owner.Type), armyInt(owner.ID))
+				fmt.Fprintf(b, "; bypass.owner.type=%s bypass.owner.id=%s (owner namespace unverified)", governanceValue(owner.Type), savedInt(owner.ID))
 				if owner.ID != nil {
 					if *owner.ID == id {
 						fmt.Fprint(b, "; saved owner ID equals megastructure ID")

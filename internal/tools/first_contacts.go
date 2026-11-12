@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -28,12 +27,7 @@ func handleFirstContacts(_ context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["contact_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		contactID, err := rawInteger(req, "contact_id", 0, 0, maxID)
+		contactID, err := rawInteger(req, "contact_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -83,7 +77,7 @@ func renderFirstContacts(gs *gamestate.GameState, countryID int, country *gamest
 			fmt.Fprintf(&b, "\nFirst contact %d: %s. Selected %s membership: %s\n", id, diplomaticRecordIssue(gs.FirstContacts.DecodeErrors[id]), path, diplomaticMembership(refs, id))
 			continue
 		}
-		fmt.Fprintf(&b, "\nFirst contact %d: %s; owner=%s country=%s stage=%s status=%s\n", id, name(c.Name), armyInt(c.Owner), armyInt(c.Country), operationFlagText(c.Stage), operationFlagText(c.Status))
+		fmt.Fprintf(&b, "\nFirst contact %d: %s; owner=%s country=%s stage=%s status=%s\n", id, name(c.Name), savedInt(c.Owner), savedInt(c.Country), operationFlagText(c.Stage), operationFlagText(c.Status))
 		fmt.Fprintf(&b, "  Selected %s membership: %s\n", path, diplomaticMembership(refs, id))
 		if c.Owner != nil && *c.Owner != countryID {
 			if owner, ok := gs.Country[*c.Owner]; ok {
@@ -106,7 +100,7 @@ func renderFirstContacts(gs *gamestate.GameState, countryID int, country *gamest
 				fmt.Fprintf(&b, "  %s country reference unresolved (sentinel/deleted-state meaning not inferred)\n", field.name)
 			}
 		}
-		fmt.Fprintf(&b, "  location=%s leader=%s date=%s\n", armyInt(c.Location), armyInt(c.Leader), operationFlagText(c.Date))
+		fmt.Fprintf(&b, "  location=%s leader=%s date=%s\n", savedInt(c.Location), savedInt(c.Leader), operationFlagText(c.Date))
 		if c.Location != nil {
 			if system, ok := gs.Systems[*c.Location]; ok {
 				fmt.Fprintf(&b, "    Possible system ID match: %s; location namespace/reverse link unverified\n", name(system.Name))
@@ -120,7 +114,7 @@ func renderFirstContacts(gs *gamestate.GameState, countryID int, country *gamest
 				if leader.LocationAmbiguous {
 					fmt.Fprintln(&b, "    Duplicate leader.location fields; use raw tools.")
 				} else {
-					fmt.Fprintf(&b, "    leader.location (raw): type=%s assignment=%s id=%s\n", leader.Location.Type, leader.Location.Assignment, armyInt(leader.Location.IDRaw))
+					fmt.Fprintf(&b, "    leader.location (raw): type=%s assignment=%s id=%s\n", leader.Location.Type, leader.Location.Assignment, savedInt(leader.Location.IDRaw))
 					fmt.Fprintln(&b, "    No reverse first_contact leader assignment validated; namespace/timing unverified")
 					if leader.Location.IDRaw != nil && *leader.Location.IDRaw != id {
 						fmt.Fprintln(&b, "    Raw leader.location ID differs from contact ID; namespace/timing unverified")
@@ -133,7 +127,7 @@ func renderFirstContacts(gs *gamestate.GameState, countryID int, country *gamest
 		if selected == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "  last_roll=%s days_left=%s difficulty=%s clues=%s (raw values)\n", armyFloat(c.LastRoll), armyFloat(c.DaysLeft), armyFloat(c.Difficulty), armyFloat(c.Clues))
+		fmt.Fprintf(&b, "  last_roll=%s days_left=%s difficulty=%s clues=%s (raw values)\n", savedFloat(c.LastRoll), savedFloat(c.DaysLeft), savedFloat(c.Difficulty), savedFloat(c.Clues))
 		if c.Event == nil {
 			fmt.Fprintln(&b, "  event: not recorded")
 		} else {
@@ -168,8 +162,8 @@ func renderFirstContacts(gs *gamestate.GameState, countryID int, country *gamest
 }
 
 func writeFirstContactEvent(b *strings.Builder, label string, event gamestate.ArchaeologyEvent) {
-	fmt.Fprintf(b, "  %s: event_id=%s expired=%s picture=%s index=%s player_event=%s\n", label, operationFlagText(event.EventID), operationFlagText(event.Expired), operationFlagText(event.Picture), armyInt(event.Index), operationFlagText(event.PlayerEvent))
-	fmt.Fprintf(b, "    owner=%s fleet=%s effect=%s (as saved)\n", armyInt(event.Owner), armyInt(event.Fleet), operationFlagText(event.Effect))
+	fmt.Fprintf(b, "  %s: event_id=%s expired=%s picture=%s index=%s player_event=%s\n", label, operationFlagText(event.EventID), operationFlagText(event.Expired), operationFlagText(event.Picture), savedInt(event.Index), operationFlagText(event.PlayerEvent))
+	fmt.Fprintf(b, "    owner=%s fleet=%s effect=%s (as saved)\n", savedInt(event.Owner), savedInt(event.Fleet), operationFlagText(event.Effect))
 	if event.Scope == nil {
 		fmt.Fprintln(b, "    scope: not recorded")
 	} else {

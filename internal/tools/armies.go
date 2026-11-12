@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -27,12 +26,7 @@ func handleArmies(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResu
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["army_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		id, err := rawInteger(req, "army_id", 0, 0, maxID)
+		id, err := rawInteger(req, "army_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -79,7 +73,7 @@ func renderArmies(gs *gamestate.GameState, countryID int, country *gamestate.Cou
 			fmt.Fprintf(&b, "\nArmy %d: referenced record unavailable\n", id)
 			continue
 		}
-		fmt.Fprintf(&b, "\nArmy %d: %s; type=%s owner=%s colony=%s ship=%s\n", id, name(army.Name), army.Type, armyInt(army.Owner), armyInt(army.Colony), armyInt(army.Ship))
+		fmt.Fprintf(&b, "\nArmy %d: %s; type=%s owner=%s colony=%s ship=%s\n", id, name(army.Name), army.Type, savedInt(army.Owner), savedInt(army.Colony), savedInt(army.Ship))
 		if _, bad := gs.Armies.DecodeErrors[id]; bad {
 			fmt.Fprintln(&b, "  Record decoding incomplete; displayed fields may be partial")
 		}
@@ -100,7 +94,7 @@ func renderArmies(gs *gamestate.GameState, countryID int, country *gamestate.Cou
 		if selected == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "  health=%s max_health=%s morale=%s experience=%s\n", armyFloat(army.Health), armyFloat(army.MaxHealth), armyFloat(army.Morale), armyFloat(army.Experience))
+		fmt.Fprintf(&b, "  health=%s max_health=%s morale=%s experience=%s\n", savedFloat(army.Health), savedFloat(army.MaxHealth), savedFloat(army.Morale), savedFloat(army.Experience))
 		if army.JumpDriveCooldown == "" {
 			fmt.Fprintln(&b, "  jump_drive_cooldown: not recorded")
 		} else {
@@ -209,16 +203,4 @@ func armyMembership(ids []int, id int) string {
 		return fmt.Sprintf("%d duplicate references", count)
 	}
 	return "validated"
-}
-func armyInt(value *int) string {
-	if value == nil {
-		return "not recorded"
-	}
-	return fmt.Sprint(*value)
-}
-func armyFloat(value *float64) string {
-	if value == nil {
-		return "not recorded"
-	}
-	return fmt.Sprintf("%g", *value)
 }

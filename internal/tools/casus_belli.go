@@ -59,7 +59,7 @@ func renderCasusBelli(gs *gamestate.GameState, countryID int, country *gamestate
 			fmt.Fprintln(&b, "  Empty")
 		}
 		for index, entry := range module.CasusBelli.Items {
-			fmt.Fprintf(&b, "  Entry %d owner=%s country=%s type=%s days_left=%s (saved values)\n", index, armyInt(entry.Owner), armyInt(entry.Country), governanceValue(entry.Type), governanceValue(entry.DaysLeft))
+			fmt.Fprintf(&b, "  Entry %d owner=%s country=%s type=%s days_left=%s (saved values)\n", index, savedInt(entry.Owner), savedInt(entry.Country), governanceValue(entry.Type), governanceValue(entry.DaysLeft))
 			if entry.Owner != nil && *entry.Owner != countryID {
 				fmt.Fprintln(&b, "    owner differs from containing country")
 			}

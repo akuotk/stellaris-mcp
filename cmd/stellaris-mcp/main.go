@@ -10,17 +10,11 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: stellaris-mcp <save-games-directory> <localization-directory>")
-		os.Exit(1)
-	}
-	saveDir := os.Args[1]
-
 	if len(os.Args) < 3 {
 		fmt.Fprintln(os.Stderr, "usage: stellaris-mcp <save-games-directory> <localization-directory>")
 		os.Exit(1)
 	}
-	locDir := os.Args[2]
+	saveDir, locDir := os.Args[1], os.Args[2]
 	if _, err := os.Stat(locDir); err != nil {
 		fmt.Fprintf(os.Stderr, "localization directory not found: %s\n", locDir)
 		os.Exit(1)

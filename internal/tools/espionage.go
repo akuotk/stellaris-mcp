@@ -93,7 +93,7 @@ func renderEspionage(gs *gamestate.GameState, countryID int, c *gamestate.Countr
 				case loc.Type == "spy_network" && loc.IDRaw != nil && *loc.IDRaw == id:
 					fmt.Fprintln(&b, "    Reciprocal saved leader.location type and network ID agree.")
 				default:
-					fmt.Fprintf(&b, "    Saved leader.location type=%s assignment=%s id=%s. Reciprocal network reference unavailable.\n", loc.Type, loc.Assignment, armyInt(loc.IDRaw))
+					fmt.Fprintf(&b, "    Saved leader.location type=%s assignment=%s id=%s. Reciprocal network reference unavailable.\n", loc.Type, loc.Assignment, savedInt(loc.IDRaw))
 				}
 			} else {
 				fmt.Fprintf(&b, "  Leader ID: %d (identity unavailable)\n", *n.Leader)

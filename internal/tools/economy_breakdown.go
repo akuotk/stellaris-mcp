@@ -32,10 +32,8 @@ func handleEconomyBreakdown(_ context.Context, req mcp.CallToolRequest) (*mcp.Ca
 		return toolError(err), nil
 	}
 
-	if value, ok := req.GetArguments()["month"]; ok {
-		if _, ok := value.(string); !ok {
-			return toolError(fmt.Errorf("month must be a string")), nil
-		}
+	if err := requireStringArgs(req, "month"); err != nil {
+		return toolError(err), nil
 	}
 	monthName := req.GetString("month", "current")
 	var month gamestate.BudgetMonth

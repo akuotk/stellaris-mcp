@@ -18,10 +18,8 @@ func registerPreFTL(s *server.MCPServer) {
 }
 
 func handlePreFTL(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if value, ok := req.GetArguments()["save_id"]; ok {
-		if _, ok := value.(string); !ok {
-			return toolError(fmt.Errorf("save_id must be a string")), nil
-		}
+	if err := requireStringArgs(req, "save_id"); err != nil {
+		return toolError(err), nil
 	}
 	archive, err := openRawSave(saveDir, req.GetString("save_id", ""))
 	if err != nil {

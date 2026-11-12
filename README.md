@@ -74,6 +74,7 @@ Parses `.sav` files (ZIP containing a `gamestate` in Clausewitz format) and expo
 | `get_galactic_community` | Members, resolution references and saved voting records |
 | `get_federations` | Saved federation membership, leadership, progression and laws |
 | `list_save_games` | Paginated local save catalog with stable IDs |
+| `ping` | Server liveness check; reads no save |
 | `inspect_save_archive` | Save revision and paginated ZIP entry metadata |
 | `read_save_tree` | Ordered tree navigation, including mixed entries and source offsets |
 | `get_save_record_refs` | Find numeric keys directly under a saved table and return raw positions |
@@ -110,7 +111,7 @@ Usage: `/stellaris how should I optimize my economy?`
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.26+ (see `go.mod`)
 - Claude Desktop or Claude Code
 
 ### Build
@@ -183,7 +184,7 @@ The `/stellaris` skill is automatically available when working in this repositor
 
 ## Sample Outputs
 
-See [sample_outputs/examples.md](sample_outputs/examples.md) for real output examples of every tool, generated from a mid-game save with English localization.
+See [sample_outputs/examples.md](sample_outputs/examples.md) for the upstream author's output examples of the original tools, generated from a mid-game save with English localization. Tools added in this fork are not covered there, and current output formats may differ.
 
 ## Tests
 
@@ -206,7 +207,7 @@ Then run:
 go test ./...
 ```
 
-Tests that require the fixture or localization files skip gracefully when they are absent.
+Tests that require the fixture or localization files skip gracefully when they are absent. Read-only survey tests over your own saves are opt-in: set `STELLARIS_TEST_SAVE_DIR` (a save directory) or `STELLARIS_TEST_SAVE` (one `.sav`).
 
 ## Architecture
 
@@ -219,7 +220,7 @@ internal/
 │                            Load from raw bytes, ZIP, or save directory
 │                            Localization service (YAML loc files -> l(key))
 ├── tools/                   MCP tools (one file per tool)
-│                            common.go: shared helpers (loadLatestSave, getCountry, l, ll)
+│                            common.go: shared helpers (loadSave, getCountry, l, ll)
 └── testutil/                .env file loader for tests
 .claude/skills/stellaris/    /stellaris skill + strategy guides
 ```

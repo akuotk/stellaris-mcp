@@ -51,3 +51,20 @@ func TestNavalCapacityPreservesSavedPrecision(t *testing.T) {
 		t.Fatal(resultText(result))
 	}
 }
+
+func TestEmpireOverviewBalanceSumIsOrderIndependent(t *testing.T) {
+	old := loc
+	loc = gamestate.NewLocalizer(t.TempDir())
+	t.Cleanup(func() { loc = old })
+	// (1e16 + -1e16) + 1 is 1, but (1e16 + 1) + -1e16 is 0: the sum depends on category order.
+	syntheticSaveDir(t, []syntheticEntry{{"gamestate", []byte(`player={{country=0}} country={0={budget={current_month={balance={a={energy=10000000000000000} b={energy=-10000000000000000} c={energy=1}}}}}}`)}})
+	for i := 0; i < 50; i++ {
+		result, err := handleEmpireOverview(context.Background(), rawRequest(map[string]any{}))
+		if err != nil || result.IsError {
+			t.Fatal("overview failed")
+		}
+		if text := resultText(result); !strings.Contains(text, "[energy]=1\n") {
+			t.Fatalf("run %d: balance not summed in sorted category order: %s", i, text)
+		}
+	}
+}

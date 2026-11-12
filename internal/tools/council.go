@@ -105,7 +105,7 @@ func renderCouncil(gs *gamestate.GameState, countryID int, country *gamestate.Co
 		if gov.Unsupported {
 			membership = "unsupported (use raw tools)"
 		}
-		fmt.Fprintf(&b, "\nPosition %d country=%s type=%s leader=%s government membership=%s\n", id, armyInt(position.Country), governanceValue(position.Type), armyInt(position.Leader), membership)
+		fmt.Fprintf(&b, "\nPosition %d country=%s type=%s leader=%s government membership=%s\n", id, savedInt(position.Country), governanceValue(position.Type), savedInt(position.Leader), membership)
 		if position.Country != nil && *position.Country != countryID {
 			fmt.Fprintln(&b, "  Saved position.country differs from selected country")
 		}
@@ -131,7 +131,7 @@ func writeCouncilLeaderReferences(b *strings.Builder, gs *gamestate.GameState, c
 		leaderID := *position.Leader
 		fmt.Fprintf(b, "  Leader ID %d candidate. country.owned_leaders membership=%s\n", leaderID, leaderMembership(country, leaderID))
 		if leader, ok := gs.Leaders[leaderID]; ok {
-			fmt.Fprintf(b, "    %s country=%s council_location.type=%q id=%s position=%s\n", name(leader.Name.FullNames), optionalIntRefText(leader.CountryRef), leader.CouncilLocation.Type, armyInt(leader.CouncilLocation.IDRaw), armyInt(leader.CouncilLocation.PositionRaw))
+			fmt.Fprintf(b, "    %s country=%s council_location.type=%q id=%s position=%s\n", name(leader.Name.FullNames), optionalIntRefText(leader.CountryRef), leader.CouncilLocation.Type, savedInt(leader.CouncilLocation.IDRaw), savedInt(leader.CouncilLocation.PositionRaw))
 			if position.Country != nil && leader.CountryID != nil && *position.Country != *leader.CountryID {
 				fmt.Fprintln(b, "    Saved leader.country differs from position.country")
 			}
@@ -162,7 +162,7 @@ func writeCouncilLeaderReferences(b *strings.Builder, gs *gamestate.GameState, c
 	}
 	sort.Ints(reverse)
 	for _, id := range reverse {
-		fmt.Fprintf(b, "  Leader %d council_location points here. Saved position.leader=%s\n", id, armyInt(position.Leader))
+		fmt.Fprintf(b, "  Leader %d council_location points here. Saved position.leader=%s\n", id, savedInt(position.Leader))
 	}
 }
 

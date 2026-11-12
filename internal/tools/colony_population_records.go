@@ -26,12 +26,8 @@ func registerColonyPopulationRecords(s *server.MCPServer) {
 
 func handleColonyPopulationRecords(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	for _, key := range []string{"save_id", "view", "page_context"} {
-		if value, ok := args[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "view", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	view := req.GetString("view", "growth")
 	detail := view == "group_fields" || view == "job_fields"
@@ -41,13 +37,13 @@ func handleColonyPopulationRecords(ctx context.Context, req mcp.CallToolRequest)
 	if _, ok := args["location_id"]; !ok {
 		return toolError(fmt.Errorf("location_id is required")), nil
 	}
-	locationID, err := rawInteger(req, "location_id", 0, 0, int(maxSaveRecordID))
+	locationID, err := rawInteger(req, "location_id", 0, 0, maxRecordID)
 	if err != nil {
 		return toolError(err), nil
 	}
 	var countryID, recordID *int
 	if _, ok := args["country_id"]; ok {
-		id, err := rawInteger(req, "country_id", 0, 0, int(maxSaveRecordID))
+		id, err := rawInteger(req, "country_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -58,7 +54,7 @@ func handleColonyPopulationRecords(ctx context.Context, req mcp.CallToolRequest)
 		return toolError(fmt.Errorf("record_id is required for group_fields and job_fields and is only valid in those views")), nil
 	}
 	if detail {
-		id, err := rawInteger(req, "record_id", 0, 0, int(maxSaveRecordID))
+		id, err := rawInteger(req, "record_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}

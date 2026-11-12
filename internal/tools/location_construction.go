@@ -26,16 +26,14 @@ func handleLocationConstruction(_ context.Context, req mcp.CallToolRequest) (*mc
 	if planetProvided == colonyProvided {
 		return toolError(fmt.Errorf("supply exactly one of planet_id or colony_id")), nil
 	}
-	if value, ok := args["save_id"]; ok {
-		if _, ok := value.(string); !ok {
-			return toolError(fmt.Errorf("save_id must be a string")), nil
-		}
+	if err := requireStringArgs(req, "save_id"); err != nil {
+		return toolError(err), nil
 	}
 	key := "planet_id"
 	if colonyProvided {
 		key = "colony_id"
 	}
-	id, err := rawInteger(req, key, 0, 0, int(maxSaveRecordID))
+	id, err := rawInteger(req, key, 0, 0, maxRecordID)
 	if err != nil {
 		return toolError(err), nil
 	}
@@ -63,7 +61,7 @@ func renderLocationConstruction(saved *gamestate.LocationConstruction) *mcp.Call
 	if saved.PlanetID != nil {
 		fmt.Fprintf(&b, "\nPlanet %d (planets.planet): %s\n", *saved.PlanetID, locationRecordStatus(saved.Planet))
 		if saved.Planet.Issue == "" {
-			fmt.Fprintf(&b, "  planet.colony=%s (saved reference)\n", loadoutRefText(saved.PlanetColony))
+			fmt.Fprintf(&b, "  planet.colony=%s (saved reference)\n", optionalIntRefText(saved.PlanetColony))
 		}
 	} else {
 		fmt.Fprintln(&b, "\nPlanet not resolved from the colony (colony record, carrier type or carrier reference unavailable; see colony status below)")
@@ -71,7 +69,7 @@ func renderLocationConstruction(saved *gamestate.LocationConstruction) *mcp.Call
 	if saved.ColonyID != nil {
 		fmt.Fprintf(&b, "Colony %d (colony table): %s\n", *saved.ColonyID, locationRecordStatus(saved.Colony))
 		if saved.Colony.Issue == "" {
-			fmt.Fprintf(&b, "  colony.carrier.type=%s colony.carrier.reference=%s (saved values)\n", optionalStringText(saved.CarrierType), loadoutRefText(saved.CarrierRef))
+			fmt.Fprintf(&b, "  colony.carrier.type=%s colony.carrier.reference=%s (saved values)\n", optionalStringText(saved.CarrierType), optionalIntRefText(saved.CarrierRef))
 			if saved.PlanetID != nil && saved.Planet.Issue == "" {
 				fmt.Fprintf(&b, "  Reciprocal planet.colony and colony.carrier.reference: %s\n", locationReciprocity(saved))
 			}
@@ -102,9 +100,9 @@ func renderLocationConstruction(saved *gamestate.LocationConstruction) *mcp.Call
 	for _, ref := range saved.Refs {
 		key := ""
 		if ref.Key != nil {
-			key = fmt.Sprintf(" key=%s", loadoutRefText(*ref.Key))
+			key = fmt.Sprintf(" key=%s", optionalIntRefText(*ref.Key))
 		}
-		fmt.Fprintf(&b, "  %s=%s%s\n", ref.Source, loadoutRefText(ref.Ref), key)
+		fmt.Fprintf(&b, "  %s=%s%s\n", ref.Source, optionalIntRefText(ref.Ref), key)
 		if ref.Queue != nil {
 			writeLocationQueue(&b, *ref.Queue, saved.PlanetID, ctx, "    ")
 		}
@@ -147,7 +145,7 @@ func writeLocationQueue(b *strings.Builder, queue gamestate.LocationQueue, plane
 		return
 	}
 	fmt.Fprintf(b, "%s  type=%s owner=%s location.type=%s location.id=%s simultaneous=%s disabled=%s\n", indent,
-		optionalStringText(queue.Type), loadoutRefText(queue.Owner), loadoutRefText(queue.LocType), loadoutRefText(queue.LocID),
+		optionalStringText(queue.Type), optionalIntRefText(queue.Owner), optionalIntRefText(queue.LocType), optionalIntRefText(queue.LocID),
 		optionalStringText(queue.Simultaneous), optionalStringText(queue.Disabled))
 	if planetID != nil {
 		if queue.LocID.Value != nil && *queue.LocID.Value == *planetID {
@@ -190,7 +188,7 @@ func writeLocationItem(b *strings.Builder, item gamestate.LocationItem, queueID 
 		}
 	}
 	fmt.Fprintf(b, "%sitem.queue=%s%s paying_country=%s progress=%s progress_needed=%s (saved values)\n", indent,
-		loadoutRefText(item.Queue), back, loadoutRefText(item.PayingCountry), optionalStringText(item.Progress), optionalStringText(item.Needed))
+		optionalIntRefText(item.Queue), back, optionalIntRefText(item.PayingCountry), optionalStringText(item.Progress), optionalStringText(item.Needed))
 	if len(item.Buildables) == 0 {
 		fmt.Fprintf(b, "%sNo buildable_* fields\n", indent)
 	}

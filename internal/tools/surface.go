@@ -148,7 +148,7 @@ func writePlanetDeposits(b *strings.Builder, table gamestate.ConnectionRecordTab
 		case !h.Recorded:
 			fmt.Fprintln(b, "    deposit_holder: not recorded")
 		default:
-			fmt.Fprintf(b, "    deposit_holder.type=%s id=%s (saved values)", governanceValue(h.Type), armyInt(h.ID.Value))
+			fmt.Fprintf(b, "    deposit_holder.type=%s id=%s (saved values)", governanceValue(h.Type), savedInt(h.ID.Value))
 			if h.ID.Value != nil {
 				comparison := "differs from"
 				if *h.ID.Value == planetID {

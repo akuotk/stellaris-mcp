@@ -25,12 +25,8 @@ func registerSavedFlags(s *server.MCPServer, source gamestate.FlagScriptSource) 
 }
 
 func handleSavedFlags(_ context.Context, req mcp.CallToolRequest, source gamestate.FlagScriptSource) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"save_id", "page_context"} {
-		if value, ok := req.GetArguments()[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	includeReferences := false
 	if value, ok := req.GetArguments()["include_script_references"]; ok {

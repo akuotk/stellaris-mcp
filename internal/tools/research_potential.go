@@ -19,12 +19,8 @@ func registerResearchPotential(s *server.MCPServer) {
 }
 
 func handleResearchPotential(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"query", "save_id", "revision", "page_context"} {
-		if v, ok := req.GetArguments()[key]; ok {
-			if _, ok := v.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "query", "save_id", "revision", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	offset, err := rawInteger(req, "offset", 0, 0, math.MaxInt32)
 	if err != nil {

@@ -24,12 +24,7 @@ func handleGalacticCommunity(_ context.Context, req mcp.CallToolRequest) (*mcp.C
 		return toolError(err), nil
 	}
 	if _, provided := req.GetArguments()["resolution_id"]; provided {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		id, err := rawInteger(req, "resolution_id", 0, 0, maxID)
+		id, err := rawInteger(req, "resolution_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}

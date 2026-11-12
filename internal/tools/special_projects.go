@@ -99,7 +99,7 @@ func renderSpecialProjects(gs *gamestate.GameState, countryID int, country *game
 				fmt.Fprintf(&b, "  %s[%d].special_project unsupported or duplicate. Use raw tools.\n", queue.name, index)
 				continue
 			}
-			fmt.Fprintf(&b, "  %s[%d] special_project=%s progress=%s date=%s (saved values)\n", queue.name, index, armyInt(ref.Value), armyFloat(item.ProgressRaw), governanceValue(item.DateRaw))
+			fmt.Fprintf(&b, "  %s[%d] special_project=%s progress=%s date=%s (saved values)\n", queue.name, index, savedInt(ref.Value), savedFloat(item.ProgressRaw), governanceValue(item.DateRaw))
 			if ref.Value != nil {
 				writeSpecialProjectCandidates(&b, positions[*ref.Value])
 			}
@@ -125,7 +125,7 @@ func writeProjectDebrisCandidate(b *strings.Builder, table gamestate.DebrisTable
 			fmt.Fprintf(b, "  Saved debris reference %d unresolved (%s)\n", id, issue)
 			return
 		}
-		fmt.Fprintf(b, "  Saved debris ID candidate %d debris.country=%s (use get_debris for saved fields)\n", id, debrisRefText(record.Country))
+		fmt.Fprintf(b, "  Saved debris ID candidate %d debris.country=%s (use get_debris for saved fields)\n", id, optionalIntRefText(record.Country))
 		if record.Country.Value != nil {
 			fmt.Fprintf(b, "    debris.country numeric ID %s the project country ID\n", debrisCountryComparison(*record.Country.Value, countryID))
 		}

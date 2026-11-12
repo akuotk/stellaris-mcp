@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -27,12 +26,7 @@ func handleEspionageOperations(_ context.Context, req mcp.CallToolRequest) (*mcp
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["operation_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		id, err := rawInteger(req, "operation_id", 0, 0, maxID)
+		id, err := rawInteger(req, "operation_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -88,7 +82,7 @@ func renderEspionageOperations(gs *gamestate.GameState, countryID int, country *
 			fmt.Fprintf(&b, "\nOperation %d: referenced record unavailable\n", id)
 			continue
 		}
-		fmt.Fprintf(&b, "\nOperation %d: type=%s spy_network=%s index=%s days_left=%s\n", id, operation.Type, armyInt(operation.SpyNetwork), armyInt(operation.Index), armyFloat(operation.DaysLeft))
+		fmt.Fprintf(&b, "\nOperation %d: type=%s spy_network=%s index=%s days_left=%s\n", id, operation.Type, savedInt(operation.SpyNetwork), savedInt(operation.Index), savedFloat(operation.DaysLeft))
 		if _, bad := gs.EspionageOperations.DecodeErrors[id]; bad {
 			fmt.Fprintln(&b, "  Record decoding incomplete; displayed fields may be partial")
 		}
@@ -107,7 +101,7 @@ func renderEspionageOperations(gs *gamestate.GameState, countryID int, country *
 		if operation.SpyNetwork == nil {
 			fmt.Fprintln(&b, "  Network reference: not recorded")
 		} else if network, exists := gs.SpyNetworks.Items[*operation.SpyNetwork]; exists {
-			fmt.Fprintf(&b, "  Network %d: owner=%s target=%s; active_operations membership: %s\n", *operation.SpyNetwork, armyInt(network.Owner), armyInt(network.Target), armyMembership(network.ActiveOperations, id))
+			fmt.Fprintf(&b, "  Network %d: owner=%s target=%s; active_operations membership: %s\n", *operation.SpyNetwork, savedInt(network.Owner), savedInt(network.Target), armyMembership(network.ActiveOperations, id))
 			if operation.Target.Type == "country" && operation.Target.ID != nil && network.Target != nil {
 				if *operation.Target.ID == *network.Target {
 					fmt.Fprintln(&b, "  operation target.id and network.target agree for saved country scope")
@@ -118,18 +112,18 @@ func renderEspionageOperations(gs *gamestate.GameState, countryID int, country *
 		} else {
 			fmt.Fprintln(&b, "  Referenced network record unavailable")
 		}
-		fmt.Fprintf(&b, "  Target (as saved): type=%s id=%s opener_id=%s (opener meaning unverified)\n", operation.Target.Type, armyInt(operation.Target.ID), armyInt(operation.Target.OpenerID))
+		fmt.Fprintf(&b, "  Target (as saved): type=%s id=%s opener_id=%s (opener meaning unverified)\n", operation.Target.Type, savedInt(operation.Target.ID), savedInt(operation.Target.OpenerID))
 		if selected == nil {
 			continue
 		}
-		fmt.Fprintf(&b, "  last_roll=%s difficulty=%s info=%s\n", armyFloat(operation.LastRoll), armyFloat(operation.Difficulty), armyFloat(operation.Info))
+		fmt.Fprintf(&b, "  last_roll=%s difficulty=%s info=%s\n", savedFloat(operation.LastRoll), savedFloat(operation.Difficulty), savedFloat(operation.Info))
 		if operation.Log == nil {
 			fmt.Fprintln(&b, "  Log: not recorded")
 		} else if len(operation.Log) == 0 {
 			fmt.Fprintln(&b, "  Log: empty")
 		}
 		for index, entry := range operation.Log {
-			fmt.Fprintf(&b, "  Log entry %d (saved order): date=%s title=%s tooltip=%s roll=%s skill=%s info=%s difficulty=%s\n", index, entry.Date, entry.Title, entry.Tooltip, armyFloat(entry.Roll), armyFloat(entry.Skill), armyFloat(entry.Info), armyFloat(entry.Difficulty))
+			fmt.Fprintf(&b, "  Log entry %d (saved order): date=%s title=%s tooltip=%s roll=%s skill=%s info=%s difficulty=%s\n", index, entry.Date, entry.Title, entry.Tooltip, savedFloat(entry.Roll), savedFloat(entry.Skill), savedFloat(entry.Info), savedFloat(entry.Difficulty))
 		}
 		for _, key := range federationSortedKeys(operation.Flags) {
 			flag := operation.Flags[key]

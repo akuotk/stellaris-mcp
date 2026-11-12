@@ -29,10 +29,8 @@ func handleSaveCatalog(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 	if err != nil {
 		return toolError(err), nil
 	}
-	if v, ok := req.GetArguments()["revision"]; ok {
-		if _, ok := v.(string); !ok {
-			return toolError(fmt.Errorf("revision must be a string")), nil
-		}
+	if err := requireStringArgs(req, "revision"); err != nil {
+		return toolError(err), nil
 	}
 	h := sha256.New()
 	for _, f := range files {

@@ -68,8 +68,8 @@ func planetSummary(gs *gamestate.GameState, countryID int, c *gamestate.Country)
 			truncate(name(e.p.Name), 25),
 			l(e.p.PlanetClass),
 			e.p.PlanetSize,
-			armyInt(e.p.NumPopsRaw),
-			armyFloat(e.p.StabilityRaw),
+			savedInt(e.p.NumPopsRaw),
+			savedFloat(e.p.StabilityRaw),
 			planetDesignation(e.p),
 			districtSummary(gs, e.p),
 			buildingSummary(gs, e.p),
@@ -106,7 +106,7 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 		fmt.Fprintf(&b, "System: %s\n", strings.Join(systems, ", "))
 	}
 	fmt.Fprintf(&b, "Class: %s, Size: %d\n", l(p.PlanetClass), p.PlanetSize)
-	fmt.Fprintf(&b, "Designation: %s (Ascension Tier %s)\n", planetDesignation(p), armyInt(p.AscensionTierRaw))
+	fmt.Fprintf(&b, "Designation: %s (Ascension Tier %s)\n", planetDesignation(p), savedInt(p.AscensionTierRaw))
 	if p.OwnerID != nil {
 		fmt.Fprintf(&b, "Owner: %d\n", *p.OwnerID)
 	} else {
@@ -125,11 +125,11 @@ func planetDetail(gs *gamestate.GameState, planetID int) (*mcp.CallToolResult, e
 			fmt.Fprintln(&b, "Colony values take precedence where recorded; otherwise saved planet values are retained.")
 		}
 	}
-	fmt.Fprintf(&b, "\nPopulation: %s (raw save units)\n", armyInt(p.NumPopsRaw))
-	fmt.Fprintf(&b, "Stability: %s\n", armyFloat(p.StabilityRaw))
-	fmt.Fprintf(&b, "Crime: %s\n", armyFloat(p.CrimeRaw))
-	fmt.Fprintf(&b, "Amenities: %s (used: %s, free: %s)\n", armyFloat(p.AmenitiesRaw), armyFloat(p.AmenitiesUsageRaw), armyFloat(p.FreeAmenitiesRaw))
-	fmt.Fprintf(&b, "Housing: %s (used: %s, free: %s)\n", armyFloat(p.TotalHousingRaw), armyFloat(p.HousingUsageRaw), armyFloat(p.FreeHousingRaw))
+	fmt.Fprintf(&b, "\nPopulation: %s (raw save units)\n", savedInt(p.NumPopsRaw))
+	fmt.Fprintf(&b, "Stability: %s\n", savedFloat(p.StabilityRaw))
+	fmt.Fprintf(&b, "Crime: %s\n", savedFloat(p.CrimeRaw))
+	fmt.Fprintf(&b, "Amenities: %s (used: %s, free: %s)\n", savedFloat(p.AmenitiesRaw), savedFloat(p.AmenitiesUsageRaw), savedFloat(p.FreeAmenitiesRaw))
+	fmt.Fprintf(&b, "Housing: %s (used: %s, free: %s)\n", savedFloat(p.TotalHousingRaw), savedFloat(p.HousingUsageRaw), savedFloat(p.FreeHousingRaw))
 
 	if len(p.PopGroups) > 0 {
 		fmt.Fprintf(&b, "\nPOP groups (population and growth in raw save units; happiness/habitability as saved; group totals may differ from cached colony population):\n")

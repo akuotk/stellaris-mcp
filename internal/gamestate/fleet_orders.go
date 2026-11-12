@@ -183,7 +183,7 @@ func readFleetOrderScope(country *clausewitz.RawNode, path string) (FleetOrderSc
 			for k, entry := range list.Children {
 				row := savedFleetScopeRow{listPath + "/" + strconv.Itoa(k), listPath, "unsupported-owned-reference", entry, k, nil}
 				if entry.Key == nil && (entry.Kind == "object" || entry.Kind == "mixed") {
-					node, state := fleetOrderField(entry, "fleet")
+					node, state := uniqueRawField(entry, "fleet")
 					if state == "unique" {
 						row.id = fleetOrderNumber(node)
 					} else if state == "duplicate" {
@@ -210,22 +210,6 @@ func readFleetOrderScope(country *clausewitz.RawNode, path string) (FleetOrderSc
 		scope.Status = "partial"
 	}
 	return scope, rows, ids
-}
-
-func fleetOrderField(node *clausewitz.RawNode, key string) (*clausewitz.RawNode, string) {
-	var field *clausewitz.RawNode
-	for _, child := range node.Children {
-		if child.Key != nil && child.Key.Text == key {
-			if field != nil {
-				return nil, "duplicate"
-			}
-			field = child
-		}
-	}
-	if field == nil {
-		return nil, "not-recorded"
-	}
-	return field, "unique"
 }
 
 func fleetOrderNumber(node *clausewitz.RawNode) *int {
@@ -273,7 +257,7 @@ func fleetOrderProjectTable(country *clausewitz.RawNode, path string) CountryExp
 			continue
 		}
 		if project.Kind == "object" || project.Kind == "mixed" {
-			if field, state := fleetOrderField(project, "id"); state == "unique" {
+			if field, state := uniqueRawField(project, "id"); state == "unique" {
 				if id := fleetOrderNumber(field); id != nil {
 					table.byID[*id] = append(table.byID[*id], explorationCandidateRecord{i, project})
 					continue
@@ -321,7 +305,7 @@ func (out *SavedFleetOrders) walkOrder(ctx context.Context, root *clausewitz.Raw
 				for _, table := range out.Tables {
 					if child.Key.Text == table.Table {
 						row.RefTarget = table.Table
-						_, row.RefStatus = fleetOrderField(parent.node, table.Table)
+						_, row.RefStatus = uniqueRawField(parent.node, table.Table)
 						if row.RefStatus == "unique" {
 							row.RefStatus = "unsupported"
 							if id := fleetOrderNumber(child); id != nil {

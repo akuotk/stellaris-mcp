@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -22,12 +21,7 @@ func handleFederations(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 		return toolError(err), nil
 	}
 	if _, provided := req.GetArguments()["federation_id"]; provided {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			exactMax := int64(1<<53 - 1)
-			maxID = int(exactMax)
-		}
-		id, err := rawInteger(req, "federation_id", 0, 0, maxID)
+		id, err := rawInteger(req, "federation_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -147,7 +141,7 @@ func writeFederations(b *strings.Builder, gs *gamestate.GameState) {
 		if f.StartDate != "" {
 			fmt.Fprintf(b, "    Started: %s\n", f.StartDate)
 		}
-		fmt.Fprintf(b, "    Progress (raw save values): experience=%s base_cohesion=%s cohesion=%s\n", federationNumber(p.Experience), federationNumber(p.BaseCohesion), federationNumber(p.Cohesion))
+		fmt.Fprintf(b, "    Progress (raw save values): experience=%s base_cohesion=%s cohesion=%s\n", savedFloat(p.Experience), savedFloat(p.BaseCohesion), savedFloat(p.Cohesion))
 		if p.Levels != nil {
 			fmt.Fprintf(b, "    levels (as saved): %d\n", *p.Levels)
 		}
@@ -178,7 +172,7 @@ func writeFederations(b *strings.Builder, gs *gamestate.GameState) {
 			fmt.Fprintf(b, "    Perk: level=%s type=%s\n", federationInteger(perk.Level), perk.Type)
 		}
 		for _, modifier := range p.TimedModifier.Items {
-			fmt.Fprintf(b, "    Modifier: %s days=%s multiplier=%s\n", modifier.Modifier, federationInteger(modifier.Days), federationNumber(modifier.Multiplier))
+			fmt.Fprintf(b, "    Modifier: %s days=%s multiplier=%s\n", modifier.Modifier, federationInteger(modifier.Days), savedFloat(modifier.Multiplier))
 		}
 		for _, key := range federationSortedKeys(p.Flags) {
 			fmt.Fprintf(b, "    Flag %s: %s\n", key, p.Flags[key])
@@ -190,13 +184,6 @@ func writeFederations(b *strings.Builder, gs *gamestate.GameState) {
 			fmt.Fprintf(b, "    Law vote cooldown: token=%s target=%s start_date=%s\n", cooldown.Token, cooldown.Target, cooldown.StartDate)
 		}
 	}
-}
-
-func federationNumber(value *float64) string {
-	if value == nil {
-		return "not recorded"
-	}
-	return fmt.Sprintf("%g", *value)
 }
 
 func federationCountries(gs *gamestate.GameState, ids []int) string {

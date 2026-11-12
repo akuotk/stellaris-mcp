@@ -12,8 +12,6 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-const maxSaveRecordID = min(int64(^uint(0)>>1), 1<<53-1)
-
 func registerSaveRecordRefs(s *server.MCPServer) {
 	s.AddTool(mcp.NewTool("get_save_record_refs", mcp.WithReadOnlyHintAnnotation(true), mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithDescription("Find all direct children of a selected saved table whose keys represent the supplied nonnegative decimal integer. Preserves order, duplicate spellings, none and unsupported values. Use returned paths or byte ranges with the raw save tools for full values."),
@@ -37,7 +35,7 @@ func handleSaveRecordRefs(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	if _, ok := args["record_id"]; !ok {
 		return toolError(fmt.Errorf("record_id is required")), nil
 	}
-	id, err := rawInteger(req, "record_id", 0, 0, int(maxSaveRecordID))
+	id, err := rawInteger(req, "record_id", 0, 0, maxRecordID)
 	if err != nil {
 		return toolError(err), nil
 	}

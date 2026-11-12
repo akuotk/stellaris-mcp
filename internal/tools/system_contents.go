@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
@@ -24,17 +23,10 @@ func handleSystemContents(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	if _, ok := req.GetArguments()["system_id"]; !ok {
 		return toolError(fmt.Errorf("system_id is required")), nil
 	}
-	if value, ok := req.GetArguments()["save_id"]; ok {
-		if _, ok := value.(string); !ok {
-			return toolError(fmt.Errorf("save_id must be a string")), nil
-		}
+	if err := requireStringArgs(req, "save_id"); err != nil {
+		return toolError(err), nil
 	}
-	maxID := int(^uint(0) >> 1)
-	if strconv.IntSize == 64 {
-		maxExact := int64(1<<53 - 1)
-		maxID = int(maxExact)
-	}
-	id, err := rawInteger(req, "system_id", 0, 0, maxID)
+	id, err := rawInteger(req, "system_id", 0, 0, maxRecordID)
 	if err != nil {
 		return toolError(err), nil
 	}

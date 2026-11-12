@@ -6,7 +6,6 @@ import (
 	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -31,12 +30,7 @@ func handleLeaders(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 		return toolError(err), nil
 	}
 
-	maxID := int(^uint(0) >> 1)
-	if strconv.IntSize == 64 {
-		maxExact := int64(1<<53 - 1)
-		maxID = int(maxExact)
-	}
-	leaderID, err := rawInteger(req, "leader_id", -1, -1, maxID)
+	leaderID, err := rawInteger(req, "leader_id", -1, -1, maxRecordID)
 	if err != nil {
 		return toolError(err), nil
 	}

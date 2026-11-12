@@ -107,11 +107,11 @@ func writeQueue(b *strings.Builder, label string, queue []gamestate.ResearchItem
 		if r.DateRaw != nil {
 			date = strconv.Quote(*r.DateRaw)
 		}
-		fmt.Fprintf(b, "  %s: %s (saved progress: %s, saved date: %s)\n", label, technology, armyFloat(r.ProgressRaw), date)
+		fmt.Fprintf(b, "  %s: %s (saved progress: %s, saved date: %s)\n", label, technology, savedFloat(r.ProgressRaw), date)
 		if r.SpecialProjectRef.Unsupported {
 			fmt.Fprintln(b, "    special_project reference unsupported or duplicate; use raw tools")
 		} else if r.SpecialProjectRef.Recorded {
-			fmt.Fprintf(b, "    special_project reference=%s (use get_special_projects for matching records)\n", armyInt(r.SpecialProjectRef.Value))
+			fmt.Fprintf(b, "    special_project reference=%s (use get_special_projects for matching records)\n", savedInt(r.SpecialProjectRef.Value))
 		}
 	}
 }

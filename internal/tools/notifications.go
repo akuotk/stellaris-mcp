@@ -43,7 +43,7 @@ func renderNotifications(gs *gamestate.GameState, c *gamestate.Country) *mcp.Cal
 		fmt.Fprintln(&b, "  empty")
 	}
 	for _, p := range gs.Player {
-		fmt.Fprintf(&b, "  - %s (country reference: %s)\n", p.Name, armyInt(p.CountryID))
+		fmt.Fprintf(&b, "  - %s (country reference: %s)\n", p.Name, savedInt(p.CountryID))
 	}
 
 	fmt.Fprintln(&b, "\nSaved War Records (activity not inferred from dates):")
@@ -57,6 +57,6 @@ func renderNotifications(gs *gamestate.GameState, c *gamestate.Country) *mcp.Cal
 			contacts++
 		}
 	}
-	fmt.Fprintf(&b, "\nDiplomacy:\n  Saved contact=yes relations: %d\n  Contact status not established: %d\n  Victory rank: %s\n", contacts, unknown, armyInt(c.VictoryRankRaw))
+	fmt.Fprintf(&b, "\nDiplomacy:\n  Saved contact=yes relations: %d\n  Contact status not established: %d\n  Victory rank: %s\n", contacts, unknown, savedInt(c.VictoryRankRaw))
 	return mcp.NewToolResultText(b.String())
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/clausewitz"
@@ -32,12 +31,7 @@ func handleFactions(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRe
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["faction_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		value, err := rawInteger(req, "faction_id", 0, 0, maxID)
+		value, err := rawInteger(req, "faction_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -247,7 +241,7 @@ func writeFactionColonyHistory(b *strings.Builder, gs *gamestate.GameState, hist
 		case row.Unsupported:
 			fmt.Fprintf(b, "    Row %d: unsupported saved row shape\n", i)
 		default:
-			fmt.Fprintf(b, "    Row %d colony=%s num_pops=%s change=%s (saved values)\n", i, armyInt(row.Colony.Value), governanceValue(row.NumPops), governanceValue(row.Change))
+			fmt.Fprintf(b, "    Row %d colony=%s num_pops=%s change=%s (saved values)\n", i, savedInt(row.Colony.Value), governanceValue(row.NumPops), governanceValue(row.Change))
 			if row.Colony.Unsupported {
 				fmt.Fprintln(b, "      Unsupported colony reference shape.")
 			}

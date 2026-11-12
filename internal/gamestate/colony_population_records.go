@@ -148,7 +148,7 @@ func LoadColonyPopulationRecordsFromArchive(ctx context.Context, archive *zip.Re
 }
 
 func (out *SavedColonyPopulationRecords) linkPlanet(root, colony *clausewitz.RawNode, colonyID int) {
-	carrier, state := populationField(colony, "carrier")
+	carrier, state := uniqueRawField(colony, "carrier")
 	if state != "unique" || carrier.Kind != "object" {
 		out.PlanetLink = "carrier-" + state
 		if state == "unique" {
@@ -156,7 +156,7 @@ func (out *SavedColonyPopulationRecords) linkPlanet(root, colony *clausewitz.Raw
 		}
 		return
 	}
-	kind, state := populationField(carrier, "type")
+	kind, state := uniqueRawField(carrier, "type")
 	if state != "unique" || !kind.IsScalar() {
 		out.PlanetLink = "carrier-type-" + state
 		if state == "unique" {
@@ -233,24 +233,8 @@ func readPopulationList(node *clausewitz.RawNode, path, field string) population
 	return out
 }
 
-func populationField(node *clausewitz.RawNode, key string) (*clausewitz.RawNode, string) {
-	var field *clausewitz.RawNode
-	for _, child := range node.Children {
-		if child.Key != nil && child.Key.Text == key {
-			if field != nil {
-				return nil, "duplicate"
-			}
-			field = child
-		}
-	}
-	if field == nil {
-		return nil, "not-recorded"
-	}
-	return field, "unique"
-}
-
 func populationInteger(node *clausewitz.RawNode, key string) (int, string) {
-	field, state := populationField(node, key)
+	field, state := uniqueRawField(node, key)
 	if state != "unique" {
 		return 0, state
 	}

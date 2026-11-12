@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -31,12 +30,7 @@ func handleFleetTemplates(_ context.Context, req mcp.CallToolRequest) (*mcp.Call
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["template_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		templateID, err := rawInteger(req, "template_id", 0, 0, maxID)
+		templateID, err := rawInteger(req, "template_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -110,7 +104,7 @@ func renderFleetTemplates(gs *gamestate.GameState, countryID int, country *games
 			continue
 		}
 		fmt.Fprintf(&b, "\nTemplate %d: country manager membership=%s\n", id, armyMembership(manager.Templates.Values, id))
-		fmt.Fprintf(&b, "  fleet=%s fleet_size=%s reinforcement=%s is_edited_by_human=%s (saved values)\n", armyInt(template.Fleet), governanceValue(template.FleetSize), governanceValue(template.Reinforcement), governanceValue(template.EditedByHuman))
+		fmt.Fprintf(&b, "  fleet=%s fleet_size=%s reinforcement=%s is_edited_by_human=%s (saved values)\n", savedInt(template.Fleet), governanceValue(template.FleetSize), governanceValue(template.Reinforcement), governanceValue(template.EditedByHuman))
 		if template.Designs == nil {
 			fmt.Fprintln(&b, "  fleet_template_design not recorded")
 		} else {
@@ -145,12 +139,12 @@ func renderFleetTemplates(gs *gamestate.GameState, countryID int, country *games
 
 func writeFleetTemplateDetails(b *strings.Builder, gs *gamestate.GameState, template gamestate.FleetTemplate) {
 	for index, entry := range template.Designs {
-		fmt.Fprintf(b, "  Design entry %d (saved order): design=%s count=%s\n", index, armyInt(entry.Design), governanceValue(entry.Count))
+		fmt.Fprintf(b, "  Design entry %d (saved order): design=%s count=%s\n", index, savedInt(entry.Design), governanceValue(entry.Count))
 		writeTemplateDesignCandidate(b, gs, entry.Design)
 		if entry.ShipDesign == nil {
 			fmt.Fprintln(b, "    ship_design_implementation not recorded")
 		} else {
-			fmt.Fprintf(b, "    ship_design_implementation: design=%s upgrade=%s growth_stage=%s\n", armyInt(entry.ShipDesign.Design), armyInt(entry.ShipDesign.Upgrade), armyInt(entry.ShipDesign.GrowthStage))
+			fmt.Fprintf(b, "    ship_design_implementation: design=%s upgrade=%s growth_stage=%s\n", savedInt(entry.ShipDesign.Design), savedInt(entry.ShipDesign.Upgrade), savedInt(entry.ShipDesign.GrowthStage))
 			writeTemplateDesignCandidate(b, gs, entry.ShipDesign.Design)
 			if entry.Design != nil && entry.ShipDesign.Design != nil && *entry.Design != *entry.ShipDesign.Design {
 				fmt.Fprintln(b, "    Legacy and implementation design IDs differ; relationship unverified")
@@ -164,7 +158,7 @@ func writeFleetTemplateDetails(b *strings.Builder, gs *gamestate.GameState, temp
 		fmt.Fprintln(b, "  home_base.orbitable not recorded")
 	} else {
 		starbaseID := template.HomeBase.Orbitable.Starbase
-		fmt.Fprintf(b, "  home_base.orbitable.starbase=%s (saved reference; role unverified)\n", armyInt(starbaseID))
+		fmt.Fprintf(b, "  home_base.orbitable.starbase=%s (saved reference; role unverified)\n", savedInt(starbaseID))
 		if starbaseID != nil {
 			_, bad := gs.Starbases.DecodeErrors[*starbaseID]
 			if starbase, ok := gs.Starbases.Items[*starbaseID]; ok && !bad {
@@ -192,7 +186,7 @@ func writeFleetTemplateDetails(b *strings.Builder, gs *gamestate.GameState, temp
 		fmt.Fprintln(b, "    all_queued.upgrade_design_implementations empty")
 	}
 	for index, impl := range queued.Implementations {
-		fmt.Fprintf(b, "    Upgrade implementation %d (saved order): design=%s upgrade=%s growth_stage=%s\n", index, armyInt(impl.Design), armyInt(impl.Upgrade), armyInt(impl.GrowthStage))
+		fmt.Fprintf(b, "    Upgrade implementation %d (saved order): design=%s upgrade=%s growth_stage=%s\n", index, savedInt(impl.Design), savedInt(impl.Upgrade), savedInt(impl.GrowthStage))
 		writeTemplateDesignCandidate(b, gs, impl.Design)
 	}
 }
@@ -220,7 +214,7 @@ func writeTemplateConstructionItems(b *strings.Builder, gs *gamestate.GameState,
 	}
 	for index, id := range refs.Values {
 		if item, ok := gs.Construction.ItemManager.Items[id]; ok {
-			fmt.Fprintf(b, "    %s position %d item ID candidate %d: item.queue=%s paying_country=%s\n", label, index, id, armyInt(item.Queue), armyInt(item.PayingCountry))
+			fmt.Fprintf(b, "    %s position %d item ID candidate %d: item.queue=%s paying_country=%s\n", label, index, id, savedInt(item.Queue), savedInt(item.PayingCountry))
 		} else {
 			fmt.Fprintf(b, "    %s position %d item ID candidate %d unavailable\n", label, index, id)
 		}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -34,12 +33,7 @@ func handleNeighbors(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 	}
 
 	if _, ok := req.GetArguments()["neighbor_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		neighborID, err := rawInteger(req, "neighbor_id", 0, 0, maxID)
+		neighborID, err := rawInteger(req, "neighbor_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -51,7 +45,7 @@ func handleNeighbors(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolR
 func renderNeighbors(gs *gamestate.GameState, c *gamestate.Country) *mcp.CallToolResult {
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Known Empires (%s) ===\n", name(c.Adjective))
-	fmt.Fprintf(&b, "Your saved military power: %s\n", armyFloat(c.MilitaryPowerRaw))
+	fmt.Fprintf(&b, "Your saved military power: %s\n", savedFloat(c.MilitaryPowerRaw))
 	fmt.Fprintln(&b, "Military ratios are calculated from saved values, not Stellaris UI strength categories.")
 	fmt.Fprintln(&b, "Pass neighbor_id for saved details in both directions.")
 	if !writeRelationManagerState(&b, c.RelationsManager) {
@@ -87,7 +81,7 @@ func renderNeighbors(gs *gamestate.GameState, c *gamestate.Country) *mcp.CallToo
 		}
 		fmt.Fprintf(&b, "\n%s (Country %d):\n", name(neighbor.Adjective), *rel.CountryID)
 		writeRelationMetrics(&b, rel)
-		fmt.Fprintf(&b, "  Saved military=%s economy=%s tech=%s\n", armyFloat(neighbor.MilitaryPowerRaw), armyFloat(neighbor.EconomyPowerRaw), armyFloat(neighbor.TechPowerRaw))
+		fmt.Fprintf(&b, "  Saved military=%s economy=%s tech=%s\n", savedFloat(neighbor.MilitaryPowerRaw), savedFloat(neighbor.EconomyPowerRaw), savedFloat(neighbor.TechPowerRaw))
 		if c.MilitaryPowerRaw != nil && *c.MilitaryPowerRaw > 0 && !math.IsInf(*c.MilitaryPowerRaw, 0) && neighbor.MilitaryPowerRaw != nil && !math.IsNaN(*neighbor.MilitaryPowerRaw) && !math.IsInf(*neighbor.MilitaryPowerRaw, 0) {
 			ratio := *neighbor.MilitaryPowerRaw / *c.MilitaryPowerRaw
 			if math.IsInf(ratio, 0) || math.IsNaN(ratio) {
@@ -208,7 +202,7 @@ func relationRefText(ref gamestate.OptionalIntRef, duplicate bool) string {
 	case ref.Unsupported:
 		return "has an unsupported saved shape"
 	default:
-		return armyInt(ref.Value)
+		return savedInt(ref.Value)
 	}
 }
 

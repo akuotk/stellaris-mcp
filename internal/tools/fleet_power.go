@@ -42,8 +42,8 @@ func handleFleetPower(_ context.Context, req mcp.CallToolRequest) (*mcp.CallTool
 func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolResult, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Fleet Power (%s) ===\n", name(c.Adjective))
-	fmt.Fprintf(&b, "Total Military Power: %s\n", armyFloat(c.MilitaryPowerRaw))
-	fmt.Fprintf(&b, "Fleet Size: %s (Naval Cap: %s)\n", armyFloat(c.FleetSizeRaw), formatNavalCapacity(c))
+	fmt.Fprintf(&b, "Total Military Power: %s\n", savedFloat(c.MilitaryPowerRaw))
+	fmt.Fprintf(&b, "Fleet Size: %s (Naval Cap: %s)\n", savedFloat(c.FleetSizeRaw), formatNavalCapacity(c))
 	fmt.Fprintf(&b, "Use get_fleet_power with fleet_id for ship details.\n\n")
 
 	fmt.Fprintf(&b, "%-8s %-30s %-25s %8s %5s\n", "ID", "Name", "Class", "Power", "Ships")
@@ -72,7 +72,7 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 			role += " (civilian)"
 		}
 		fmt.Fprintf(&b, "%-8d %-30s %-25s %8s %5d\n",
-			*of.FleetID, truncate(name(fleet.Name), 30), role, armyFloat(fleet.MilitaryPowerRaw), len(fleet.Ships))
+			*of.FleetID, truncate(name(fleet.Name), 30), role, savedFloat(fleet.MilitaryPowerRaw), len(fleet.Ships))
 		if fleet.ShipClass == "shipclass_military" {
 			if fleet.MilitaryPowerRaw == nil {
 				missingMilitaryPower++
@@ -101,7 +101,7 @@ func fleetSummary(gs *gamestate.GameState, c *gamestate.Country) (*mcp.CallToolR
 		if rel.CountryID == nil {
 			fmt.Fprintln(&b, "  Contact country reference not recorded")
 		} else if neighbor, ok := gs.Country[*rel.CountryID]; ok {
-			fmt.Fprintf(&b, "  %s: %s military power\n", name(neighbor.Adjective), armyFloat(neighbor.MilitaryPowerRaw))
+			fmt.Fprintf(&b, "  %s: %s military power\n", name(neighbor.Adjective), savedFloat(neighbor.MilitaryPowerRaw))
 		} else {
 			fmt.Fprintf(&b, "  Contact country %d: referenced record unavailable\n", *rel.CountryID)
 		}
@@ -122,7 +122,7 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 	var b strings.Builder
 	fmt.Fprintf(&b, "=== Fleet %d: %s ===\n", fleetID, name(fleet.Name))
 	fmt.Fprintf(&b, "Class: %s\n", l(fleet.ShipClass))
-	fmt.Fprintf(&b, "Military Power: %s\n", armyFloat(fleet.MilitaryPowerRaw))
+	fmt.Fprintf(&b, "Military Power: %s\n", savedFloat(fleet.MilitaryPowerRaw))
 	fmt.Fprintf(&b, "Ships: %d\n", len(fleet.Ships))
 	fmt.Fprintln(&b, "Use get_ship_loadout with a ship ID for its saved sections, weapons and design comparison.")
 	if fleet.Station {
@@ -165,9 +165,9 @@ func fleetDetail(gs *gamestate.GameState, fleetID int) (*mcp.CallToolResult, err
 			fmt.Fprintf(&b, "  Saved design implementation upgrade: %d\n", *upgrade)
 		}
 		fmt.Fprintf(&b, "  Design: %s (%s)\n", designName, l(shipSize))
-		fmt.Fprintf(&b, "  Hull:   %s / %s\n", armyFloat(ship.Hitpoints), armyFloat(ship.MaxHitpoints))
-		fmt.Fprintf(&b, "  Shield: %s / %s\n", armyFloat(ship.ShieldHitpoints), armyFloat(ship.MaxShieldHitpoints))
-		fmt.Fprintf(&b, "  Armor:  %s / %s\n", armyFloat(ship.ArmorHitpoints), armyFloat(ship.MaxArmorHitpoints))
+		fmt.Fprintf(&b, "  Hull:   %s / %s\n", savedFloat(ship.Hitpoints), savedFloat(ship.MaxHitpoints))
+		fmt.Fprintf(&b, "  Shield: %s / %s\n", savedFloat(ship.ShieldHitpoints), savedFloat(ship.MaxShieldHitpoints))
+		fmt.Fprintf(&b, "  Armor:  %s / %s\n", savedFloat(ship.ArmorHitpoints), savedFloat(ship.MaxArmorHitpoints))
 
 		// Components from design (weapons, utilities, aux, required)
 		if design != nil {

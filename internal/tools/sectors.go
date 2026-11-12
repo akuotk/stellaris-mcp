@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/bmassemin/stellaris-mcp/internal/gamestate"
@@ -31,12 +30,7 @@ func handleSectors(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolRes
 	}
 	var selected *int
 	if _, ok := req.GetArguments()["sector_id"]; ok {
-		maxID := int(^uint(0) >> 1)
-		if strconv.IntSize == 64 {
-			maxExact := int64(1<<53 - 1)
-			maxID = int(maxExact)
-		}
-		sectorID, err := rawInteger(req, "sector_id", 0, 0, maxID)
+		sectorID, err := rawInteger(req, "sector_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -132,11 +126,11 @@ func renderSectors(gs *gamestate.GameState, countryID int, country *gamestate.Co
 		if refs.Unsupported {
 			membership = "unsupported; use raw tools"
 		}
-		fmt.Fprintf(&b, "\nSector %d: %s; owner=%s; country.sectors.owned membership=%s\n", id, name(sector.Name), armyInt(sector.Owner), membership)
+		fmt.Fprintf(&b, "\nSector %d: %s; owner=%s; country.sectors.owned membership=%s\n", id, name(sector.Name), savedInt(sector.Owner), membership)
 		if sector.Owner != nil && *sector.Owner != countryID {
 			fmt.Fprintln(&b, "  Sector owner differs from selected country")
 		}
-		fmt.Fprintf(&b, "  type=%s auto_expand=%s local_capital=%s (saved values)\n", governanceValue(sector.Type), governanceValue(sector.AutoExpand), armyInt(sector.LocalCapital))
+		fmt.Fprintf(&b, "  type=%s auto_expand=%s local_capital=%s (saved values)\n", governanceValue(sector.Type), governanceValue(sector.AutoExpand), savedInt(sector.LocalCapital))
 		switch {
 		case sector.Systems.Unsupported:
 			fmt.Fprintln(&b, "  sector.systems unsupported; use raw tools")
@@ -158,7 +152,7 @@ func renderSectors(gs *gamestate.GameState, countryID int, country *gamestate.Co
 			}
 			planet, planetOK := gs.Planets.Planet[capital]
 			if planetOK {
-				fmt.Fprintf(&b, "    Possible planet ID match: %d %s; saved owner=%s\n", capital, name(planet.Name), armyInt(planet.OwnerID))
+				fmt.Fprintf(&b, "    Possible planet ID match: %d %s; saved owner=%s\n", capital, name(planet.Name), savedInt(planet.OwnerID))
 			}
 			if !colonyOK && !planetOK {
 				fmt.Fprintln(&b, "    No decoded colony/planet ID candidate; other namespace/sentinel meaning unverified")

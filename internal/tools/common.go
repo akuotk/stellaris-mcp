@@ -16,11 +16,45 @@ var (
 	loc     *gamestate.Localizer
 )
 
-func loadSave(req mcp.CallToolRequest) (*gamestate.GameState, error) {
-	if value, ok := req.GetArguments()["save_id"]; ok {
-		if _, ok := value.(string); !ok {
-			return nil, fmt.Errorf("save_id must be a string")
+// maxSaveRecordID is the largest saved ID a request can name: it must fit the
+// platform int and survive a JSON number exactly (2^53-1).
+const maxSaveRecordID = min(int64(^uint(0)>>1), 1<<53-1)
+
+// maxRecordID is maxSaveRecordID as an int, for rawInteger bounds.
+const maxRecordID = int(maxSaveRecordID)
+
+// requireStringArgs rejects provided arguments that are not JSON strings.
+// GetString would otherwise silently fall back to its default for them.
+func requireStringArgs(req mcp.CallToolRequest, keys ...string) error {
+	args := req.GetArguments()
+	for _, key := range keys {
+		if value, ok := args[key]; ok {
+			if _, ok := value.(string); !ok {
+				return fmt.Errorf("%s must be a string", key)
+			}
 		}
+	}
+	return nil
+}
+
+// savedInt and savedFloat print optional saved numbers without inventing a zero.
+func savedInt(value *int) string {
+	if value == nil {
+		return "not recorded"
+	}
+	return fmt.Sprint(*value)
+}
+
+func savedFloat(value *float64) string {
+	if value == nil {
+		return "not recorded"
+	}
+	return fmt.Sprintf("%g", *value)
+}
+
+func loadSave(req mcp.CallToolRequest) (*gamestate.GameState, error) {
+	if err := requireStringArgs(req, "save_id"); err != nil {
+		return nil, err
 	}
 	path, err := gamestate.FindSaveByID(saveDir, req.GetString("save_id", ""))
 	if err != nil {
@@ -53,11 +87,7 @@ func getCountry(gs *gamestate.GameState, req mcp.CallToolRequest) (int, *gamesta
 		default:
 			return 0, nil, fmt.Errorf("country_id must be an integer")
 		}
-		max := float64(^uint(0) >> 1)
-		if max > 9007199254740991 {
-			max = 9007199254740991
-		}
-		if math.IsNaN(n) || math.IsInf(n, 0) || n < 0 || n > max || math.Trunc(n) != n {
+		if math.IsNaN(n) || math.IsInf(n, 0) || n < 0 || n > float64(maxSaveRecordID) || math.Trunc(n) != n {
 			return 0, nil, fmt.Errorf("country_id must be a nonnegative exact integer")
 		}
 		id := int(n)
@@ -90,7 +120,7 @@ func formatResources(r map[string]float64) string {
 }
 
 func formatNavalCapacity(c *gamestate.Country) string {
-	return fmt.Sprintf("%s used / %s maximum", armyFloat(c.UsedNavalCapRaw), armyFloat(c.NavalCap))
+	return fmt.Sprintf("%s used / %s maximum", savedFloat(c.UsedNavalCapRaw), savedFloat(c.NavalCap))
 }
 
 func toolError(err error) *mcp.CallToolResult {
@@ -114,7 +144,7 @@ func optionalIntRefText(ref gamestate.OptionalIntRef) string {
 	if ref.Unsupported {
 		return "unsupported or duplicate"
 	}
-	return armyInt(ref.Value)
+	return savedInt(ref.Value)
 }
 
 func compareSavedIDs(a, b int) string {

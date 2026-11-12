@@ -25,16 +25,12 @@ func registerFleetOrders(s *server.MCPServer) {
 
 func handleFleetOrders(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := req.GetArguments()
-	for _, key := range []string{"save_id", "view", "page_context"} {
-		if value, ok := args[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "view", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	var countryID, fleetID *int
 	if _, ok := args["country_id"]; ok {
-		id, err := rawInteger(req, "country_id", 0, 0, int(maxSaveRecordID))
+		id, err := rawInteger(req, "country_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}
@@ -42,7 +38,7 @@ func handleFleetOrders(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallT
 	}
 	defaultView, fleetKey := "fleets", ""
 	if _, ok := args["fleet_id"]; ok {
-		id, err := rawInteger(req, "fleet_id", 0, 0, int(maxSaveRecordID))
+		id, err := rawInteger(req, "fleet_id", 0, 0, maxRecordID)
 		if err != nil {
 			return toolError(err), nil
 		}

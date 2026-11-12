@@ -24,12 +24,8 @@ func registerEventChains(s *server.MCPServer) {
 }
 
 func handleEventChains(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	for _, key := range []string{"save_id", "page_context"} {
-		if value, ok := req.GetArguments()[key]; ok {
-			if _, ok := value.(string); !ok {
-				return toolError(fmt.Errorf("%s must be a string", key)), nil
-			}
-		}
+	if err := requireStringArgs(req, "save_id", "page_context"); err != nil {
+		return toolError(err), nil
 	}
 	offset, err := rawInteger(req, "offset", 0, 0, 1<<31-1)
 	if err != nil {
